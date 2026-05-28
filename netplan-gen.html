@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>netplan.yaml — generator</title>
+<meta name="description" content="A generator for Ubuntu netplan YAML configuration files." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0d1014;
+    --bg-elev: #141921;
+    --bg-sunk: #090c10;
+    --line: #1f2530;
+    --line-strong: #2a3142;
+    --ink: #e6e1d5;
+    --ink-mute: #9aa1ad;
+    --ink-faint: #5a6370;
+    --accent: #e8a85c;
+    --accent-dim: #8a6535;
+    --danger: #d96856;
+    --ok: #7fb069;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: 'IBM Plex Serif', Georgia, serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: -1px -1px;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+  .shell {
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  /* ── Header ───────────────────────────────────────── */
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 22px 0 20px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  .brand-mark {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    text-transform: uppercase;
+    border: 1px solid var(--accent-dim);
+    padding: 4px 8px;
+    border-radius: 2px;
+  }
+  .brand h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-style: italic;
+    font-size: 28px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .brand h1 b { font-style: normal; font-weight: 600; }
+  .meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .meta span { color: var(--ink-mute); }
+
+  /* ── Layout ───────────────────────────────────────── */
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 0;
+    min-height: calc(100vh - 78px);
+  }
+  .col-form {
+    padding: 32px 36px 80px 0;
+    border-right: 1px solid var(--line);
+  }
+  .col-output {
+    padding: 32px 0 80px 36px;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 1000px) {
+    main { grid-template-columns: 1fr; }
+    .col-form { padding-right: 0; border-right: 0; border-bottom: 1px solid var(--line); }
+    .col-output { padding-left: 0; position: static; height: auto; }
+  }
+
+  /* ── Section ──────────────────────────────────────── */
+  .section {
+    margin-bottom: 44px;
+  }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--line-strong);
+  }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+  }
+  .section-title {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 18px;
+    margin: 0;
+    letter-spacing: -0.005em;
+  }
+  .section-desc {
+    color: var(--ink-mute);
+    font-size: 13px;
+    margin-left: auto;
+    font-style: italic;
+  }
+
+  /* ── Form primitives ──────────────────────────────── */
+  label.field {
+    display: block;
+    margin-bottom: 16px;
+  }
+  label.field > .lbl {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  label.field > .lbl .required { color: var(--accent); }
+  label.field > .hint {
+    display: block;
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="password"],
+  select,
+  textarea {
+    width: 100%;
+    background: var(--bg-sunk);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    padding: 9px 11px;
+    font-family: var(--mono);
+    font-size: 13px;
+    transition: border-color .15s, background .15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: #0b0e12;
+  }
+  input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+  textarea { resize: vertical; min-height: 60px; }
+
+  select {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-mute) 50%),
+                      linear-gradient(135deg, var(--ink-mute) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 28px;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .row.three { grid-template-columns: repeat(3, 1fr); }
+
+  /* Checkbox */
+  label.check {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    cursor: pointer;
+    user-select: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+    padding: 7px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    background: var(--bg-sunk);
+    transition: border-color .15s, color .15s;
+  }
+  label.check:hover { border-color: var(--ink-mute); }
+  label.check input { display: none; }
+  label.check .box {
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--ink-faint);
+    display: inline-block;
+    position: relative;
+    flex-shrink: 0;
+  }
+  label.check input:checked + .box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  label.check input:checked + .box::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background: var(--bg);
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+  label.check input:checked ~ .lbl-text { color: var(--accent); }
+
+  .check-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  /* Buttons */
+  button, .btn {
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    padding: 8px 14px;
+    border-radius: 2px;
+    transition: all .15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  button:hover, .btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  button.primary {
+    border-color: var(--accent-dim);
+    color: var(--accent);
+  }
+  button.primary:hover {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  button.danger { color: var(--danger); border-color: transparent; padding: 4px 8px; font-size: 11px; }
+  button.danger:hover { color: var(--bg); background: var(--danger); border-color: var(--danger); }
+  button.ghost { border-color: transparent; color: var(--ink-mute); padding: 4px 8px; }
+  button.ghost:hover { color: var(--accent); border-color: transparent; }
+
+  /* Repeater rows (addresses, dns, etc) */
+  .repeater {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .repeater-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .repeater-row input { flex: 1; }
+  .repeater-add {
+    align-self: flex-start;
+    margin-top: 4px;
+  }
+
+  /* Interface cards */
+  .iface-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .iface {
+    border: 1px solid var(--line-strong);
+    background: var(--bg-elev);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .iface::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent-dim);
+  }
+  .iface-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  }
+  .iface-idx {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    border: 1px solid var(--accent-dim);
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+  .iface-type {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .iface-name-input {
+    flex: 1;
+    max-width: 280px;
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--line-strong) !important;
+    border-radius: 0 !important;
+    padding: 4px 0 !important;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .iface-name-input:focus {
+    border-bottom-color: var(--accent) !important;
+  }
+  .iface-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+
+  .iface-body { padding: 18px 20px; }
+
+  /* Subgroup (collapsible-ish) */
+  .subgroup {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .subgroup-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 10px;
+  }
+
+  /* Empty state */
+  .empty {
+    border: 1px dashed var(--line-strong);
+    padding: 28px;
+    text-align: center;
+    color: var(--ink-faint);
+    font-family: var(--mono);
+    font-size: 12px;
+    border-radius: 3px;
+  }
+
+  /* Add iface row */
+  .add-iface {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+    padding: 14px;
+    border: 1px dashed var(--line-strong);
+    border-radius: 3px;
+    align-items: center;
+  }
+  .add-iface .lead {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    margin-right: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Output panel ─────────────────────────────────── */
+  .output-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--line-strong);
+  }
+  .output-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .output-title small {
+    font-family: var(--mono);
+    font-style: normal;
+    font-weight: 400;
+    color: var(--ink-faint);
+    font-size: 11px;
+    margin-left: 8px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .output-actions { display: flex; gap: 6px; }
+
+  .yaml-wrap {
+    flex: 1;
+    background: var(--bg-sunk);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    overflow: auto;
+    position: relative;
+    min-height: 400px;
+    display: flex;
+  }
+  .yaml-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent 0, transparent 21px, rgba(255,255,255,0.012) 21px, rgba(255,255,255,0.012) 22px);
+    pointer-events: none;
+  }
+  .yaml {
+    flex: 1;
+    margin: 0;
+    padding: 16px 18px 16px 56px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 22px;
+    color: var(--ink);
+    white-space: pre;
+    counter-reset: yaml-line;
+    position: relative;
+    z-index: 1;
+  }
+  .yaml .ln {
+    display: block;
+    counter-increment: yaml-line;
+    position: relative;
+  }
+  .yaml .ln::before {
+    content: counter(yaml-line);
+    position: absolute;
+    left: -42px;
+    width: 28px;
+    text-align: right;
+    color: var(--ink-faint);
+    font-size: 11px;
+  }
+  .yaml .k { color: #c8d4e0; }
+  .yaml .v { color: var(--accent); }
+  .yaml .s { color: #a3c98a; }
+  .yaml .n { color: #d97e6f; }
+  .yaml .b { color: #c98ad9; }
+  .yaml .c { color: var(--ink-faint); font-style: italic; }
+  .yaml .d { color: var(--ink-faint); }
+
+  /* Validation banner */
+  .errors {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--danger);
+    border-radius: 2px;
+    background: rgba(217, 104, 86, 0.08);
+    color: var(--danger);
+    font-family: var(--mono);
+    font-size: 12px;
+    display: none;
+  }
+  .errors.show { display: block; }
+  .errors ul { margin: 4px 0 0 0; padding-left: 18px; }
+  .errors li { margin: 2px 0; }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--line);
+    margin-top: 0;
+    padding: 24px 0 32px;
+    color: var(--ink-faint);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--accent);
+    color: var(--bg);
+    padding: 10px 16px;
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all .25s ease;
+    pointer-events: none;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  ::selection { background: var(--accent); color: var(--bg); }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg-sunk); }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 0; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<header>
+  <div class="brand">
+    <span class="brand-mark">netplan/gen</span>
+    <h1><i>a generator for</i> <b>netplan.yaml</b></h1>
+  </div>
+  <div class="meta">
+    <span>v2 schema</span> &nbsp;·&nbsp; ubuntu / debian &nbsp;·&nbsp; <span>networkd · NetworkManager</span>
+  </div>
+</header>
+
+<main>
+  <!-- ─────────────────────── FORM ─────────────────────── -->
+  <section class="col-form">
+
+    <div class="section">
+      <div class="section-head">
+        <span class="section-num">§ 01</span>
+        <h2 class="section-title">Globals</h2>
+        <span class="section-desc">renderer &amp; schema version</span>
+      </div>
+
+      <div class="row">
+        <label class="field">
+          <span class="lbl">Renderer</span>
+          <select id="renderer">
+            <option value="networkd">networkd — server default</option>
+            <option value="NetworkManager">NetworkManager — desktop</option>
+          </select>
+          <span class="hint">Backend that applies the configuration.</span>
+        </label>
+        <label class="field">
+          <span class="lbl">Schema version</span>
+          <select id="version">
+            <option value="2">2 — current</option>
+          </select>
+          <span class="hint">Netplan v2 is the only supported version.</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <span class="section-num">§ 02</span>
+        <h2 class="section-title">Interfaces</h2>
+        <span class="section-desc">add as many as you need</span>
+      </div>
+
+      <div id="ifaces" class="iface-list"></div>
+
+      <div id="empty-state" class="empty">
+        no interfaces yet — add one below to begin
+      </div>
+
+      <div class="add-iface">
+        <span class="lead">add interface</span>
+        <button data-add="ethernets">+ ethernet</button>
+        <button data-add="wifis">+ wifi</button>
+        <button data-add="bridges">+ bridge</button>
+        <button data-add="bonds">+ bond</button>
+        <button data-add="vlans">+ vlan</button>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ─────────────────────── OUTPUT ─────────────────────── -->
+  <section class="col-output">
+    <div class="output-head">
+      <h2 class="output-title">Output <small>/etc/netplan/01-config.yaml</small></h2>
+      <div class="output-actions">
+        <button id="btn-copy" class="primary">⎘ Copy</button>
+        <button id="btn-download">↓ Download</button>
+        <button id="btn-reset" class="ghost">↺ Reset</button>
+      </div>
+    </div>
+
+    <div id="errors" class="errors">
+      <strong>Configuration issues</strong>
+      <ul id="errors-list"></ul>
+    </div>
+
+    <div class="yaml-wrap">
+      <pre id="yaml" class="yaml"></pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div>netplan.yaml · place at <code style="color:var(--ink-mute)">/etc/netplan/</code> · apply with <code style="color:var(--accent)">sudo netplan apply</code></div>
+  <div>made for sysadmins · runs entirely in your browser · no data leaves this page</div>
+</footer>
+
+</div>
+
+<div id="toast" class="toast">copied</div>
+
+<script>
+/* ──────────────────────────────────────────────────────────
+ * State
+ * ────────────────────────────────────────────────────────── */
+const state = {
+  renderer: 'networkd',
+  version: 2,
+  // each iface: { id, kind, name, ...fields }
+  ifaces: []
+};
+
+let nextId = 1;
+
+/* ──────────────────────────────────────────────────────────
+ * Defaults per interface kind
+ * ────────────────────────────────────────────────────────── */
+function defaultIface(kind) {
+  const base = {
+    id: nextId++,
+    kind,
+    name: '',
+    dhcp4: false,
+    dhcp6: false,
+    addresses: [],
+    gateway: '',
+    nameservers: [],
+    search: [],
+    routes: [],
+    mtu: '',
+    macaddress: '',
+    optional: false
+  };
+  if (kind === 'ethernets') {
+    base.name = suggestName('eth');
+    base.dhcp4 = true;
+  } else if (kind === 'wifis') {
+    base.name = suggestName('wlan');
+    base.dhcp4 = true;
+    base.accessPoints = [{ ssid: '', password: '' }];
+  } else if (kind === 'bridges') {
+    base.name = suggestName('br');
+    base.members = [];
+    base.stp = true;
+    base.forwardDelay = '';
+  } else if (kind === 'bonds') {
+    base.name = suggestName('bond');
+    base.members = [];
+    base.bondMode = 'active-backup';
+    base.primary = '';
+  } else if (kind === 'vlans') {
+    base.name = suggestName('vlan');
+    base.vlanId = '';
+    base.link = '';
+  }
+  return base;
+}
+
+function suggestName(prefix) {
+  const used = new Set(state.ifaces.map(i => i.name));
+  let n = 0;
+  while (used.has(prefix + n)) n++;
+  return prefix + n;
+}
+
+/* ──────────────────────────────────────────────────────────
+ * Rendering — interfaces
+ * ────────────────────────────────────────────────────────── */
+const ifaceListEl = document.getElementById('ifaces');
+const emptyEl = document.getElementById('empty-state');
+
+function render() {
+  ifaceListEl.innerHTML = '';
+  emptyEl.style.display = state.ifaces.length === 0 ? 'block' : 'none';
+
+  state.ifaces.forEach((iface, idx) => {
+    ifaceListEl.appendChild(renderIface(iface, idx));
+  });
+
+  generateYaml();
+}
+
+function renderIface(iface, idx) {
+  const el = document.createElement('div');
+  el.className = 'iface';
+  el.dataset.id = iface.id;
+
+  const kindLabel = {
+    ethernets: 'ethernet',
+    wifis: 'wi-fi',
+    bridges: 'bridge',
+    bonds: 'bond',
+    vlans: 'vlan'
+  }[iface.kind];
+
+  // Head
+  const head = document.createElement('div');
+  head.className = 'iface-head';
+  head.innerHTML = `
+    <span class="iface-idx">#${String(idx + 1).padStart(2, '0')}</span>
+    <span class="iface-type">${kindLabel}</span>
+    <input class="iface-name-input" type="text" value="${esc(iface.name)}" placeholder="interface name" data-bind="name" />
+    <div class="iface-actions">
+      <button class="ghost" data-action="up" title="Move up">↑</button>
+      <button class="ghost" data-action="down" title="Move down">↓</button>
+      <button class="danger" data-action="remove">remove</button>
+    </div>
+  `;
+  el.appendChild(head);
+
+  // Body
+  const body = document.createElement('div');
+  body.className = 'iface-body';
+  body.innerHTML = renderIfaceBody(iface);
+  el.appendChild(body);
+
+  // Wire up
+  el.addEventListener('input', e => handleInput(iface, e));
+  el.addEventListener('change', e => handleInput(iface, e));
+  el.addEventListener('click', e => handleClick(iface, e));
+
+  return el;
+}
+
+function renderIfaceBody(iface) {
+  let html = '';
+
+  // Wifi access points (top of body)
+  if (iface.kind === 'wifis') {
+    html += `
+      <div class="subgroup-title" style="margin-top:0">Access points</div>
+      <div data-list="accessPoints" class="repeater">
+        ${iface.accessPoints.map((ap, i) => `
+          <div class="repeater-row">
+            <input type="text" data-list-bind="ssid" data-i="${i}" placeholder="SSID" value="${esc(ap.ssid)}" />
+            <input type="password" data-list-bind="password" data-i="${i}" placeholder="password (optional for open nets)" value="${esc(ap.password)}" />
+            <button class="danger" data-action="remove-ap" data-i="${i}">×</button>
+          </div>
+        `).join('')}
+        <button class="ghost repeater-add" data-action="add-ap">+ access point</button>
+      </div>
+    `;
+  }
+
+  // Bridges & bonds: members
+  if (iface.kind === 'bridges' || iface.kind === 'bonds') {
+    html += `
+      <label class="field">
+        <span class="lbl">Member interfaces</span>
+        <input type="text" data-bind="membersStr" value="${esc((iface.members || []).join(', '))}" placeholder="eth0, eth1" />
+        <span class="hint">Comma-separated list of underlying interface names.</span>
+      </label>
+    `;
+  }
+
+  // Bond-specific
+  if (iface.kind === 'bonds') {
+    html += `
+      <div class="row">
+        <label class="field">
+          <span class="lbl">Bond mode</span>
+          <select data-bind="bondMode">
+            ${['balance-rr','active-backup','balance-xor','broadcast','802.3ad','balance-tlb','balance-alb']
+              .map(m => `<option value="${m}" ${iface.bondMode === m ? 'selected' : ''}>${m}</option>`).join('')}
+          </select>
+        </label>
+        <label class="field">
+          <span class="lbl">Primary slave</span>
+          <input type="text" data-bind="primary" value="${esc(iface.primary)}" placeholder="eth0 (optional)" />
+        </label>
+      </div>
+    `;
+  }
+
+  // Bridge-specific
+  if (iface.kind === 'bridges') {
+    html += `
+      <div class="check-row">
+        <label class="check">
+          <input type="checkbox" data-bind="stp" ${iface.stp ? 'checked' : ''} />
+          <span class="box"></span>
+          <span class="lbl-text">Spanning Tree Protocol</span>
+        </label>
+      </div>
+      <label class="field">
+        <span class="lbl">Forward delay (s)</span>
+        <input type="number" min="0" data-bind="forwardDelay" value="${esc(iface.forwardDelay)}" placeholder="leave empty for default" />
+      </label>
+    `;
+  }
+
+  // VLAN
+  if (iface.kind === 'vlans') {
+    html += `
+      <div class="row">
+        <label class="field">
+          <span class="lbl">VLAN ID <span class="required">*</span></span>
+          <input type="number" min="1" max="4094" data-bind="vlanId" value="${esc(iface.vlanId)}" placeholder="e.g. 10" />
+        </label>
+        <label class="field">
+          <span class="lbl">Parent link <span class="required">*</span></span>
+          <input type="text" data-bind="link" value="${esc(iface.link)}" placeholder="e.g. eth0" />
+        </label>
+      </div>
+    `;
+  }
+
+  // DHCP toggles (all kinds)
+  html += `
+    <div class="check-row">
+      <label class="check">
+        <input type="checkbox" data-bind="dhcp4" ${iface.dhcp4 ? 'checked' : ''} />
+        <span class="box"></span>
+        <span class="lbl-text">DHCP IPv4</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" data-bind="dhcp6" ${iface.dhcp6 ? 'checked' : ''} />
+        <span class="box"></span>
+        <span class="lbl-text">DHCP IPv6</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" data-bind="optional" ${iface.optional ? 'checked' : ''} />
+        <span class="box"></span>
+        <span class="lbl-text">Optional (don't block boot)</span>
+      </label>
+    </div>
+  `;
+
+  // Static addresses
+  html += `
+    <div class="subgroup">
+      <div class="subgroup-title">Static addresses</div>
+      <div data-list="addresses" class="repeater">
+        ${(iface.addresses || []).map((a, i) => `
+          <div class="repeater-row">
+            <input type="text" data-list-bind="value" data-i="${i}" value="${esc(a)}" placeholder="192.168.1.10/24  or  2001:db8::1/64" />
+            <button class="danger" data-action="remove-addr" data-i="${i}">×</button>
+          </div>
+        `).join('')}
+        <button class="ghost repeater-add" data-action="add-addr">+ address</button>
+      </div>
+    </div>
+  `;
+
+  // Gateway + DNS
+  html += `
+    <div class="subgroup">
+      <div class="subgroup-title">Routing &amp; DNS</div>
+      <label class="field">
+        <span class="lbl">Default gateway</span>
+        <input type="text" data-bind="gateway" value="${esc(iface.gateway)}" placeholder="192.168.1.1" />
+        <span class="hint">Generates a default route via this address.</span>
+      </label>
+      <div class="row">
+        <label class="field">
+          <span class="lbl">Nameservers</span>
+          <input type="text" data-bind="nameserversStr" value="${esc((iface.nameservers || []).join(', '))}" placeholder="1.1.1.1, 8.8.8.8" />
+        </label>
+        <label class="field">
+          <span class="lbl">Search domains</span>
+          <input type="text" data-bind="searchStr" value="${esc((iface.search || []).join(', '))}" placeholder="lan, example.com" />
+        </label>
+      </div>
+    </div>
+  `;
+
+  // Custom routes
+  html += `
+    <div class="subgroup">
+      <div class="subgroup-title">Custom routes</div>
+      <div data-list="routes" class="repeater">
+        ${(iface.routes || []).map((r, i) => `
+          <div class="repeater-row">
+            <input type="text" data-list-bind="to" data-i="${i}" value="${esc(r.to)}" placeholder="destination (10.0.0.0/8 or 'default')" style="flex:2" />
+            <input type="text" data-list-bind="via" data-i="${i}" value="${esc(r.via)}" placeholder="via" style="flex:2" />
+            <input type="number" data-list-bind="metric" data-i="${i}" value="${esc(r.metric)}" placeholder="metric" style="flex:1" />
+            <button class="danger" data-action="remove-route" data-i="${i}">×</button>
+          </div>
+        `).join('')}
+        <button class="ghost repeater-add" data-action="add-route">+ route</button>
+      </div>
+    </div>
+  `;
+
+  // Advanced
+  html += `
+    <div class="subgroup">
+      <div class="subgroup-title">Advanced</div>
+      <div class="row">
+        <label class="field">
+          <span class="lbl">MTU</span>
+          <input type="number" min="68" max="9216" data-bind="mtu" value="${esc(iface.mtu)}" placeholder="1500" />
+        </label>
+        <label class="field">
+          <span class="lbl">MAC address override</span>
+          <input type="text" data-bind="macaddress" value="${esc(iface.macaddress)}" placeholder="aa:bb:cc:dd:ee:ff" />
+        </label>
+      </div>
+    </div>
+  `;
+
+  return html;
+}
+
+/* ──────────────────────────────────────────────────────────
+ * Event handling
+ * ────────────────────────────────────────────────────────── */
+function handleInput(iface, e) {
+  const t = e.target;
+
+  // Simple bind
+  const bind = t.dataset.bind;
+  if (bind) {
+    let v;
+    if (t.type === 'checkbox') v = t.checked;
+    else if (t.type === 'number') v = t.value === '' ? '' : t.value;
+    else v = t.value;
+
+    if (bind === 'membersStr') {
+      iface.members = splitList(v);
+    } else if (bind === 'nameserversStr') {
+      iface.nameservers = splitList(v);
+    } else if (bind === 'searchStr') {
+      iface.search = splitList(v);
+    } else {
+      iface[bind] = v;
+    }
+    generateYaml();
+    return;
+  }
+
+  // List-bound (repeater rows)
+  const lb = t.dataset.listBind;
+  if (lb) {
+    const i = parseInt(t.dataset.i, 10);
+    const list = t.closest('[data-list]').dataset.list;
+    if (list === 'addresses') {
+      iface.addresses[i] = t.value;
+    } else if (list === 'accessPoints') {
+      iface.accessPoints[i][lb] = t.value;
+    } else if (list === 'routes') {
+      iface.routes[i][lb] = t.value;
+    }
+    generateYaml();
+  }
+}
+
+function handleClick(iface, e) {
+  const action = e.target.dataset.action;
+  if (!action) return;
+  e.preventDefault();
+  const i = parseInt(e.target.dataset.i, 10);
+
+  switch (action) {
+    case 'remove':
+      state.ifaces = state.ifaces.filter(x => x.id !== iface.id);
+      render();
+      break;
+    case 'up': {
+      const idx = state.ifaces.findIndex(x => x.id === iface.id);
+      if (idx > 0) {
+        [state.ifaces[idx-1], state.ifaces[idx]] = [state.ifaces[idx], state.ifaces[idx-1]];
+        render();
+      }
+      break;
+    }
+    case 'down': {
+      const idx = state.ifaces.findIndex(x => x.id === iface.id);
+      if (idx < state.ifaces.length - 1) {
+        [state.ifaces[idx+1], state.ifaces[idx]] = [state.ifaces[idx], state.ifaces[idx+1]];
+        render();
+      }
+      break;
+    }
+    case 'add-addr':
+      iface.addresses.push('');
+      render();
+      break;
+    case 'remove-addr':
+      iface.addresses.splice(i, 1);
+      render();
+      break;
+    case 'add-ap':
+      iface.accessPoints.push({ ssid: '', password: '' });
+      render();
+      break;
+    case 'remove-ap':
+      iface.accessPoints.splice(i, 1);
+      render();
+      break;
+    case 'add-route':
+      iface.routes.push({ to: '', via: '', metric: '' });
+      render();
+      break;
+    case 'remove-route':
+      iface.routes.splice(i, 1);
+      render();
+      break;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────
+ * Add interface buttons
+ * ────────────────────────────────────────────────────────── */
+document.querySelectorAll('[data-add]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.ifaces.push(defaultIface(btn.dataset.add));
+    render();
+  });
+});
+
+/* Globals */
+document.getElementById('renderer').addEventListener('change', e => {
+  state.renderer = e.target.value;
+  generateYaml();
+});
+
+/* ──────────────────────────────────────────────────────────
+ * YAML generation
+ * ────────────────────────────────────────────────────────── */
+function generateYaml() {
+  const errors = validate();
+  showErrors(errors);
+
+  const lines = [];
+  const indent = (n) => '  '.repeat(n);
+
+  lines.push(['network:', null]);
+  lines.push([indent(1) + 'version: ' + state.version, null]);
+  lines.push([indent(1) + 'renderer: ' + state.renderer, null]);
+
+  // Group by kind
+  const kinds = ['ethernets', 'wifis', 'bridges', 'bonds', 'vlans'];
+  for (const kind of kinds) {
+    const list = state.ifaces.filter(i => i.kind === kind && i.name.trim());
+    if (list.length === 0) continue;
+
+    lines.push([indent(1) + kind + ':', null]);
+    for (const iface of list) {
+      emitIface(lines, iface, 2);
+    }
+  }
+
+  // Render with syntax highlight
+  renderYaml(lines.map(l => l[0]).join('\n'));
+}
+
+function emitIface(lines, iface, lvl) {
+  const I = (n) => '  '.repeat(n);
+  lines.push([I(lvl) + qkey(iface.name) + ':', null]);
+  const L = lvl + 1;
+
+  // Wifi access points
+  if (iface.kind === 'wifis') {
+    const aps = (iface.accessPoints || []).filter(a => a.ssid.trim());
+    if (aps.length) {
+      lines.push([I(L) + 'access-points:', null]);
+      for (const ap of aps) {
+        lines.push([I(L+1) + qstr(ap.ssid) + ':', null]);
+        if (ap.password) {
+          lines.push([I(L+2) + 'password: ' + qstr(ap.password), null]);
+        }
+      }
+    }
+  }
+
+  // Bridge / bond members
+  if ((iface.kind === 'bridges' || iface.kind === 'bonds') && iface.members && iface.members.length) {
+    lines.push([I(L) + 'interfaces: ' + arrInline(iface.members), null]);
+  }
+
+  // VLAN id + link
+  if (iface.kind === 'vlans') {
+    if (iface.vlanId !== '' && iface.vlanId != null) lines.push([I(L) + 'id: ' + iface.vlanId, null]);
+    if (iface.link) lines.push([I(L) + 'link: ' + iface.link, null]);
+  }
+
+  // DHCP
+  if (iface.dhcp4) lines.push([I(L) + 'dhcp4: true', null]);
+  if (iface.dhcp6) lines.push([I(L) + 'dhcp6: true', null]);
+  if (iface.optional) lines.push([I(L) + 'optional: true', null]);
+
+  // Addresses
+  const addrs = (iface.addresses || []).filter(a => a.trim());
+  if (addrs.length) {
+    lines.push([I(L) + 'addresses:', null]);
+    for (const a of addrs) lines.push([I(L+1) + '- ' + a.trim(), null]);
+  }
+
+  // Routes (gateway + custom)
+  const routes = [];
+  if (iface.gateway && iface.gateway.trim()) {
+    routes.push({ to: 'default', via: iface.gateway.trim(), metric: '' });
+  }
+  for (const r of (iface.routes || [])) {
+    if (r.to && r.via) routes.push({ to: r.to.trim(), via: r.via.trim(), metric: r.metric });
+  }
+  if (routes.length) {
+    lines.push([I(L) + 'routes:', null]);
+    for (const r of routes) {
+      lines.push([I(L+1) + '- to: ' + (r.to === 'default' ? 'default' : r.to), null]);
+      lines.push([I(L+2) + 'via: ' + r.via, null]);
+      if (r.metric !== '' && r.metric != null) lines.push([I(L+2) + 'metric: ' + r.metric, null]);
+    }
+  }
+
+  // Nameservers
+  const ns = (iface.nameservers || []).filter(Boolean);
+  const search = (iface.search || []).filter(Boolean);
+  if (ns.length || search.length) {
+    lines.push([I(L) + 'nameservers:', null]);
+    if (search.length) lines.push([I(L+1) + 'search: ' + arrInline(search), null]);
+    if (ns.length) lines.push([I(L+1) + 'addresses: ' + arrInline(ns), null]);
+  }
+
+  // Bridge params
+  if (iface.kind === 'bridges') {
+    const params = [];
+    if (iface.stp === false) params.push(['stp', 'false']);
+    if (iface.forwardDelay !== '' && iface.forwardDelay != null) params.push(['forward-delay', iface.forwardDelay]);
+    if (params.length) {
+      lines.push([I(L) + 'parameters:', null]);
+      for (const [k, v] of params) lines.push([I(L+1) + k + ': ' + v, null]);
+    }
+  }
+
+  // Bond params
+  if (iface.kind === 'bonds') {
+    lines.push([I(L) + 'parameters:', null]);
+    lines.push([I(L+1) + 'mode: ' + iface.bondMode, null]);
+    if (iface.primary) lines.push([I(L+1) + 'primary: ' + iface.primary, null]);
+  }
+
+  // Advanced
+  if (iface.mtu !== '' && iface.mtu != null) lines.push([I(L) + 'mtu: ' + iface.mtu, null]);
+  if (iface.macaddress) lines.push([I(L) + 'macaddress: ' + iface.macaddress, null]);
+}
+
+/* helpers */
+function qkey(s) { return /^[A-Za-z_][A-Za-z0-9_-]*$/.test(s) ? s : qstr(s); }
+function qstr(s) { return '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'; }
+function arrInline(arr) { return '[' + arr.map(x => /[,\s:#]/.test(x) ? qstr(x) : x).join(', ') + ']'; }
+function splitList(s) { return s.split(',').map(x => x.trim()).filter(Boolean); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ──────────────────────────────────────────────────────────
+ * YAML syntax highlighting (output)
+ * ────────────────────────────────────────────────────────── */
+function renderYaml(yamlText) {
+  const yamlEl = document.getElementById('yaml');
+  const lines = yamlText.split('\n');
+  yamlEl.innerHTML = lines.map(line => {
+    const safe = esc(line);
+    const highlighted = highlightLine(safe);
+    return '<span class="ln">' + (highlighted || '&nbsp;') + '</span>';
+  }).join('');
+  // Stash plain text for copy/download
+  yamlEl.dataset.plain = yamlText;
+}
+
+function highlightLine(line) {
+  // comment
+  if (/^\s*#/.test(line)) return '<span class="c">' + line + '</span>';
+  // list item
+  let m = line.match(/^(\s*)(-\s+)(.*)$/);
+  if (m) {
+    return m[1] + '<span class="d">' + m[2] + '</span>' + highlightValue(m[3]);
+  }
+  // key: value
+  m = line.match(/^(\s*)([^:]+?)(:\s*)(.*)$/);
+  if (m) {
+    return m[1] + '<span class="k">' + m[2] + '</span><span class="d">' + m[3] + '</span>' + highlightValue(m[4]);
+  }
+  return line;
+}
+
+function highlightValue(v) {
+  if (v === '') return '';
+  // inline list/array
+  if (/^\[.*\]$/.test(v)) return '<span class="v">' + v + '</span>';
+  if (/^&quot;.*&quot;$/.test(v)) return '<span class="s">' + v + '</span>';
+  if (/^(true|false)$/.test(v)) return '<span class="b">' + v + '</span>';
+  if (/^-?\d+(\.\d+)?$/.test(v)) return '<span class="n">' + v + '</span>';
+  return '<span class="v">' + v + '</span>';
+}
+
+/* ──────────────────────────────────────────────────────────
+ * Validation
+ * ────────────────────────────────────────────────────────── */
+function validate() {
+  const errs = [];
+  const seen = new Set();
+
+  for (const iface of state.ifaces) {
+    if (!iface.name.trim()) {
+      errs.push('An interface is missing a name.');
+      continue;
+    }
+    if (seen.has(iface.name)) {
+      errs.push(`Duplicate interface name: "${iface.name}"`);
+    }
+    seen.add(iface.name);
+
+    // Need either DHCP or addresses (warning, not blocking)
+    const hasAddrs = (iface.addresses || []).some(a => a.trim());
+    if (!iface.dhcp4 && !iface.dhcp6 && !hasAddrs && iface.kind !== 'vlans' && iface.kind !== 'bridges' && iface.kind !== 'bonds') {
+      // soft warning
+    }
+
+    // Validate addresses (rough)
+    for (const a of (iface.addresses || [])) {
+      if (a.trim() && !/^[\da-fA-F:.]+\/\d{1,3}$/.test(a.trim())) {
+        errs.push(`"${a}" doesn't look like an IP/prefix (e.g. 192.168.1.10/24).`);
+      }
+    }
+
+    if (iface.kind === 'vlans') {
+      if (iface.vlanId === '' || iface.vlanId == null) errs.push(`VLAN "${iface.name}" needs an ID.`);
+      if (!iface.link) errs.push(`VLAN "${iface.name}" needs a parent link.`);
+    }
+    if (iface.kind === 'wifis') {
+      const okAp = (iface.accessPoints || []).some(a => a.ssid.trim());
+      if (!okAp) errs.push(`Wi-Fi "${iface.name}" needs at least one access point with an SSID.`);
+    }
+    if ((iface.kind === 'bridges' || iface.kind === 'bonds') && (!iface.members || iface.members.length === 0)) {
+      errs.push(`${iface.kind === 'bridges' ? 'Bridge' : 'Bond'} "${iface.name}" has no member interfaces.`);
+    }
+  }
+  return errs;
+}
+
+function showErrors(errs) {
+  const box = document.getElementById('errors');
+  const list = document.getElementById('errors-list');
+  if (errs.length === 0) {
+    box.classList.remove('show');
+    list.innerHTML = '';
+    return;
+  }
+  list.innerHTML = errs.map(e => `<li>${esc(e)}</li>`).join('');
+  box.classList.add('show');
+}
+
+/* ──────────────────────────────────────────────────────────
+ * Toolbar actions
+ * ────────────────────────────────────────────────────────── */
+const yamlEl = document.getElementById('yaml');
+const toast = document.getElementById('toast');
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+document.getElementById('btn-copy').addEventListener('click', async () => {
+  const text = yamlEl.dataset.plain || '';
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('copied to clipboard');
+  } catch {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    showToast('copied');
+  }
+});
+
+document.getElementById('btn-download').addEventListener('click', () => {
+  const text = yamlEl.dataset.plain || '';
+  const blob = new Blob([text], { type: 'text/yaml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '01-netcfg.yaml';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('file downloaded');
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (!confirm('Reset all configuration?')) return;
+  state.renderer = 'networkd';
+  state.ifaces = [];
+  document.getElementById('renderer').value = 'networkd';
+  render();
+});
+
+/* ──────────────────────────────────────────────────────────
+ * Boot — start with one ethernet for orientation
+ * ────────────────────────────────────────────────────────── */
+state.ifaces.push(defaultIface('ethernets'));
+render();
+</script>
+
+</body>
+</html>

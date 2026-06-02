@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>subnet/plan — IP address planner</title>
+<title>subnet/plan &mdash; IP address planner</title>
 <meta name="description" content="Add subnets, enumerate their addresses, annotate each one, and search across everything." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -55,7 +55,6 @@
 
   .shell { max-width: 1480px; margin: 0 auto; padding: 0 28px; }
 
-  /* ── Header ───────────────────────────────────────── */
   header {
     border-bottom: 1px solid var(--line);
     padding: 22px 0 18px;
@@ -84,7 +83,14 @@
   }
   .meta .byline:hover { text-decoration: none; border-bottom-color: var(--accent); }
 
-  /* ── Search bar (top) ─────────────────────────────── */
+  .user-nav {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    flex-shrink: 0;
+  }
+  .user-nav .u-name { color: var(--ink-mute); }
+  .user-nav a { color: var(--accent); }
+
   .searchbar {
     position: sticky; top: 0; z-index: 40;
     background: linear-gradient(180deg, var(--bg) 70%, rgba(13,16,20,0.85));
@@ -399,15 +405,16 @@
       <h1><i>an</i> <b>IP address planner</b></h1>
     </div>
     <div class="meta">
-      <a href="https://asjhosting.com" target="_blank" rel="noopener" class="byline">Andreas Skarmark-Jakobsen</a> &nbsp;·&nbsp; <span>IPv4 + IPv6</span> &nbsp;·&nbsp; per-address notes &nbsp;·&nbsp; <span>runs in your browser</span>
+      <a href="https://asjhosting.com" target="_blank" rel="noopener" class="byline">Andreas Skarmark-Jakobsen</a> &nbsp;&middot;&nbsp; <span>IPv4 + IPv6</span> &nbsp;&middot;&nbsp; per-address notes
     </div>
+    <div class="user-nav" id="user-nav"></div>
   </header>
 
   <div class="searchbar">
     <div class="search-wrap">
-      <span class="search-glyph">⌕</span>
+      <span class="search-glyph">&#8981;</span>
       <input id="search" type="text" autocomplete="off" spellcheck="false"
-             placeholder="search any address or comment across all subnets…  (e.g. 10.0.1.5, gateway, printer, mail server)" />
+             placeholder="search any address or comment across all subnets&hellip;  (e.g. 10.0.1.5, gateway, printer, mail server)" />
       <span class="search-stat" id="search-stat"></span>
       <div id="results" class="results"></div>
     </div>
@@ -426,7 +433,7 @@
           <div class="add-grid">
             <div>
               <span class="lbl">CIDR <span style="color:var(--accent)">*</span></span>
-              <input id="in-cidr" type="text" placeholder="192.168.1.0/24  ·  10.0.0.0/16  ·  2001:db8::/64" />
+              <input id="in-cidr" type="text" placeholder="192.168.1.0/24  &middot;  10.0.0.0/16  &middot;  2001:db8::/64" />
             </div>
             <div>
               <span class="lbl">Label</span>
@@ -435,11 +442,11 @@
           </div>
           <p class="add-err" id="add-err"></p>
           <button id="btn-add" class="primary">+ add subnet</button>
-          <span class="hint" style="display:inline-block;margin-left:12px;margin-top:0">enter accepts · network address is auto-normalised</span>
+          <span class="hint" style="display:inline-block;margin-left:12px;margin-top:0">enter accepts &middot; network address is auto-normalised</span>
         </div>
 
         <div id="subnet-list" class="subnet-list"></div>
-        <div id="subnet-empty" class="empty">no subnets yet — add one above to begin</div>
+        <div id="subnet-empty" class="empty">no subnets yet &mdash; add one above to begin</div>
       </div>
     </section>
 
@@ -447,9 +454,9 @@
       <div class="plan-head">
         <h2 class="plan-title" id="plan-title">IP plan <small id="plan-cidr"></small></h2>
         <div class="plan-actions">
-          <button id="btn-export">↓ Export</button>
-          <button id="btn-import">↑ Import</button>
-          <button id="btn-reset" class="ghost">↺ Reset</button>
+          <button id="btn-export">&#8595; Export</button>
+          <button id="btn-import">&#8593; Import</button>
+          <button id="btn-reset" class="ghost">&#8635; Reset</button>
           <input id="file-import" type="file" accept="application/json,.json" style="display:none" />
         </div>
       </div>
@@ -460,8 +467,8 @@
   </main>
 
   <footer>
-    <div>plan it · annotate it · <span style="color:var(--ink-mute)">export the JSON to keep it</span></div>
-    <div>no data leaves this page · persists locally when run inside Claude</div>
+    <div>plan it &middot; annotate it &middot; <span style="color:var(--ink-mute)">export the JSON to keep it</span></div>
+    <div><span style="color:var(--ink-mute)">plans saved to server &middot; per-user storage</span></div>
   </footer>
 
 </div>
@@ -572,15 +579,13 @@ function parseCidr(input) {
   }
 }
 
-const MAX_ENUM = 65536; // largest IPv4 block we fully enumerate (/16)
+const MAX_ENUM = 65536;
 
 const state = { subnets: [], selectedId: null };
 let nextId = 1;
-const STORE_KEY = 'subnetplan:v1';
 
 function enumerable(sn) { return sn.version === 4 && sn.total <= MAX_ENUM; }
 
-/* role of an address within an enumerable v4 subnet */
 function roleOf(sn, int) {
   if (sn.prefix === 32) return 'host';
   if (sn.prefix === 31) return 'host';
@@ -598,25 +603,26 @@ function scheduleSave() {
   saveTimer = setTimeout(saveState, 350);
 }
 async function saveState() {
-  if (typeof window.storage === 'undefined') return;
   try {
-    await window.storage.set(STORE_KEY, JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId }), false);
-  } catch (e) { /* ignore */ }
+    await fetch('/api/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId })
+    });
+  } catch (e) {}
 }
 async function loadState() {
-  if (typeof window.storage === 'undefined') return false;
   try {
-    const r = await window.storage.get(STORE_KEY, false);
-    if (r && r.value) {
-      const d = JSON.parse(r.value);
-      if (d && Array.isArray(d.subnets)) {
-        state.subnets = d.subnets;
-        state.selectedId = d.selectedId || null;
-        nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
-        return true;
-      }
+    const r = await fetch('/api/plan');
+    if (!r.ok) return false;
+    const d = await r.json();
+    if (d && Array.isArray(d.subnets)) {
+      state.subnets = d.subnets;
+      state.selectedId = d.selectedId || null;
+      nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
+      return true;
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) {}
   return false;
 }
 
@@ -627,7 +633,6 @@ const elAddErr = document.getElementById('add-err');
 function addSubnet() {
   const parsed = parseCidr(elCidr.value);
   if (parsed.error) { elAddErr.textContent = parsed.error; return; }
-  // duplicate?
   if (state.subnets.some(s => s.cidr === parsed.cidr)) {
     elAddErr.textContent = 'Subnet ' + parsed.cidr + ' is already in the plan.';
     return;
@@ -638,7 +643,7 @@ function addSubnet() {
     cidr: parsed.cidr,
     version: parsed.version,
     prefix: parsed.prefix,
-    comments: {} // { "ip": "note" }
+    comments: {}
   };
   if (parsed.version === 4) {
     sn.networkInt = parsed.networkInt;
@@ -692,8 +697,8 @@ function renderSubnetList() {
           <div class="subnet-cidr">${esc(sn.cidr)}</div>
         </div>
         <div class="subnet-stats">
-          <div><b>v${sn.version}</b> · ${usable} usable</div>
-          <div class="subnet-anno ${n ? '' : 'zero'}">● ${n} note${n === 1 ? '' : 's'}</div>
+          <div><b>v${sn.version}</b> &middot; ${usable} usable</div>
+          <div class="subnet-anno ${n ? '' : 'zero'}">&bull; ${n} note${n === 1 ? '' : 's'}</div>
         </div>
         <div class="subnet-actions">
           <button class="danger" data-act="remove">remove</button>
@@ -796,7 +801,7 @@ function renderEnumPlan(sn) {
   wrap.appendChild(filter);
 
   const q = planFilter.text.trim().toLowerCase();
-  let indices = null; 
+  let indices = null;
   if (q || planFilter.onlyAnno) {
     indices = [];
     for (let i = 0; i < sn.total; i++) {
@@ -956,7 +961,7 @@ function renderRegistryPlan(sn) {
         <div class="a-tag"><span class="t host">host</span></div>
         <div class="a-ip">${esc(ip)}</div>
         <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…" />
-        <button class="danger a-del" data-del="${esc(ip)}">×</button>
+        <button class="danger a-del" data-del="${esc(ip)}">&times;</button>
       </div>`;
   });
   if (!filtered.length) {
@@ -1022,7 +1027,7 @@ const searchEl = document.getElementById('search');
 const resultsEl = document.getElementById('results');
 const searchStat = document.getElementById('search-stat');
 
-let searchIndex = []; 
+let searchIndex = [];
 function rebuildSearchIndex() {
   searchIndex = [];
   for (const sn of state.subnets) {
@@ -1224,6 +1229,23 @@ function confirmDialog(title, message, confirmLabel) {
     ok.focus();
   });
 }
+
+fetch('/api/me').then(r => {
+  if (!r.ok) { window.location.href = '/login'; return null; }
+  return r.json();
+}).then(data => {
+  if (!data) return;
+  const nav = document.getElementById('user-nav');
+  nav.innerHTML = '<span class="u-name">' + esc(data.username) + '</span>' +
+    (data.isAdmin ? ' &nbsp;&middot;&nbsp; <a href="/admin">admin</a>' : '') +
+    ' &nbsp;&middot;&nbsp; <a href="/netplan-gen">netplan-gen</a>' +
+    ' &nbsp;&middot;&nbsp; <a href="#" id="btn-logout">logout</a>';
+  document.getElementById('btn-logout').addEventListener('click', async e => {
+    e.preventDefault();
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/login';
+  });
+}).catch(() => { window.location.href = '/login'; });
 
 (async function boot() {
   const loaded = await loadState();

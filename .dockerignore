@@ -1,0 +1,6 @@
+.git
+node_modules
+data
+htmlFiles
+installer.sh
+*.md

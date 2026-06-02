@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>subnet/plan — IP address planner</title>
+<meta name="description" content="Add subnets, enumerate their addresses, annotate each one, and search across everything." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0d1014;
+    --bg-elev: #141921;
+    --bg-sunk: #090c10;
+    --line: #1f2530;
+    --line-strong: #2a3142;
+    --ink: #e6e1d5;
+    --ink-mute: #9aa1ad;
+    --ink-faint: #5a6370;
+    --accent: #e8a85c;
+    --accent-dim: #8a6535;
+    --danger: #d96856;
+    --ok: #7fb069;
+    --net: #c98ad9;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: 'IBM Plex Serif', Georgia, serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --row-h: 36px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: -1px -1px;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  .shell { max-width: 1480px; margin: 0 auto; padding: 0 28px; }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 22px 0 18px;
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 32px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: baseline; gap: 14px; }
+  .brand-mark {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+    color: var(--accent); text-transform: uppercase;
+    border: 1px solid var(--accent-dim); padding: 4px 8px; border-radius: 2px;
+  }
+  .brand h1 {
+    font-family: var(--serif); font-weight: 400; font-style: italic;
+    font-size: 28px; margin: 0; letter-spacing: -0.01em;
+  }
+  .brand h1 b { font-style: normal; font-weight: 600; }
+  .meta {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .meta span { color: var(--ink-mute); }
+  .meta .byline {
+    color: var(--accent); text-transform: none; letter-spacing: 0.02em;
+    border-bottom: 1px solid transparent;
+  }
+  .meta .byline:hover { text-decoration: none; border-bottom-color: var(--accent); }
+
+  .searchbar {
+    position: sticky; top: 0; z-index: 40;
+    background: linear-gradient(180deg, var(--bg) 70%, rgba(13,16,20,0.85));
+    border-bottom: 1px solid var(--line);
+    padding: 14px 0 16px;
+  }
+  .search-wrap { position: relative; display: flex; align-items: center; gap: 12px; }
+  .search-glyph {
+    font-family: var(--mono); color: var(--accent); font-size: 14px;
+    flex-shrink: 0; letter-spacing: 0.1em;
+  }
+  #search {
+    flex: 1; background: var(--bg-sunk); color: var(--ink);
+    border: 1px solid var(--line-strong); border-radius: 2px;
+    padding: 11px 14px; font-family: var(--mono); font-size: 14px;
+    transition: border-color .15s, background .15s;
+  }
+  #search:focus { outline: none; border-color: var(--accent); background: #0b0e12; }
+  #search::placeholder { color: var(--ink-faint); }
+  .search-stat {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    white-space: nowrap; letter-spacing: 0.05em;
+  }
+
+  .results {
+    position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+    background: var(--bg-elev); border: 1px solid var(--line-strong);
+    border-radius: 3px; max-height: 52vh; overflow: auto; z-index: 50;
+    box-shadow: 0 18px 48px rgba(0,0,0,0.45); display: none;
+  }
+  .results.show { display: block; }
+  .results-head {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--ink-mute); padding: 9px 14px;
+    border-bottom: 1px solid var(--line); position: sticky; top: 0;
+    background: var(--bg-elev);
+  }
+  .res {
+    display: flex; align-items: baseline; gap: 12px; padding: 9px 14px;
+    border-bottom: 1px solid var(--line); cursor: pointer;
+  }
+  .res:last-child { border-bottom: 0; }
+  .res:hover, .res.active { background: rgba(232,168,92,0.08); }
+  .res .res-ip { font-family: var(--mono); font-size: 13px; color: var(--accent); flex-shrink: 0; }
+  .res .res-sub { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+  .res .res-cm { font-size: 12.5px; color: var(--ink-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .res .res-tag {
+    font-family: var(--mono); font-size: 9px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--ink-faint); border: 1px solid var(--line-strong);
+    padding: 1px 5px; border-radius: 2px; flex-shrink: 0;
+  }
+  .res-empty { padding: 18px 14px; color: var(--ink-faint); font-family: var(--mono); font-size: 12px; }
+  mark { background: rgba(232,168,92,0.28); color: var(--ink); border-radius: 1px; }
+
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 0; min-height: calc(100vh - 150px);
+  }
+  .col-left { padding: 30px 36px 80px 0; border-right: 1px solid var(--line); }
+  .col-right {
+    padding: 30px 0 40px 36px; position: sticky; top: 64px;
+    align-self: start; height: calc(100vh - 64px);
+    display: flex; flex-direction: column;
+  }
+  @media (max-width: 1040px) {
+    main { grid-template-columns: 1fr; }
+    .col-left { padding-right: 0; border-right: 0; border-bottom: 1px solid var(--line); }
+    .col-right { padding-left: 0; position: static; height: auto; min-height: 70vh; }
+  }
+
+  .section { margin-bottom: 36px; }
+  .section-head {
+    display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px;
+    padding-bottom: 10px; border-bottom: 1px dashed var(--line-strong);
+  }
+  .section-num { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.1em; }
+  .section-title { font-family: var(--serif); font-weight: 600; font-size: 18px; margin: 0; }
+  .section-desc { color: var(--ink-mute); font-size: 13px; margin-left: auto; font-style: italic; }
+
+  .add-form {
+    border: 1px dashed var(--line-strong); border-radius: 3px; padding: 16px;
+    margin-bottom: 26px;
+  }
+  .lbl {
+    display: block; font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+  }
+  .hint { display: block; font-size: 12px; color: var(--ink-faint); margin-top: 4px; font-style: italic; }
+  input[type="text"], select {
+    width: 100%; background: var(--bg-sunk); color: var(--ink);
+    border: 1px solid var(--line-strong); border-radius: 2px; padding: 9px 11px;
+    font-family: var(--mono); font-size: 13px; transition: border-color .15s, background .15s;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); background: #0b0e12; }
+  input::placeholder { color: var(--ink-faint); }
+  .add-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .add-err {
+    color: var(--danger); font-family: var(--mono); font-size: 12px; margin: 0 0 12px;
+    min-height: 16px;
+  }
+
+  button, .btn {
+    cursor: pointer; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em;
+    text-transform: uppercase; background: transparent; color: var(--ink);
+    border: 1px solid var(--line-strong); padding: 8px 14px; border-radius: 2px;
+    transition: all .15s ease; display: inline-flex; align-items: center; gap: 8px;
+  }
+  button:hover, .btn:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { border-color: var(--accent-dim); color: var(--accent); }
+  button.primary:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  button.danger { color: var(--danger); border-color: transparent; padding: 4px 8px; font-size: 11px; }
+  button.danger:hover { color: var(--bg); background: var(--danger); border-color: var(--danger); }
+  button.ghost { border-color: transparent; color: var(--ink-mute); padding: 4px 8px; }
+  button.ghost:hover { color: var(--accent); }
+
+  .subnet-list { display: flex; flex-direction: column; gap: 12px; }
+  .subnet {
+    border: 1px solid var(--line-strong); background: var(--bg-elev); border-radius: 3px;
+    overflow: hidden; position: relative; cursor: pointer; transition: border-color .15s;
+  }
+  .subnet::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--line-strong); transition: background .15s;
+  }
+  .subnet:hover { border-color: var(--ink-faint); }
+  .subnet.selected { border-color: var(--accent-dim); }
+  .subnet.selected::before { background: var(--accent); }
+  .subnet-body { padding: 13px 16px; display: flex; align-items: center; gap: 14px; }
+  .subnet-main { min-width: 0; flex: 1; }
+  .subnet-label {
+    font-family: var(--serif); font-size: 16px; font-weight: 600; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .subnet-cidr { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-top: 2px; }
+  .subnet-stats {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    text-align: right; white-space: nowrap; flex-shrink: 0;
+  }
+  .subnet-stats b { color: var(--ink-mute); font-weight: 500; }
+  .subnet-anno {
+    display: inline-block; margin-top: 3px; color: var(--ok);
+  }
+  .subnet-anno.zero { color: var(--ink-faint); }
+  .subnet-actions { flex-shrink: 0; display: flex; gap: 4px; }
+
+  .empty {
+    border: 1px dashed var(--line-strong); padding: 28px; text-align: center;
+    color: var(--ink-faint); font-family: var(--mono); font-size: 12px; border-radius: 3px;
+  }
+
+  .plan-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px dashed var(--line-strong);
+    gap: 16px; flex-wrap: wrap;
+  }
+  .plan-title { font-family: var(--serif); font-size: 18px; font-weight: 600; margin: 0; }
+  .plan-title small {
+    font-family: var(--mono); font-weight: 400; color: var(--accent); font-size: 13px;
+    margin-left: 8px;
+  }
+  .plan-actions { display: flex; gap: 6px; }
+
+  .plan-facts {
+    display: flex; flex-wrap: wrap; gap: 6px 22px; margin-bottom: 14px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute);
+  }
+  .plan-facts .f b { color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 400; margin-right: 6px; }
+  .plan-facts .f span { color: var(--ink); }
+
+  .plan-filter { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+  .plan-filter input[type="text"] { flex: 1; }
+  label.check {
+    display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+    font-family: var(--mono); font-size: 11px; color: var(--ink); padding: 8px 10px;
+    border: 1px solid var(--line-strong); border-radius: 2px; background: var(--bg-sunk);
+    white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  label.check:hover { border-color: var(--ink-mute); }
+  label.check input { display: none; }
+  label.check .box {
+    width: 12px; height: 12px; border: 1px solid var(--ink-faint); display: inline-block;
+    position: relative; flex-shrink: 0;
+  }
+  label.check input:checked + .box { background: var(--accent); border-color: var(--accent); }
+  label.check input:checked + .box::after {
+    content: ''; position: absolute; inset: 2px; background: var(--bg);
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+  label.check input:checked ~ .lbl-text { color: var(--accent); }
+
+  .plan-thead {
+    display: flex; align-items: center; padding: 0 12px; height: 30px;
+    border: 1px solid var(--line); border-bottom: 0; background: var(--bg-elev);
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--ink-faint); flex-shrink: 0;
+  }
+  .th-tag { width: 70px; flex-shrink: 0; }
+  .th-ip { width: 200px; flex-shrink: 0; }
+  .th-cm { flex: 1; }
+
+  .plan-scroll {
+    flex: 1; min-height: 200px; overflow-y: auto; position: relative;
+    background: var(--bg-sunk); border: 1px solid var(--line); border-radius: 0 0 3px 3px;
+  }
+  .plan-sizer { position: relative; width: 100%; }
+
+  .addr-row {
+    position: absolute; left: 0; right: 0; height: var(--row-h);
+    display: flex; align-items: center; padding: 0 12px;
+    border-bottom: 1px solid rgba(31,37,48,0.6);
+  }
+  .addr-row.reg { position: static; }
+  .addr-row.flash { animation: flash 1.6s ease; }
+  @keyframes flash {
+    0%,18% { background: rgba(232,168,92,0.22); }
+    100% { background: transparent; }
+  }
+  .addr-row:hover { background: rgba(255,255,255,0.018); }
+  .a-tag {
+    width: 70px; flex-shrink: 0; font-family: var(--mono); font-size: 9px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .a-tag .t {
+    border: 1px solid var(--line-strong); padding: 1px 5px; border-radius: 2px;
+    color: var(--ink-faint);
+  }
+  .a-tag .t.host { color: var(--ok); border-color: rgba(127,176,105,0.4); }
+  .a-tag .t.net  { color: var(--net); border-color: rgba(201,138,217,0.4); }
+  .a-tag .t.bcast{ color: var(--danger); border-color: rgba(217,104,86,0.4); }
+  .a-tag .t.gw   { color: var(--accent); border-color: var(--accent-dim); }
+  .a-ip {
+    width: 200px; flex-shrink: 0; font-family: var(--mono); font-size: 13px;
+    color: var(--ink); display: flex; align-items: center; gap: 8px;
+  }
+  .a-ip.dim { color: var(--ink-faint); }
+  .a-cm {
+    flex: 1; background: transparent; border: 0; border-bottom: 1px solid transparent;
+    color: var(--ink); font-family: var(--sans); font-size: 13px; padding: 4px 6px;
+    border-radius: 2px;
+  }
+  .a-cm:focus { outline: none; background: #0b0e12; border-bottom-color: var(--accent); }
+  .a-cm::placeholder { color: var(--ink-faint); font-style: italic; }
+  .a-cm.has { border-bottom-color: var(--line-strong); }
+  .a-del { flex-shrink: 0; }
+
+  .reg-add { display: flex; gap: 8px; padding: 12px; border-top: 1px dashed var(--line); }
+  .reg-add input { flex: 1; }
+
+  .plan-empty {
+    flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+    color: var(--ink-faint); font-family: var(--mono); font-size: 13px;
+    border: 1px dashed var(--line-strong); border-radius: 3px; padding: 40px;
+    line-height: 1.8;
+  }
+  .notice {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute);
+    background: rgba(232,168,92,0.06); border: 1px solid var(--accent-dim);
+    border-radius: 2px; padding: 8px 12px; margin-bottom: 12px;
+  }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 22px 0 32px; color: var(--ink-faint);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: var(--bg);
+    padding: 10px 16px; border-radius: 2px; font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.04em; text-transform: uppercase; transform: translateY(80px);
+    opacity: 0; transition: all .25s ease; pointer-events: none; z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  .modal-back {
+    position: fixed; inset: 0; background: rgba(5,7,10,0.66); z-index: 200;
+    display: none; align-items: center; justify-content: center; padding: 24px;
+    backdrop-filter: blur(2px);
+  }
+  .modal-back.show { display: flex; }
+  .modal {
+    background: var(--bg-elev); border: 1px solid var(--line-strong);
+    border-left: 3px solid var(--danger); border-radius: 3px;
+    max-width: 470px; width: 100%; padding: 22px 24px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+  }
+  .modal h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 10px; }
+  .modal p {
+    color: var(--ink-mute); font-size: 13.5px; margin: 0 0 18px; line-height: 1.6;
+    white-space: pre-line; font-family: var(--mono);
+  }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  #modal-ok { border-color: var(--danger); color: var(--danger); padding: 8px 16px; }
+  #modal-ok:hover { background: var(--danger); color: var(--bg); border-color: var(--danger); }
+
+  ::selection { background: var(--accent); color: var(--bg); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg-sunk); }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header>
+    <div class="brand">
+      <span class="brand-mark">subnet/plan</span>
+      <h1><i>an</i> <b>IP address planner</b></h1>
+    </div>
+    <div class="meta">
+      <a href="https://asjhosting.com" target="_blank" rel="noopener" class="byline">Andreas Skarmark-Jakobsen</a> &nbsp;·&nbsp; <span>IPv4 + IPv6</span> &nbsp;·&nbsp; per-address notes &nbsp;·&nbsp; <span>runs in your browser</span>
+    </div>
+  </header>
+
+  <div class="searchbar">
+    <div class="search-wrap">
+      <span class="search-glyph">⌕</span>
+      <input id="search" type="text" autocomplete="off" spellcheck="false"
+             placeholder="search any address or comment across all subnets…  (e.g. 10.0.1.5, gateway, printer, mail server)" />
+      <span class="search-stat" id="search-stat"></span>
+      <div id="results" class="results"></div>
+    </div>
+  </div>
+
+  <main>
+    <section class="col-left">
+      <div class="section">
+        <div class="section-head">
+          <span class="section-num">§ 01</span>
+          <h2 class="section-title">Subnets</h2>
+          <span class="section-desc">add as many as you need</span>
+        </div>
+
+        <div class="add-form">
+          <div class="add-grid">
+            <div>
+              <span class="lbl">CIDR <span style="color:var(--accent)">*</span></span>
+              <input id="in-cidr" type="text" placeholder="192.168.1.0/24  ·  10.0.0.0/16  ·  2001:db8::/64" />
+            </div>
+            <div>
+              <span class="lbl">Label</span>
+              <input id="in-label" type="text" placeholder="e.g. Office LAN" />
+            </div>
+          </div>
+          <p class="add-err" id="add-err"></p>
+          <button id="btn-add" class="primary">+ add subnet</button>
+          <span class="hint" style="display:inline-block;margin-left:12px;margin-top:0">enter accepts · network address is auto-normalised</span>
+        </div>
+
+        <div id="subnet-list" class="subnet-list"></div>
+        <div id="subnet-empty" class="empty">no subnets yet — add one above to begin</div>
+      </div>
+    </section>
+
+    <section class="col-right">
+      <div class="plan-head">
+        <h2 class="plan-title" id="plan-title">IP plan <small id="plan-cidr"></small></h2>
+        <div class="plan-actions">
+          <button id="btn-export">↓ Export</button>
+          <button id="btn-import">↑ Import</button>
+          <button id="btn-reset" class="ghost">↺ Reset</button>
+          <input id="file-import" type="file" accept="application/json,.json" style="display:none" />
+        </div>
+      </div>
+
+      <div id="plan-facts" class="plan-facts"></div>
+      <div id="plan-region"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div>plan it · annotate it · <span style="color:var(--ink-mute)">export the JSON to keep it</span></div>
+    <div>no data leaves this page · persists locally when run inside Claude</div>
+  </footer>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<div id="modal-back" class="modal-back">
+  <div class="modal">
+    <h3 id="modal-title">Confirm</h3>
+    <p id="modal-msg"></p>
+    <div class="modal-actions">
+      <button id="modal-cancel" class="ghost" style="padding:8px 14px">Cancel</button>
+      <button id="modal-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function ipv4ToInt(ip) {
+  const p = ip.split('.');
+  if (p.length !== 4) return null;
+  let v = 0;
+  for (const o of p) {
+    if (!/^\d{1,3}$/.test(o)) return null;
+    const n = +o;
+    if (n > 255) return null;
+    v = (v * 256) + n;
+  }
+  return v >>> 0;
+}
+function intToIpv4(v) {
+  v = v >>> 0;
+  return [(v>>>24)&255, (v>>>16)&255, (v>>>8)&255, v&255].join('.');
+}
+function ipv6ToBig(str) {
+  if (str.indexOf(':') === -1) return null;
+  let head, tail;
+  if (str.indexOf('::') !== -1) {
+    const parts = str.split('::');
+    if (parts.length !== 2) return null;
+    head = parts[0]; tail = parts[1];
+  } else { head = str; tail = null; }
+  const h = head.length ? head.split(':') : [];
+  let groups;
+  if (tail !== null) {
+    const t = tail.length ? tail.split(':') : [];
+    const miss = 8 - (h.length + t.length);
+    if (miss < 0) return null;
+    groups = h.concat(Array(miss).fill('0'), t);
+  } else { groups = h; }
+  if (groups.length !== 8) return null;
+  let v = 0n;
+  for (const g of groups) {
+    if (!/^[0-9a-fA-F]{1,4}$/.test(g)) return null;
+    v = (v << 16n) + BigInt(parseInt(g, 16));
+  }
+  return v;
+}
+function bigToIpv6(v) {
+  const g = [];
+  for (let i = 7; i >= 0; i--) g[i] = (Number((v >> BigInt(i*16)) & 0xffffn)).toString(16);
+  let best = -1, bestLen = 0, cur = -1, curLen = 0;
+  for (let i = 0; i < 8; i++) {
+    if (g[i] === '0') { if (cur === -1) cur = i; curLen++; if (curLen > bestLen){ bestLen = curLen; best = cur; } }
+    else { cur = -1; curLen = 0; }
+  }
+  let parts = g.slice();
+  if (bestLen > 1) {
+    parts.splice(best, bestLen, '');
+    let s = parts.join(':');
+    if (best === 0) s = ':' + s;
+    if (best + bestLen === 8) s = s + ':';
+    return s;
+  }
+  return g.join(':');
+}
+
+function parseCidr(input) {
+  const raw = (input || '').trim();
+  if (!raw) return { error: 'Enter a CIDR like 192.168.1.0/24.' };
+  const slash = raw.indexOf('/');
+  if (slash === -1) return { error: 'Missing prefix length — try ' + raw + '/24.' };
+  const addr = raw.slice(0, slash).trim();
+  const prefStr = raw.slice(slash + 1).trim();
+  if (!/^\d{1,3}$/.test(prefStr)) return { error: 'Prefix must be a number.' };
+  const prefix = +prefStr;
+
+  if (addr.indexOf(':') !== -1) {
+    const v = ipv6ToBig(addr);
+    if (v === null) return { error: 'That is not a valid IPv6 address.' };
+    if (prefix < 0 || prefix > 128) return { error: 'IPv6 prefix must be 0–128.' };
+    const mask = prefix === 0 ? 0n : ((1n << 128n) - 1n) ^ ((1n << (128n - BigInt(prefix))) - 1n);
+    const net = v & mask;
+    return { version: 6, prefix, networkBig: net, cidr: bigToIpv6(net) + '/' + prefix };
+  } else {
+    const v = ipv4ToInt(addr);
+    if (v === null) return { error: 'That is not a valid IPv4 address.' };
+    if (prefix < 0 || prefix > 32) return { error: 'IPv4 prefix must be 0–32.' };
+    const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+    const net = (v & mask) >>> 0;
+    const total = Math.pow(2, 32 - prefix);
+    return {
+      version: 4, prefix, networkInt: net, total,
+      broadcastInt: (net + total - 1) >>> 0,
+      maskStr: intToIpv4(mask),
+      cidr: intToIpv4(net) + '/' + prefix
+    };
+  }
+}
+
+const MAX_ENUM = 65536;
+
+const state = { subnets: [], selectedId: null };
+let nextId = 1;
+const STORE_KEY = 'subnetplan:v1';
+
+function enumerable(sn) { return sn.version === 4 && sn.total <= MAX_ENUM; }
+
+function roleOf(sn, int) {
+  if (sn.prefix === 32) return 'host';
+  if (sn.prefix === 31) return 'host';
+  if (int === sn.networkInt) return 'net';
+  if (int === sn.broadcastInt) return 'bcast';
+  return 'host';
+}
+function roleLabel(r) {
+  return { net: 'net', bcast: 'bcast', host: 'host', gw: 'gw' }[r] || r;
+}
+
+let saveTimer = null;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveState, 350);
+}
+async function saveState() {
+  if (typeof window.storage === 'undefined') return;
+  try {
+    await window.storage.set(STORE_KEY, JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId }), false);
+  } catch (e) {  }
+}
+async function loadState() {
+  if (typeof window.storage === 'undefined') return false;
+  try {
+    const r = await window.storage.get(STORE_KEY, false);
+    if (r && r.value) {
+      const d = JSON.parse(r.value);
+      if (d && Array.isArray(d.subnets)) {
+        state.subnets = d.subnets;
+        state.selectedId = d.selectedId || null;
+        nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
+        return true;
+      }
+    }
+  } catch (e) {  }
+  return false;
+}
+
+const elCidr = document.getElementById('in-cidr');
+const elLabel = document.getElementById('in-label');
+const elAddErr = document.getElementById('add-err');
+
+function addSubnet() {
+  const parsed = parseCidr(elCidr.value);
+  if (parsed.error) { elAddErr.textContent = parsed.error; return; }
+  // duplicate?
+  if (state.subnets.some(s => s.cidr === parsed.cidr)) {
+    elAddErr.textContent = 'Subnet ' + parsed.cidr + ' is already in the plan.';
+    return;
+  }
+  const sn = {
+    id: nextId++,
+    label: elLabel.value.trim() || parsed.cidr,
+    cidr: parsed.cidr,
+    version: parsed.version,
+    prefix: parsed.prefix,
+    comments: {} // { "ip": "note" }
+  };
+  if (parsed.version === 4) {
+    sn.networkInt = parsed.networkInt;
+    sn.broadcastInt = parsed.broadcastInt;
+    sn.total = parsed.total;
+    sn.maskStr = parsed.maskStr;
+  } else {
+    sn.networkBig = parsed.networkBig.toString();
+  }
+  state.subnets.push(sn);
+  state.selectedId = sn.id;
+  elCidr.value = ''; elLabel.value = ''; elAddErr.textContent = '';
+  renderSubnetList();
+  renderPlan();
+  scheduleSave();
+}
+
+document.getElementById('btn-add').addEventListener('click', addSubnet);
+elCidr.addEventListener('keydown', e => { if (e.key === 'Enter') addSubnet(); });
+elLabel.addEventListener('keydown', e => { if (e.key === 'Enter') addSubnet(); });
+elCidr.addEventListener('input', () => { elAddErr.textContent = ''; });
+
+const listEl = document.getElementById('subnet-list');
+const listEmptyEl = document.getElementById('subnet-empty');
+
+function annoCount(sn) { return Object.values(sn.comments).filter(v => v && v.trim()).length; }
+
+function renderSubnetList() {
+  listEl.innerHTML = '';
+  listEmptyEl.style.display = state.subnets.length ? 'none' : 'block';
+
+  state.subnets.forEach(sn => {
+    const card = document.createElement('div');
+    card.className = 'subnet' + (sn.id === state.selectedId ? ' selected' : '');
+    card.dataset.id = sn.id;
+
+    let usable;
+    if (sn.version === 4) {
+      if (sn.prefix >= 31) usable = (sn.prefix === 32 ? 1 : 2);
+      else usable = sn.total - 2;
+      usable = usable.toLocaleString();
+    } else {
+      usable = '2^' + (128 - sn.prefix);
+    }
+    const n = annoCount(sn);
+
+    card.innerHTML = `
+      <div class="subnet-body">
+        <div class="subnet-main">
+          <div class="subnet-label">${esc(sn.label)}</div>
+          <div class="subnet-cidr">${esc(sn.cidr)}</div>
+        </div>
+        <div class="subnet-stats">
+          <div><b>v${sn.version}</b> · ${usable} usable</div>
+          <div class="subnet-anno ${n ? '' : 'zero'}">● ${n} note${n === 1 ? '' : 's'}</div>
+        </div>
+        <div class="subnet-actions">
+          <button class="danger" data-act="remove">remove</button>
+        </div>
+      </div>`;
+
+    card.addEventListener('click', e => {
+      if (e.target.dataset.act === 'remove') {
+        e.stopPropagation();
+        const had = annoCount(sn);
+        (async () => {
+          if (had) {
+            const go = await confirmDialog(
+              'Delete subnet',
+              'This will irreversibly delete all of the data in "' + sn.label + '" (' + sn.cidr + ') — ' + had + ' note' + (had === 1 ? '' : 's') + '.\n\nThis cannot be undone.',
+              'Delete subnet');
+            if (!go) return;
+          }
+          state.subnets = state.subnets.filter(x => x.id !== sn.id);
+          if (state.selectedId === sn.id) state.selectedId = state.subnets[0]?.id || null;
+          renderSubnetList(); renderPlan(); rebuildSearchIndex(); scheduleSave();
+        })();
+        return;
+      }
+      state.selectedId = sn.id;
+      renderSubnetList(); renderPlan();
+      scheduleSave();
+    });
+
+    listEl.appendChild(card);
+  });
+}
+
+const planTitle = document.getElementById('plan-title');
+const planCidr = document.getElementById('plan-cidr');
+const planFacts = document.getElementById('plan-facts');
+const planRegion = document.getElementById('plan-region');
+
+let planFilter = { text: '', onlyAnno: false };
+let pendingScrollIp = null;
+
+function selectedSubnet() { return state.subnets.find(s => s.id === state.selectedId) || null; }
+
+function renderPlan() {
+  const sn = selectedSubnet();
+  planRegion.innerHTML = '';
+  planFacts.innerHTML = '';
+
+  if (!sn) {
+    planCidr.textContent = '';
+    planRegion.innerHTML = `<div class="plan-empty">select a subnet on the left<br>— or add one — to see its address plan</div>`;
+    return;
+  }
+
+  planCidr.textContent = '· ' + sn.label;
+
+  if (sn.version === 4) {
+    const first = sn.prefix <= 30 ? intToIpv4((sn.networkInt + 1) >>> 0) : intToIpv4(sn.networkInt);
+    const last = sn.prefix <= 30 ? intToIpv4((sn.broadcastInt - 1) >>> 0) : intToIpv4(sn.broadcastInt);
+    const usable = sn.prefix >= 31 ? (sn.prefix === 32 ? 1 : 2) : sn.total - 2;
+    planFacts.innerHTML = `
+      <div class="f"><b>cidr</b><span>${esc(sn.cidr)}</span></div>
+      <div class="f"><b>netmask</b><span>${esc(sn.maskStr)}</span></div>
+      <div class="f"><b>network</b><span>${intToIpv4(sn.networkInt)}</span></div>
+      <div class="f"><b>broadcast</b><span>${intToIpv4(sn.broadcastInt)}</span></div>
+      <div class="f"><b>range</b><span>${first} – ${last}</span></div>
+      <div class="f"><b>usable</b><span>${usable.toLocaleString()}</span></div>
+      <div class="f"><b>total</b><span>${sn.total.toLocaleString()}</span></div>`;
+  } else {
+    planFacts.innerHTML = `
+      <div class="f"><b>cidr</b><span>${esc(sn.cidr)}</span></div>
+      <div class="f"><b>network</b><span>${esc(sn.cidr.split('/')[0])}</span></div>
+      <div class="f"><b>addresses</b><span>2^${128 - sn.prefix}</span></div>`;
+  }
+
+  if (enumerable(sn)) renderEnumPlan(sn);
+  else renderRegistryPlan(sn);
+}
+
+function setComment(sn, ip, val) {
+  if (val && val.trim()) sn.comments[ip] = val;
+  else delete sn.comments[ip];
+}
+
+function renderEnumPlan(sn) {
+  const wrap = document.createElement('div');
+  wrap.style.display = 'flex';
+  wrap.style.flexDirection = 'column';
+  wrap.style.flex = '1';
+  wrap.style.minHeight = '0';
+
+  const filter = document.createElement('div');
+  filter.className = 'plan-filter';
+  filter.innerHTML = `
+    <input type="text" id="pf-text" placeholder="filter addresses or notes within this subnet…" value="${esc(planFilter.text)}" />
+    <label class="check">
+      <input type="checkbox" id="pf-anno" ${planFilter.onlyAnno ? 'checked' : ''} />
+      <span class="box"></span><span class="lbl-text">only annotated</span>
+    </label>`;
+  wrap.appendChild(filter);
+
+  const q = planFilter.text.trim().toLowerCase();
+  let indices = null; 
+  if (q || planFilter.onlyAnno) {
+    indices = [];
+    for (let i = 0; i < sn.total; i++) {
+      const ip = intToIpv4((sn.networkInt + i) >>> 0);
+      const note = sn.comments[ip] || '';
+      if (planFilter.onlyAnno && !note.trim()) continue;
+      if (q && !(ip.includes(q) || note.toLowerCase().includes(q))) continue;
+      indices.push(i);
+    }
+  }
+  const count = indices ? indices.length : sn.total;
+
+  if (count === 0) {
+    const head = thead();
+    wrap.appendChild(head);
+    const empty = document.createElement('div');
+    empty.className = 'plan-empty';
+    empty.style.borderTop = '0';
+    empty.style.borderRadius = '0 0 3px 3px';
+    empty.textContent = 'no addresses match this filter';
+    wrap.appendChild(empty);
+    planRegion.appendChild(wrap);
+    wireFilter(sn);
+    return;
+  }
+
+  wrap.appendChild(thead());
+
+  const scroll = document.createElement('div');
+  scroll.className = 'plan-scroll';
+  const sizer = document.createElement('div');
+  sizer.className = 'plan-sizer';
+  const rowH = 36;
+  sizer.style.height = (count * rowH) + 'px';
+  scroll.appendChild(sizer);
+  wrap.appendChild(scroll);
+  planRegion.appendChild(wrap);
+
+  scroll.addEventListener('input', e => {
+    if (e.target.classList.contains('a-cm')) {
+      const ip = e.target.dataset.ip;
+      setComment(sn, ip, e.target.value);
+      e.target.classList.toggle('has', !!e.target.value.trim());
+      scheduleSave();
+      rebuildSearchIndex();
+    }
+  });
+
+  let lastStart = -1, lastEnd = -1;
+  function draw(force) {
+    const scrollTop = scroll.scrollTop;
+    const vh = scroll.clientHeight || 400;
+    const over = 6;
+    let start = Math.max(0, Math.floor(scrollTop / rowH) - over);
+    let end = Math.min(count, Math.ceil((scrollTop + vh) / rowH) + over);
+    if (!force && start === lastStart && end === lastEnd) return;
+    lastStart = start; lastEnd = end;
+
+    let html = '';
+    for (let r = start; r < end; r++) {
+      const i = indices ? indices[r] : r;
+      const int = (sn.networkInt + i) >>> 0;
+      const ip = intToIpv4(int);
+      const role = roleOf(sn, int);
+      const note = sn.comments[ip] || '';
+      const dim = (role === 'net' || role === 'bcast') ? ' dim' : '';
+      html += `
+        <div class="addr-row" style="top:${r * rowH}px" data-ip="${ip}">
+          <div class="a-tag"><span class="t ${role}">${roleLabel(role)}</span></div>
+          <div class="a-ip${dim}">${ip}</div>
+          <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${ip}"
+                 value="${esc(note)}" placeholder="add a note…" />
+        </div>`;
+    }
+    sizer.innerHTML = html;
+
+    if (pendingScrollIp) {
+      const target = sizer.querySelector('.addr-row[data-ip="' + cssEsc(pendingScrollIp) + '"]');
+      if (target) {
+        target.classList.add('flash');
+        pendingScrollIp = null;
+      }
+    }
+  }
+
+  scroll.addEventListener('scroll', () => requestAnimationFrame(() => draw(false)));
+
+  if (pendingScrollIp) {
+    const tInt = ipv4ToInt(pendingScrollIp);
+    if (tInt !== null && tInt >= sn.networkInt && tInt <= sn.broadcastInt) {
+      let r;
+      if (indices) { r = indices.indexOf(tInt - sn.networkInt); }
+      else { r = tInt - sn.networkInt; }
+      if (r >= 0) {
+        requestAnimationFrame(() => {
+          scroll.scrollTop = Math.max(0, r * rowH - (scroll.clientHeight / 2) + rowH);
+          draw(true);
+        });
+      } else { draw(true); }
+    } else { pendingScrollIp = null; draw(true); }
+  } else {
+    draw(true);
+  }
+
+  wireFilter(sn);
+}
+
+function thead() {
+  const h = document.createElement('div');
+  h.className = 'plan-thead';
+  h.innerHTML = `<div class="th-tag">role</div><div class="th-ip">address</div><div class="th-cm">comment</div>`;
+  return h;
+}
+
+function wireFilter(sn) {
+  const tx = document.getElementById('pf-text');
+  const an = document.getElementById('pf-anno');
+  if (tx) tx.addEventListener('input', () => {
+    planFilter.text = tx.value;
+    const pos = tx.selectionStart;
+    renderPlan();
+    const nt = document.getElementById('pf-text');
+    if (nt) { nt.focus(); try { nt.setSelectionRange(pos, pos); } catch(e){} }
+  });
+  if (an) an.addEventListener('change', () => { planFilter.onlyAnno = an.checked; renderPlan(); });
+}
+
+function renderRegistryPlan(sn) {
+  const wrap = document.createElement('div');
+  wrap.style.display = 'flex'; wrap.style.flexDirection = 'column'; wrap.style.flex = '1'; wrap.style.minHeight = '0';
+
+  const notice = document.createElement('div');
+  notice.className = 'notice';
+  notice.textContent = sn.version === 6
+    ? 'IPv6 block — too large to enumerate. Add the specific addresses you want to track below.'
+    : 'Block larger than /16 — too large to enumerate. Add specific addresses to track below.';
+  wrap.appendChild(notice);
+
+  wrap.appendChild(thead());
+
+  const scroll = document.createElement('div');
+  scroll.className = 'plan-scroll';
+  const ips = Object.keys(sn.comments).sort(sortIps(sn.version));
+
+  const q = planFilter.text.trim().toLowerCase();
+  const filtered = ips.filter(ip => {
+    if (planFilter.onlyAnno && !(sn.comments[ip] || '').trim()) return false;
+    if (q && !(ip.toLowerCase().includes(q) || (sn.comments[ip]||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  let rows = '';
+  filtered.forEach(ip => {
+    const note = sn.comments[ip] || '';
+    rows += `
+      <div class="addr-row reg" data-ip="${esc(ip)}">
+        <div class="a-tag"><span class="t host">host</span></div>
+        <div class="a-ip">${esc(ip)}</div>
+        <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…" />
+        <button class="danger a-del" data-del="${esc(ip)}">×</button>
+      </div>`;
+  });
+  if (!filtered.length) {
+    rows = `<div style="padding:24px;text-align:center;color:var(--ink-faint);font-family:var(--mono);font-size:12px">no tracked addresses yet</div>`;
+  }
+  scroll.innerHTML = rows;
+
+  const add = document.createElement('div');
+  add.className = 'reg-add';
+  add.innerHTML = `
+    <input type="text" id="reg-ip" placeholder="${sn.version === 6 ? '2001:db8::10' : '10.5.0.42'}" />
+    <button id="reg-add-btn" class="primary">+ track address</button>`;
+  scroll.appendChild(add);
+  wrap.appendChild(scroll);
+  planRegion.appendChild(wrap);
+
+  scroll.addEventListener('input', e => {
+    if (e.target.classList.contains('a-cm')) {
+      setComment(sn, e.target.dataset.ip, e.target.value);
+      e.target.classList.toggle('has', !!e.target.value.trim());
+      scheduleSave(); rebuildSearchIndex();
+    }
+  });
+  scroll.addEventListener('click', e => {
+    if (e.target.dataset.del) {
+      delete sn.comments[e.target.dataset.del];
+      renderPlan(); renderSubnetList(); scheduleSave(); rebuildSearchIndex();
+    }
+  });
+
+  const regIp = document.getElementById('reg-ip');
+  const addAddr = () => {
+    const val = regIp.value.trim();
+    if (!val) return;
+    let ok = false, norm = val;
+    if (sn.version === 6) {
+      const b = ipv6ToBig(val);
+      if (b !== null) { ok = true; norm = bigToIpv6(b); }
+    } else {
+      const v = ipv4ToInt(val);
+      if (v !== null && v >= sn.networkInt && v <= sn.broadcastInt) { ok = true; norm = intToIpv4(v); }
+    }
+    if (!ok) { regIp.style.borderColor = 'var(--danger)'; return; }
+    if (!(norm in sn.comments)) sn.comments[norm] = '';
+    planFilter.text = ''; planFilter.onlyAnno = false;
+    renderPlan(); renderSubnetList(); scheduleSave(); rebuildSearchIndex();
+    requestAnimationFrame(() => {
+      const inp = planRegion.querySelector('.a-cm[data-ip="' + cssEsc(norm) + '"]');
+      if (inp) inp.focus();
+    });
+  };
+  document.getElementById('reg-add-btn').addEventListener('click', addAddr);
+  regIp.addEventListener('keydown', e => { if (e.key === 'Enter') addAddr(); });
+  regIp.addEventListener('input', () => { regIp.style.borderColor = ''; });
+}
+
+function sortIps(version) {
+  if (version === 4) return (a, b) => (ipv4ToInt(a) - ipv4ToInt(b));
+  return (a, b) => { const x = ipv6ToBig(a), y = ipv6ToBig(b); return x < y ? -1 : x > y ? 1 : 0; };
+}
+
+const searchEl = document.getElementById('search');
+const resultsEl = document.getElementById('results');
+const searchStat = document.getElementById('search-stat');
+
+let searchIndex = []; 
+function rebuildSearchIndex() {
+  searchIndex = [];
+  for (const sn of state.subnets) {
+    for (const ip in sn.comments) {
+      if ((sn.comments[ip] || '').trim()) searchIndex.push({ subnetId: sn.id, ip, note: sn.comments[ip] });
+    }
+  }
+  updateSearchStat();
+  if (searchEl.value.trim()) runSearch(searchEl.value);
+}
+
+function updateSearchStat() {
+  const subs = state.subnets.length;
+  const notes = searchIndex.length;
+  searchStat.textContent = subs + ' subnet' + (subs === 1 ? '' : 's') + ' · ' + notes + ' note' + (notes === 1 ? '' : 's');
+}
+
+function runSearch(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) { resultsEl.classList.remove('show'); resultsEl.innerHTML = ''; return; }
+
+  const out = [];
+  const seen = new Set();
+
+  const v4 = ipv4ToInt(query.trim());
+  for (const sn of state.subnets) {
+    if (sn.version === 4 && v4 !== null && v4 >= sn.networkInt && v4 <= sn.broadcastInt) {
+      const ip = intToIpv4(v4);
+      const key = sn.id + '|' + ip;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push({ subnetId: sn.id, ip, note: sn.comments[ip] || '', tag: 'in range' });
+      }
+    }
+  }
+
+  for (const e of searchIndex) {
+    const key = e.subnetId + '|' + e.ip;
+    if (seen.has(key)) continue;
+    if (e.ip.toLowerCase().includes(q) || e.note.toLowerCase().includes(q)) {
+      seen.add(key);
+      out.push({ subnetId: e.subnetId, ip: e.ip, note: e.note, tag: 'note' });
+    }
+  }
+
+  for (const sn of state.subnets) {
+    if (sn.label.toLowerCase().includes(q) || sn.cidr.toLowerCase().includes(q)) {
+      const key = 'sub|' + sn.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push({ subnetId: sn.id, ip: null, note: sn.label, tag: 'subnet', cidr: sn.cidr });
+      }
+    }
+  }
+
+  renderResults(out, q);
+}
+
+function renderResults(out, q) {
+  if (!out.length) {
+    resultsEl.innerHTML = `<div class="res-empty">no matches in your subnets</div>`;
+    resultsEl.classList.add('show');
+    return;
+  }
+  const shown = out.slice(0, 80);
+  let html = `<div class="results-head">${out.length} match${out.length === 1 ? '' : 'es'}${out.length > 80 ? ' · showing 80' : ''}</div>`;
+  shown.forEach((r, i) => {
+    const sn = state.subnets.find(s => s.id === r.subnetId);
+    const ipText = r.ip ? hl(r.ip, q) : '<span style="color:var(--net)">' + esc(r.cidr || '') + '</span>';
+    const cm = r.note ? hl(r.note, q) : '<span style="color:var(--ink-faint);font-style:italic">— no note —</span>';
+    html += `
+      <div class="res" data-i="${i}" data-sub="${r.subnetId}" data-ip="${r.ip ? esc(r.ip) : ''}">
+        <span class="res-ip">${ipText}</span>
+        <span class="res-tag">${r.tag}</span>
+        <span class="res-sub">${esc(sn ? sn.label : '')}</span>
+        <span class="res-cm">${cm}</span>
+      </div>`;
+  });
+  resultsEl.innerHTML = html;
+  resultsEl.classList.add('show');
+
+  resultsEl.querySelectorAll('.res').forEach(node => {
+    node.addEventListener('click', () => {
+      jumpTo(+node.dataset.sub, node.dataset.ip || null);
+    });
+  });
+}
+
+function jumpTo(subId, ip) {
+  state.selectedId = subId;
+  planFilter = { text: '', onlyAnno: false };
+  pendingScrollIp = ip;
+  renderSubnetList();
+  renderPlan();
+  resultsEl.classList.remove('show');
+  document.querySelector('.subnet.selected')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+let searchActiveIdx = -1;
+searchEl.addEventListener('input', () => { searchActiveIdx = -1; runSearch(searchEl.value); });
+searchEl.addEventListener('keydown', e => {
+  const items = [...resultsEl.querySelectorAll('.res')];
+  if (e.key === 'ArrowDown') { e.preventDefault(); searchActiveIdx = Math.min(items.length - 1, searchActiveIdx + 1); paintActive(items); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); searchActiveIdx = Math.max(0, searchActiveIdx - 1); paintActive(items); }
+  else if (e.key === 'Enter') {
+    const pick = items[searchActiveIdx >= 0 ? searchActiveIdx : 0];
+    if (pick) jumpTo(+pick.dataset.sub, pick.dataset.ip || null);
+  } else if (e.key === 'Escape') { resultsEl.classList.remove('show'); }
+});
+function paintActive(items) {
+  items.forEach((it, i) => it.classList.toggle('active', i === searchActiveIdx));
+  items[searchActiveIdx]?.scrollIntoView({ block: 'nearest' });
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) resultsEl.classList.remove('show');
+});
+searchEl.addEventListener('focus', () => { if (searchEl.value.trim()) runSearch(searchEl.value); });
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const data = JSON.stringify({ format: 'subnetplan', version: 1, subnets: state.subnets }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'ip-plan.json'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('plan exported');
+});
+
+document.getElementById('btn-import').addEventListener('click', () => document.getElementById('file-import').click());
+document.getElementById('file-import').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const d = JSON.parse(reader.result);
+      if (!d || !Array.isArray(d.subnets)) throw new Error('bad');
+      state.subnets = d.subnets;
+      nextId = state.subnets.reduce((m, s) => Math.max(m, s.id || 0), 0) + 1;
+      state.subnets.forEach((s, i) => { if (!s.id) s.id = nextId++; });
+      state.selectedId = state.subnets[0]?.id || null;
+      renderSubnetList(); renderPlan(); rebuildSearchIndex(); scheduleSave();
+      showToast('plan imported');
+    } catch (err) { showToast('invalid file'); }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+document.getElementById('btn-reset').addEventListener('click', async () => {
+  const go = await confirmDialog('Reset everything', 'Remove all subnets and notes?\n\nThis cannot be undone.', 'Reset everything');
+  if (!go) return;
+  state.subnets = []; state.selectedId = null;
+  searchEl.value = ''; resultsEl.classList.remove('show');
+  renderSubnetList(); renderPlan(); rebuildSearchIndex(); scheduleSave();
+});
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
+function hl(text, q) {
+  const s = esc(text);
+  if (!q) return s;
+  const idx = s.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return s;
+  return s.slice(0, idx) + '<mark>' + s.slice(idx, idx + q.length) + '</mark>' + s.slice(idx + q.length);
+}
+
+const toastEl = document.getElementById('toast');
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toastEl.classList.remove('show'), 1800);
+}
+
+function confirmDialog(title, message, confirmLabel) {
+  return new Promise(resolve => {
+    const back = document.getElementById('modal-back');
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-msg').textContent = message;
+    const ok = document.getElementById('modal-ok');
+    const cancel = document.getElementById('modal-cancel');
+    ok.textContent = confirmLabel || 'Delete';
+    back.classList.add('show');
+    function cleanup(val) {
+      back.classList.remove('show');
+      ok.onclick = cancel.onclick = back.onclick = null;
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') cleanup(false);
+      else if (e.key === 'Enter') cleanup(true);
+    }
+    ok.onclick = () => cleanup(true);
+    cancel.onclick = () => cleanup(false);
+    back.onclick = e => { if (e.target === back) cleanup(false); };
+    document.addEventListener('keydown', onKey);
+    ok.focus();
+  });
+}
+
+(async function boot() {
+  const loaded = await loadState();
+  if (!loaded) {
+    const ex = parseCidr('192.168.1.0/24');
+    const sn = {
+      id: nextId++, label: 'Example LAN', cidr: ex.cidr, version: 4, prefix: ex.prefix,
+      networkInt: ex.networkInt, broadcastInt: ex.broadcastInt, total: ex.total, maskStr: ex.maskStr,
+      comments: { '192.168.1.1': 'gateway / router', '192.168.1.10': 'NAS', '192.168.1.20': 'printer' }
+    };
+    state.subnets = [sn];
+    state.selectedId = sn.id;
+  }
+  renderSubnetList();
+  renderPlan();
+  rebuildSearchIndex();
+})();
+</script>
+
+</body>
+</html>

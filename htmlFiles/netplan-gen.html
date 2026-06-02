@@ -58,7 +58,6 @@
     padding: 0 28px;
   }
 
-  /* ── Header ───────────────────────────────────────── */
   header {
     border-bottom: 1px solid var(--line);
     padding: 22px 0 20px;
@@ -100,8 +99,11 @@
     text-transform: uppercase;
   }
   .meta span { color: var(--ink-mute); }
+  .meta .byline {
+    text-transform: none;
+    letter-spacing: 0;
+  }
 
-  /* ── Layout ───────────────────────────────────────── */
   main {
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
@@ -128,7 +130,6 @@
     .col-output { padding-left: 0; position: static; height: auto; }
   }
 
-  /* ── Section ──────────────────────────────────────── */
   .section {
     margin-bottom: 44px;
   }
@@ -160,7 +161,6 @@
     font-style: italic;
   }
 
-  /* ── Form primitives ──────────────────────────────── */
   label.field {
     display: block;
     margin-bottom: 16px;
@@ -206,6 +206,36 @@
   input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   textarea { resize: vertical; min-height: 60px; }
 
+  input:disabled, select:disabled, textarea:disabled {
+    background: #0a0c0f;
+    color: var(--ink-faint);
+    border-color: var(--line);
+    cursor: not-allowed;
+  }
+  input:disabled::placeholder, textarea:disabled::placeholder { color: #3a4150; }
+
+  .subgroup.dhcp-locked {
+    position: relative;
+    opacity: 0.5;
+    transition: opacity .15s;
+  }
+  .subgroup.dhcp-locked button {
+    pointer-events: none;
+  }
+  .dhcp-note {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent-dim);
+    margin: -2px 0 10px;
+    padding: 6px 10px;
+    border-left: 2px solid var(--accent-dim);
+    background: rgba(232, 168, 92, 0.04);
+    line-height: 1.5;
+    font-style: normal;
+    letter-spacing: 0.02em;
+  }
+  .dhcp-note b { color: var(--accent); font-weight: 400; }
+
   select {
     appearance: none;
     background-image: linear-gradient(45deg, transparent 50%, var(--ink-mute) 50%),
@@ -223,7 +253,6 @@
   }
   .row.three { grid-template-columns: repeat(3, 1fr); }
 
-  /* Checkbox */
   label.check {
     display: inline-flex;
     align-items: center;
@@ -269,7 +298,6 @@
     margin-bottom: 16px;
   }
 
-  /* Buttons */
   button, .btn {
     cursor: pointer;
     font-family: var(--mono);
@@ -304,7 +332,6 @@
   button.ghost { border-color: transparent; color: var(--ink-mute); padding: 4px 8px; }
   button.ghost:hover { color: var(--accent); border-color: transparent; }
 
-  /* Repeater rows (addresses, dns, etc) */
   .repeater {
     display: flex;
     flex-direction: column;
@@ -321,7 +348,6 @@
     margin-top: 4px;
   }
 
-  /* Interface cards */
   .iface-list {
     display: flex;
     flex-direction: column;
@@ -384,7 +410,6 @@
 
   .iface-body { padding: 18px 20px; }
 
-  /* Subgroup (collapsible-ish) */
   .subgroup {
     margin-top: 18px;
     padding-top: 14px;
@@ -399,7 +424,6 @@
     margin-bottom: 10px;
   }
 
-  /* Empty state */
   .empty {
     border: 1px dashed var(--line-strong);
     padding: 28px;
@@ -410,7 +434,6 @@
     border-radius: 3px;
   }
 
-  /* Add iface row */
   .add-iface {
     display: flex;
     gap: 8px;
@@ -430,7 +453,6 @@
     letter-spacing: 0.08em;
   }
 
-  /* ── Output panel ─────────────────────────────────── */
   .output-head {
     display: flex;
     align-items: baseline;
@@ -510,7 +532,6 @@
   .yaml .c { color: var(--ink-faint); font-style: italic; }
   .yaml .d { color: var(--ink-faint); }
 
-  /* Validation banner */
   .errors {
     margin-bottom: 12px;
     padding: 10px 14px;
@@ -526,7 +547,6 @@
   .errors ul { margin: 4px 0 0 0; padding-left: 18px; }
   .errors li { margin: 2px 0; }
 
-  /* Footer */
   footer {
     border-top: 1px solid var(--line);
     margin-top: 0;
@@ -540,8 +560,20 @@
     flex-wrap: wrap;
     gap: 12px;
   }
+  footer span { color: var(--ink-mute); }
+  .byline {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--accent-dim);
+    padding-bottom: 1px;
+    transition: border-color .15s, color .15s;
+  }
+  .byline:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    text-decoration: none;
+  }
 
-  /* Toast */
   .toast {
     position: fixed;
     bottom: 24px;
@@ -568,7 +600,6 @@
 
   ::selection { background: var(--accent); color: var(--bg); }
 
-  /* Scrollbars */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: var(--bg-sunk); }
   ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 0; }
@@ -585,12 +616,12 @@
     <h1><i>a generator for</i> <b>netplan.yaml</b></h1>
   </div>
   <div class="meta">
-    <span>v2 schema</span> &nbsp;·&nbsp; ubuntu / debian &nbsp;·&nbsp; <span>networkd · NetworkManager</span>
+    <a href="https://asjhosting.com" target="_blank" rel="noopener" class="byline">Andreas Skarmark-Jakobsen</a> &nbsp;·&nbsp; <span>v2 schema</span> &nbsp;·&nbsp; ubuntu / debian &nbsp;·&nbsp; <span>networkd · NetworkManager</span>
   </div>
 </header>
 
 <main>
-  <!-- ─────────────────────── FORM ─────────────────────── -->
+
   <section class="col-form">
 
     <div class="section">
@@ -644,7 +675,6 @@
 
   </section>
 
-  <!-- ─────────────────────── OUTPUT ─────────────────────── -->
   <section class="col-output">
     <div class="output-head">
       <h2 class="output-title">Output <small>/etc/netplan/01-config.yaml</small></h2>
@@ -668,7 +698,6 @@
 
 <footer>
   <div>netplan.yaml · place at <code style="color:var(--ink-mute)">/etc/netplan/</code> · apply with <code style="color:var(--accent)">sudo netplan apply</code></div>
-  <div>made for sysadmins · runs entirely in your browser · no data leaves this page</div>
 </footer>
 
 </div>
@@ -676,21 +705,16 @@
 <div id="toast" class="toast">copied</div>
 
 <script>
-/* ──────────────────────────────────────────────────────────
- * State
- * ────────────────────────────────────────────────────────── */
+
 const state = {
   renderer: 'networkd',
   version: 2,
-  // each iface: { id, kind, name, ...fields }
+
   ifaces: []
 };
 
 let nextId = 1;
 
-/* ──────────────────────────────────────────────────────────
- * Defaults per interface kind
- * ────────────────────────────────────────────────────────── */
 function defaultIface(kind) {
   const base = {
     id: nextId++,
@@ -739,9 +763,6 @@ function suggestName(prefix) {
   return prefix + n;
 }
 
-/* ──────────────────────────────────────────────────────────
- * Rendering — interfaces
- * ────────────────────────────────────────────────────────── */
 const ifaceListEl = document.getElementById('ifaces');
 const emptyEl = document.getElementById('empty-state');
 
@@ -769,7 +790,6 @@ function renderIface(iface, idx) {
     vlans: 'vlan'
   }[iface.kind];
 
-  // Head
   const head = document.createElement('div');
   head.className = 'iface-head';
   head.innerHTML = `
@@ -784,13 +804,11 @@ function renderIface(iface, idx) {
   `;
   el.appendChild(head);
 
-  // Body
   const body = document.createElement('div');
   body.className = 'iface-body';
   body.innerHTML = renderIfaceBody(iface);
   el.appendChild(body);
 
-  // Wire up
   el.addEventListener('input', e => handleInput(iface, e));
   el.addEventListener('change', e => handleInput(iface, e));
   el.addEventListener('click', e => handleClick(iface, e));
@@ -801,7 +819,6 @@ function renderIface(iface, idx) {
 function renderIfaceBody(iface) {
   let html = '';
 
-  // Wifi access points (top of body)
   if (iface.kind === 'wifis') {
     html += `
       <div class="subgroup-title" style="margin-top:0">Access points</div>
@@ -818,7 +835,6 @@ function renderIfaceBody(iface) {
     `;
   }
 
-  // Bridges & bonds: members
   if (iface.kind === 'bridges' || iface.kind === 'bonds') {
     html += `
       <label class="field">
@@ -829,7 +845,6 @@ function renderIfaceBody(iface) {
     `;
   }
 
-  // Bond-specific
   if (iface.kind === 'bonds') {
     html += `
       <div class="row">
@@ -848,7 +863,6 @@ function renderIfaceBody(iface) {
     `;
   }
 
-  // Bridge-specific
   if (iface.kind === 'bridges') {
     html += `
       <div class="check-row">
@@ -865,7 +879,6 @@ function renderIfaceBody(iface) {
     `;
   }
 
-  // VLAN
   if (iface.kind === 'vlans') {
     html += `
       <div class="row">
@@ -881,7 +894,6 @@ function renderIfaceBody(iface) {
     `;
   }
 
-  // DHCP toggles (all kinds)
   html += `
     <div class="check-row">
       <label class="check">
@@ -902,45 +914,58 @@ function renderIfaceBody(iface) {
     </div>
   `;
 
-  // Static addresses
+  const dhcpOn = iface.dhcp4 || iface.dhcp6;
+  const lockedAttr = dhcpOn ? 'disabled' : '';
+  const lockedClass = dhcpOn ? ' dhcp-locked' : '';
+  let dhcpNote = '';
+  if (dhcpOn) {
+    const which = (iface.dhcp4 && iface.dhcp6) ? 'DHCPv4 and DHCPv6'
+                : iface.dhcp4 ? 'DHCPv4' : 'DHCPv6';
+    dhcpNote = `
+      <div class="dhcp-note">
+        <b>${which}</b> is enabled — address, gateway, and nameservers are provided by the DHCP server.
+        Turn DHCP off to set them by hand.
+      </div>
+    `;
+  }
+
   html += `
-    <div class="subgroup">
+    <div class="subgroup${lockedClass}">
       <div class="subgroup-title">Static addresses</div>
+      ${dhcpNote}
       <div data-list="addresses" class="repeater">
         ${(iface.addresses || []).map((a, i) => `
           <div class="repeater-row">
-            <input type="text" data-list-bind="value" data-i="${i}" value="${esc(a)}" placeholder="192.168.1.10/24  or  2001:db8::1/64" />
-            <button class="danger" data-action="remove-addr" data-i="${i}">×</button>
+            <input type="text" data-list-bind="value" data-i="${i}" value="${esc(a)}" placeholder="192.168.1.10/24  or  2001:db8::1/64" ${lockedAttr} />
+            <button class="danger" data-action="remove-addr" data-i="${i}" ${lockedAttr}>×</button>
           </div>
         `).join('')}
-        <button class="ghost repeater-add" data-action="add-addr">+ address</button>
+        <button class="ghost repeater-add" data-action="add-addr" ${lockedAttr}>+ address</button>
       </div>
     </div>
   `;
 
-  // Gateway + DNS
   html += `
-    <div class="subgroup">
+    <div class="subgroup${lockedClass}">
       <div class="subgroup-title">Routing &amp; DNS</div>
       <label class="field">
         <span class="lbl">Default gateway</span>
-        <input type="text" data-bind="gateway" value="${esc(iface.gateway)}" placeholder="192.168.1.1" />
+        <input type="text" data-bind="gateway" value="${esc(iface.gateway)}" placeholder="192.168.1.1" ${lockedAttr} />
         <span class="hint">Generates a default route via this address.</span>
       </label>
       <div class="row">
         <label class="field">
           <span class="lbl">Nameservers</span>
-          <input type="text" data-bind="nameserversStr" value="${esc((iface.nameservers || []).join(', '))}" placeholder="1.1.1.1, 8.8.8.8" />
+          <input type="text" data-bind="nameserversStr" value="${esc((iface.nameservers || []).join(', '))}" placeholder="1.1.1.1, 8.8.8.8" ${lockedAttr} />
         </label>
         <label class="field">
           <span class="lbl">Search domains</span>
-          <input type="text" data-bind="searchStr" value="${esc((iface.search || []).join(', '))}" placeholder="lan, example.com" />
+          <input type="text" data-bind="searchStr" value="${esc((iface.search || []).join(', '))}" placeholder="lan, example.com" ${lockedAttr} />
         </label>
       </div>
     </div>
   `;
 
-  // Custom routes
   html += `
     <div class="subgroup">
       <div class="subgroup-title">Custom routes</div>
@@ -958,7 +983,6 @@ function renderIfaceBody(iface) {
     </div>
   `;
 
-  // Advanced
   html += `
     <div class="subgroup">
       <div class="subgroup-title">Advanced</div>
@@ -978,13 +1002,9 @@ function renderIfaceBody(iface) {
   return html;
 }
 
-/* ──────────────────────────────────────────────────────────
- * Event handling
- * ────────────────────────────────────────────────────────── */
 function handleInput(iface, e) {
   const t = e.target;
 
-  // Simple bind
   const bind = t.dataset.bind;
   if (bind) {
     let v;
@@ -1001,11 +1021,15 @@ function handleInput(iface, e) {
     } else {
       iface[bind] = v;
     }
-    generateYaml();
+
+    if (bind === 'dhcp4' || bind === 'dhcp6') {
+      render();
+    } else {
+      generateYaml();
+    }
     return;
   }
 
-  // List-bound (repeater rows)
   const lb = t.dataset.listBind;
   if (lb) {
     const i = parseInt(t.dataset.i, 10);
@@ -1075,9 +1099,6 @@ function handleClick(iface, e) {
   }
 }
 
-/* ──────────────────────────────────────────────────────────
- * Add interface buttons
- * ────────────────────────────────────────────────────────── */
 document.querySelectorAll('[data-add]').forEach(btn => {
   btn.addEventListener('click', () => {
     state.ifaces.push(defaultIface(btn.dataset.add));
@@ -1085,15 +1106,11 @@ document.querySelectorAll('[data-add]').forEach(btn => {
   });
 });
 
-/* Globals */
 document.getElementById('renderer').addEventListener('change', e => {
   state.renderer = e.target.value;
   generateYaml();
 });
 
-/* ──────────────────────────────────────────────────────────
- * YAML generation
- * ────────────────────────────────────────────────────────── */
 function generateYaml() {
   const errors = validate();
   showErrors(errors);
@@ -1105,7 +1122,6 @@ function generateYaml() {
   lines.push([indent(1) + 'version: ' + state.version, null]);
   lines.push([indent(1) + 'renderer: ' + state.renderer, null]);
 
-  // Group by kind
   const kinds = ['ethernets', 'wifis', 'bridges', 'bonds', 'vlans'];
   for (const kind of kinds) {
     const list = state.ifaces.filter(i => i.kind === kind && i.name.trim());
@@ -1117,7 +1133,6 @@ function generateYaml() {
     }
   }
 
-  // Render with syntax highlight
   renderYaml(lines.map(l => l[0]).join('\n'));
 }
 
@@ -1126,7 +1141,6 @@ function emitIface(lines, iface, lvl) {
   lines.push([I(lvl) + qkey(iface.name) + ':', null]);
   const L = lvl + 1;
 
-  // Wifi access points
   if (iface.kind === 'wifis') {
     const aps = (iface.accessPoints || []).filter(a => a.ssid.trim());
     if (aps.length) {
@@ -1140,32 +1154,31 @@ function emitIface(lines, iface, lvl) {
     }
   }
 
-  // Bridge / bond members
   if ((iface.kind === 'bridges' || iface.kind === 'bonds') && iface.members && iface.members.length) {
     lines.push([I(L) + 'interfaces: ' + arrInline(iface.members), null]);
   }
 
-  // VLAN id + link
   if (iface.kind === 'vlans') {
     if (iface.vlanId !== '' && iface.vlanId != null) lines.push([I(L) + 'id: ' + iface.vlanId, null]);
     if (iface.link) lines.push([I(L) + 'link: ' + iface.link, null]);
   }
 
-  // DHCP
   if (iface.dhcp4) lines.push([I(L) + 'dhcp4: true', null]);
   if (iface.dhcp6) lines.push([I(L) + 'dhcp6: true', null]);
   if (iface.optional) lines.push([I(L) + 'optional: true', null]);
 
-  // Addresses
-  const addrs = (iface.addresses || []).filter(a => a.trim());
-  if (addrs.length) {
-    lines.push([I(L) + 'addresses:', null]);
-    for (const a of addrs) lines.push([I(L+1) + '- ' + a.trim(), null]);
+  const dhcpProvided = iface.dhcp4 || iface.dhcp6;
+
+  if (!dhcpProvided) {
+    const addrs = (iface.addresses || []).filter(a => a.trim());
+    if (addrs.length) {
+      lines.push([I(L) + 'addresses:', null]);
+      for (const a of addrs) lines.push([I(L+1) + '- ' + a.trim(), null]);
+    }
   }
 
-  // Routes (gateway + custom)
   const routes = [];
-  if (iface.gateway && iface.gateway.trim()) {
+  if (!dhcpProvided && iface.gateway && iface.gateway.trim()) {
     routes.push({ to: 'default', via: iface.gateway.trim(), metric: '' });
   }
   for (const r of (iface.routes || [])) {
@@ -1180,16 +1193,16 @@ function emitIface(lines, iface, lvl) {
     }
   }
 
-  // Nameservers
-  const ns = (iface.nameservers || []).filter(Boolean);
-  const search = (iface.search || []).filter(Boolean);
-  if (ns.length || search.length) {
-    lines.push([I(L) + 'nameservers:', null]);
-    if (search.length) lines.push([I(L+1) + 'search: ' + arrInline(search), null]);
-    if (ns.length) lines.push([I(L+1) + 'addresses: ' + arrInline(ns), null]);
+  if (!dhcpProvided) {
+    const ns = (iface.nameservers || []).filter(Boolean);
+    const search = (iface.search || []).filter(Boolean);
+    if (ns.length || search.length) {
+      lines.push([I(L) + 'nameservers:', null]);
+      if (search.length) lines.push([I(L+1) + 'search: ' + arrInline(search), null]);
+      if (ns.length) lines.push([I(L+1) + 'addresses: ' + arrInline(ns), null]);
+    }
   }
 
-  // Bridge params
   if (iface.kind === 'bridges') {
     const params = [];
     if (iface.stp === false) params.push(['stp', 'false']);
@@ -1200,28 +1213,22 @@ function emitIface(lines, iface, lvl) {
     }
   }
 
-  // Bond params
   if (iface.kind === 'bonds') {
     lines.push([I(L) + 'parameters:', null]);
     lines.push([I(L+1) + 'mode: ' + iface.bondMode, null]);
     if (iface.primary) lines.push([I(L+1) + 'primary: ' + iface.primary, null]);
   }
 
-  // Advanced
   if (iface.mtu !== '' && iface.mtu != null) lines.push([I(L) + 'mtu: ' + iface.mtu, null]);
   if (iface.macaddress) lines.push([I(L) + 'macaddress: ' + iface.macaddress, null]);
 }
 
-/* helpers */
 function qkey(s) { return /^[A-Za-z_][A-Za-z0-9_-]*$/.test(s) ? s : qstr(s); }
 function qstr(s) { return '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'; }
 function arrInline(arr) { return '[' + arr.map(x => /[,\s:#]/.test(x) ? qstr(x) : x).join(', ') + ']'; }
 function splitList(s) { return s.split(',').map(x => x.trim()).filter(Boolean); }
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-/* ──────────────────────────────────────────────────────────
- * YAML syntax highlighting (output)
- * ────────────────────────────────────────────────────────── */
 function renderYaml(yamlText) {
   const yamlEl = document.getElementById('yaml');
   const lines = yamlText.split('\n');
@@ -1230,19 +1237,18 @@ function renderYaml(yamlText) {
     const highlighted = highlightLine(safe);
     return '<span class="ln">' + (highlighted || '&nbsp;') + '</span>';
   }).join('');
-  // Stash plain text for copy/download
+
   yamlEl.dataset.plain = yamlText;
 }
 
 function highlightLine(line) {
-  // comment
   if (/^\s*#/.test(line)) return '<span class="c">' + line + '</span>';
-  // list item
+
   let m = line.match(/^(\s*)(-\s+)(.*)$/);
   if (m) {
     return m[1] + '<span class="d">' + m[2] + '</span>' + highlightValue(m[3]);
   }
-  // key: value
+
   m = line.match(/^(\s*)([^:]+?)(:\s*)(.*)$/);
   if (m) {
     return m[1] + '<span class="k">' + m[2] + '</span><span class="d">' + m[3] + '</span>' + highlightValue(m[4]);
@@ -1252,7 +1258,7 @@ function highlightLine(line) {
 
 function highlightValue(v) {
   if (v === '') return '';
-  // inline list/array
+
   if (/^\[.*\]$/.test(v)) return '<span class="v">' + v + '</span>';
   if (/^&quot;.*&quot;$/.test(v)) return '<span class="s">' + v + '</span>';
   if (/^(true|false)$/.test(v)) return '<span class="b">' + v + '</span>';
@@ -1260,9 +1266,6 @@ function highlightValue(v) {
   return '<span class="v">' + v + '</span>';
 }
 
-/* ──────────────────────────────────────────────────────────
- * Validation
- * ────────────────────────────────────────────────────────── */
 function validate() {
   const errs = [];
   const seen = new Set();
@@ -1277,16 +1280,15 @@ function validate() {
     }
     seen.add(iface.name);
 
-    // Need either DHCP or addresses (warning, not blocking)
     const hasAddrs = (iface.addresses || []).some(a => a.trim());
     if (!iface.dhcp4 && !iface.dhcp6 && !hasAddrs && iface.kind !== 'vlans' && iface.kind !== 'bridges' && iface.kind !== 'bonds') {
-      // soft warning
     }
 
-    // Validate addresses (rough)
-    for (const a of (iface.addresses || [])) {
-      if (a.trim() && !/^[\da-fA-F:.]+\/\d{1,3}$/.test(a.trim())) {
-        errs.push(`"${a}" doesn't look like an IP/prefix (e.g. 192.168.1.10/24).`);
+    if (!iface.dhcp4 && !iface.dhcp6) {
+      for (const a of (iface.addresses || [])) {
+        if (a.trim() && !/^[\da-fA-F:.]+\/\d{1,3}$/.test(a.trim())) {
+          errs.push(`"${a}" doesn't look like an IP/prefix (e.g. 192.168.1.10/24).`);
+        }
       }
     }
 
@@ -1317,9 +1319,6 @@ function showErrors(errs) {
   box.classList.add('show');
 }
 
-/* ──────────────────────────────────────────────────────────
- * Toolbar actions
- * ────────────────────────────────────────────────────────── */
 const yamlEl = document.getElementById('yaml');
 const toast = document.getElementById('toast');
 
@@ -1336,7 +1335,6 @@ document.getElementById('btn-copy').addEventListener('click', async () => {
     await navigator.clipboard.writeText(text);
     showToast('copied to clipboard');
   } catch {
-    // Fallback
     const ta = document.createElement('textarea');
     ta.value = text;
     document.body.appendChild(ta);
@@ -1367,9 +1365,6 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   render();
 });
 
-/* ──────────────────────────────────────────────────────────
- * Boot — start with one ethernet for orientation
- * ────────────────────────────────────────────────────────── */
 state.ifaces.push(defaultIface('ethernets'));
 render();
 </script>

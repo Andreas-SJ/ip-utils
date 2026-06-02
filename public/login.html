@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Login &mdash; ip-utils</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0d1014;
+    --bg-elev: #141921;
+    --bg-sunk: #090c10;
+    --line: #1f2530;
+    --line-strong: #2a3142;
+    --ink: #e6e1d5;
+    --ink-mute: #9aa1ad;
+    --ink-faint: #5a6370;
+    --accent: #e8a85c;
+    --accent-dim: #8a6535;
+    --danger: #d96856;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: 'IBM Plex Serif', Georgia, serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: -1px -1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--line-strong);
+    border-left: 3px solid var(--accent-dim);
+    border-radius: 3px;
+    padding: 32px 32px 28px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  }
+
+  .card-head { margin-bottom: 26px; }
+
+  .brand-mark {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+    color: var(--accent); text-transform: uppercase;
+    border: 1px solid var(--accent-dim); padding: 3px 7px; border-radius: 2px;
+    display: inline-block; margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: var(--serif); font-weight: 600; font-size: 22px;
+    margin: 0 0 6px; letter-spacing: -0.01em;
+  }
+
+  .subtitle { color: var(--ink-faint); font-size: 13px; font-family: var(--mono); }
+
+  .field { margin-bottom: 16px; }
+
+  .lbl {
+    display: block; font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+  }
+
+  input[type="text"], input[type="password"] {
+    width: 100%; background: var(--bg-sunk); color: var(--ink);
+    border: 1px solid var(--line-strong); border-radius: 2px; padding: 9px 11px;
+    font-family: var(--mono); font-size: 13px;
+    transition: border-color .15s, background .15s;
+  }
+  input:focus { outline: none; border-color: var(--accent); background: #0b0e12; }
+  input::placeholder { color: var(--ink-faint); }
+
+  .error {
+    background: rgba(217,104,86,0.1); border: 1px solid var(--danger);
+    border-radius: 2px; padding: 8px 12px; margin-bottom: 16px;
+    color: var(--danger); font-family: var(--mono); font-size: 12px;
+    display: none;
+  }
+  .error.show { display: block; }
+
+  button[type="submit"] {
+    width: 100%; cursor: pointer; font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    background: var(--accent); color: var(--bg);
+    border: 1px solid var(--accent); padding: 10px 14px; border-radius: 2px;
+    transition: all .15s ease; margin-top: 4px;
+  }
+  button[type="submit"]:hover { background: #d49848; border-color: #d49848; }
+  button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .card-foot {
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    text-align: center;
+  }
+
+  ::selection { background: var(--accent); color: var(--bg); }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-head">
+    <span class="brand-mark">ip-utils</span>
+    <h1>Sign in</h1>
+    <div class="subtitle">IP Planner access is restricted</div>
+  </div>
+
+  <div class="error" id="error"></div>
+
+  <form id="login-form" autocomplete="on">
+    <div class="field">
+      <span class="lbl">Username</span>
+      <input type="text" id="username" name="username" autocomplete="username" placeholder="username" required />
+    </div>
+    <div class="field">
+      <span class="lbl">Password</span>
+      <input type="password" id="password" name="password" autocomplete="current-password" placeholder="password" required />
+    </div>
+    <button type="submit" id="submit-btn">Sign in</button>
+  </form>
+
+  <div class="card-foot">
+    <a href="/">&larr; back to home</a>
+  </div>
+</div>
+
+<script>
+const form = document.getElementById('login-form');
+const errorEl = document.getElementById('error');
+const submitBtn = document.getElementById('submit-btn');
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  errorEl.classList.remove('show');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Signing in...';
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Login failed.';
+      errorEl.classList.add('show');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Sign in';
+      return;
+    }
+    window.location.href = data.returnTo || '/';
+  } catch {
+    errorEl.textContent = 'Network error. Please try again.';
+    errorEl.classList.add('show');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Sign in';
+  }
+});
+</script>
+
+</body>
+</html>

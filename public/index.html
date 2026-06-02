@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ip-utils</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0d1014;
+    --bg-elev: #141921;
+    --bg-sunk: #090c10;
+    --line: #1f2530;
+    --line-strong: #2a3142;
+    --ink: #e6e1d5;
+    --ink-mute: #9aa1ad;
+    --ink-faint: #5a6370;
+    --accent: #e8a85c;
+    --accent-dim: #8a6535;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: 'IBM Plex Serif', Georgia, serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: -1px -1px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  .shell { max-width: 900px; margin: 0 auto; padding: 0 28px; width: 100%; }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 22px 0 18px;
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap;
+  }
+
+  .brand { display: flex; align-items: baseline; gap: 14px; }
+  .brand-mark {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+    color: var(--accent); text-transform: uppercase;
+    border: 1px solid var(--accent-dim); padding: 4px 8px; border-radius: 2px;
+  }
+  .brand h1 {
+    font-family: var(--serif); font-weight: 400; font-style: italic;
+    font-size: 26px; margin: 0; letter-spacing: -0.01em;
+  }
+  .brand h1 b { font-style: normal; font-weight: 600; }
+
+  .header-nav {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  }
+  .header-nav a { color: var(--accent); }
+
+  main {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 60px 0 80px;
+  }
+
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    width: 100%;
+  }
+
+  .tool-card {
+    display: block;
+    background: var(--bg-elev);
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    padding: 28px 28px 24px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s, background .15s;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .tool-card::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--line-strong);
+    transition: background .15s;
+  }
+  .tool-card:hover { border-color: var(--accent); background: #181f28; text-decoration: none; }
+  .tool-card:hover::before { background: var(--accent); }
+
+  .tool-tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+    color: var(--accent); text-transform: uppercase;
+    border: 1px solid var(--accent-dim); padding: 3px 7px; border-radius: 2px;
+    display: inline-block; margin-bottom: 14px;
+  }
+
+  .tool-title {
+    font-family: var(--serif); font-size: 22px; font-weight: 600;
+    margin: 0 0 8px; color: var(--ink);
+  }
+
+  .tool-desc {
+    font-size: 13px; color: var(--ink-mute); margin: 0 0 20px; line-height: 1.6;
+  }
+
+  .tool-go {
+    font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--ink-faint);
+  }
+  .tool-card:hover .tool-go { color: var(--accent); }
+
+  .tool-locked {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    margin-top: 8px; letter-spacing: 0.04em;
+  }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 20px 0 28px;
+    color: var(--ink-faint); font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+
+  ::selection { background: var(--accent); color: var(--bg); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg-sunk); }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header>
+    <div class="brand">
+      <span class="brand-mark">ip-utils</span>
+      <h1><i>networking</i> <b>tools</b></h1>
+    </div>
+    <div class="header-nav" id="header-nav"></div>
+  </header>
+
+  <main>
+    <div class="tool-grid" id="tool-grid"></div>
+  </main>
+
+  <footer>
+    <div>ip-utils &mdash; self-hosted networking tools</div>
+  </footer>
+</div>
+
+<script>
+async function init() {
+  const [cfgRes, meRes] = await Promise.all([
+    fetch('/api/config').then(r => r.json()).catch(() => ({ hasPlanner: true, hasNetplan: true })),
+    fetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null)
+  ]);
+
+  const nav = document.getElementById('header-nav');
+  if (meRes) {
+    nav.innerHTML = '<span class="u-name">' + esc(meRes.username) + '</span>' +
+      (meRes.isAdmin ? ' &nbsp;&middot;&nbsp; <a href="/admin">admin</a>' : '') +
+      ' &nbsp;&middot;&nbsp; <a href="#" id="logout-link">logout</a>';
+    document.getElementById('logout-link').addEventListener('click', async e => {
+      e.preventDefault();
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.reload();
+    });
+  } else {
+    nav.innerHTML = '<a href="/login">log in</a>';
+  }
+
+  const grid = document.getElementById('tool-grid');
+  let html = '';
+
+  if (cfgRes.hasPlanner) {
+    html += `
+      <a class="tool-card" href="/ip-planner">
+        <div class="tool-tag">subnet/plan</div>
+        <div class="tool-title">IP Address Planner</div>
+        <div class="tool-desc">
+          Plan and annotate subnets, enumerate addresses, add per-host notes,
+          and search across everything. Supports IPv4 and IPv6.
+        </div>
+        <div class="tool-go">open planner &rarr;</div>
+        <div class="tool-locked">requires login</div>
+      </a>`;
+  }
+
+  if (cfgRes.hasNetplan) {
+    html += `
+      <a class="tool-card" href="/netplan-gen">
+        <div class="tool-tag">netplan/gen</div>
+        <div class="tool-title">Netplan Generator</div>
+        <div class="tool-desc">
+          Generate Ubuntu/Debian <code style="color:var(--accent);font-family:var(--mono);font-size:12px">netplan.yaml</code>
+          configurations with support for ethernet, Wi-Fi, bridges, bonds, and VLANs.
+        </div>
+        <div class="tool-go">open generator &rarr;</div>
+      </a>`;
+  }
+
+  grid.innerHTML = html;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+init();
+</script>
+
+</body>
+</html>

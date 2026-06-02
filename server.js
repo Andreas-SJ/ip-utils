@@ -121,7 +121,7 @@ app.post('/api/login', async (req, res) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials.' });
   req.session.user = { username: user.username, isAdmin: !!user.isAdmin };
-  const returnTo = req.session.returnTo || '/';
+  const returnTo = req.session.returnTo || (user.isAdmin ? '/admin' : '/');
   delete req.session.returnTo;
   res.json({ username: user.username, isAdmin: !!user.isAdmin, returnTo });
 });

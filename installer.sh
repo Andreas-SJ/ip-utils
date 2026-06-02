@@ -1,7 +1,20 @@
 #!/bin/bash
 set -e
 
-exec < /dev/tty
+if [ ! -t 0 ]; then
+    if [ -r /dev/tty ]; then
+        exec < /dev/tty
+    else
+        echo ""
+        echo "Error: stdin is not a terminal and /dev/tty is not accessible."
+        echo "The installer requires interactive input. Run it like this instead:"
+        echo ""
+        echo "  curl -fsSL https://raw.githubusercontent.com/Andreas-SJ/ip-utils/main/installer.sh -o /tmp/ip-utils-install.sh"
+        echo "  sudo bash /tmp/ip-utils-install.sh"
+        echo ""
+        exit 1
+    fi
+fi
 
 REPO_URL="https://github.com/Andreas-SJ/ip-utils.git"
 INSTALL_DIR="/opt/ip-utils"

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+exec < /dev/tty
+
 REPO_URL="https://github.com/Andreas-SJ/ip-utils.git"
 INSTALL_DIR="/opt/ip-utils"
 DATA_DIR="/opt/ip-utils-data"

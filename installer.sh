@@ -2,18 +2,17 @@
 set -e
 
 if [ ! -t 0 ]; then
-    if [ -r /dev/tty ]; then
-        exec < /dev/tty
+    SCRIPT_URL="https://raw.githubusercontent.com/Andreas-SJ/ip-utils/main/installer.sh"
+    TMPSCRIPT=$(mktemp /tmp/ip-utils-install-XXXXX.sh)
+    curl -fsSL "$SCRIPT_URL" -o "$TMPSCRIPT" || { echo "Error: failed to download installer."; rm -f "$TMPSCRIPT"; exit 1; }
+    if [ "$EUID" -ne 0 ]; then
+        sudo bash "$TMPSCRIPT"
     else
-        echo ""
-        echo "Error: stdin is not a terminal and /dev/tty is not accessible."
-        echo "The installer requires interactive input. Run it like this instead:"
-        echo ""
-        echo "  curl -fsSL https://raw.githubusercontent.com/Andreas-SJ/ip-utils/main/installer.sh -o /tmp/ip-utils-install.sh"
-        echo "  sudo bash /tmp/ip-utils-install.sh"
-        echo ""
-        exit 1
+        bash "$TMPSCRIPT"
     fi
+    EXIT_CODE=$?
+    rm -f "$TMPSCRIPT"
+    exit $EXIT_CODE
 fi
 
 REPO_URL="https://github.com/Andreas-SJ/ip-utils.git"

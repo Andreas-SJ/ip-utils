@@ -100,7 +100,8 @@ do_start_container() {
   $SUDO docker run -d \
     --name "$CONTAINER_NAME" \
     --restart unless-stopped \
-    -p 80:80 \
+    --network host \
+    --cap-add NET_RAW \
     -v "${DATA_DIR}:/app/data" \
     -e "ADMIN_USER=${admin_user}" \
     -e "ADMIN_PASS=${admin_pass}" \

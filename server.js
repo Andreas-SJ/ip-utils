@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { exec } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 80;
@@ -219,6 +220,58 @@ app.delete('/api/admin/plans/:username', requireAdmin, (req, res) => {
   if (!fs.existsSync(planFile)) return res.status(404).json({ error: 'No plan found for this user.' });
   fs.unlinkSync(planFile);
   res.json({ ok: true });
+});
+
+function isValidIpv4(ip) {
+  if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) return false;
+  return ip.split('.').every(n => { const v = parseInt(n, 10); return v >= 0 && v <= 255; });
+}
+
+function getOutboundInterface(ip) {
+  return new Promise(resolve => {
+    exec('ip route get ' + ip, { timeout: 2000 }, (err, stdout) => {
+      if (err) { resolve(null); return; }
+      const m = stdout.match(/\bdev\s+(\S+)/);
+      resolve(m ? m[1] : null);
+    });
+  });
+}
+
+async function arpTest(ip) {
+  const iface = await getOutboundInterface(ip);
+  if (!iface) return null;
+  return new Promise(resolve => {
+    exec('arping -c 1 -w 1 -I ' + iface + ' ' + ip, { timeout: 3000 }, error => {
+      if (error === null) resolve(true);
+      else if (error.code === 1) resolve(false);
+      else resolve(null);
+    });
+  });
+}
+
+app.get('/api/arp/:ip', requireAuth, async (req, res) => {
+  const ip = req.params.ip;
+  if (!isValidIpv4(ip)) return res.status(400).json({ error: 'Invalid IPv4 address.' });
+  const up = await arpTest(ip);
+  res.json({ ip, up });
+});
+
+app.post('/api/arp/scan', requireAuth, async (req, res) => {
+  const { ips } = req.body;
+  if (!Array.isArray(ips) || ips.length === 0) return res.json({});
+  if (ips.length > 254) return res.status(400).json({ error: 'Too many IPs in one scan.' });
+  const validIps = ips.filter(isValidIpv4);
+  const results = {};
+  const CONCURRENCY = 15;
+  const queue = [...validIps];
+  async function worker() {
+    while (queue.length) {
+      const ip = queue.shift();
+      results[ip] = await arpTest(ip);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, validIps.length) }, worker));
+  res.json(results);
 });
 
 async function bootstrap() {

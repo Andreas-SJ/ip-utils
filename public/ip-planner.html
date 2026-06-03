@@ -318,10 +318,21 @@
     border: 1px solid var(--line-strong); padding: 1px 5px; border-radius: 2px;
     color: var(--ink-faint);
   }
-  .a-tag .t.host { color: var(--ok); border-color: rgba(127,176,105,0.4); }
+  .a-tag .t.host { color: var(--ink-faint); border-color: var(--line-strong); cursor: pointer; }
   .a-tag .t.net  { color: var(--net); border-color: rgba(201,138,217,0.4); }
   .a-tag .t.bcast{ color: var(--danger); border-color: rgba(217,104,86,0.4); }
   .a-tag .t.gw   { color: var(--accent); border-color: var(--accent-dim); }
+  .a-tag .t.arp-up   { color: var(--ok);     border-color: rgba(127,176,105,0.4); }
+  .a-tag .t.arp-down { color: var(--danger); border-color: rgba(217,104,86,0.4); }
+  .a-tag .t.arp-pending { animation: arp-blink 0.7s ease-in-out infinite; }
+  .a-tag .t.arp-up-manual   { background: linear-gradient(90deg, rgba(127,176,105,0.22) 50%, transparent 50%); color: var(--ok);     border-color: rgba(127,176,105,0.4); }
+  .a-tag .t.arp-down-manual { background: linear-gradient(90deg, rgba(217,104,86,0.22)  50%, transparent 50%); color: var(--danger); border-color: rgba(217,104,86,0.4); }
+  @keyframes arp-blink { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+  .subnet-rename-input {
+    background: transparent; border: 0; border-bottom: 1px solid var(--accent);
+    color: var(--ink); font-family: var(--serif); font-size: 16px; font-weight: 600;
+    width: 100%; outline: none; padding: 0;
+  }
   .a-ip {
     width: 200px; flex-shrink: 0; font-family: var(--mono); font-size: 13px;
     color: var(--ink); display: flex; align-items: center; gap: 8px;
@@ -583,6 +594,8 @@ const MAX_ENUM = 65536;
 
 const state = { subnets: [], selectedId: null };
 let nextId = 1;
+let renamingId = null;
+const arpState = {};
 
 function enumerable(sn) { return sn.version === 4 && sn.total <= MAX_ENUM; }
 
@@ -690,22 +703,64 @@ function renderSubnetList() {
     }
     const n = annoCount(sn);
 
-    card.innerHTML = `
-      <div class="subnet-body">
-        <div class="subnet-main">
-          <div class="subnet-label">${esc(sn.label)}</div>
-          <div class="subnet-cidr">${esc(sn.cidr)}</div>
-        </div>
-        <div class="subnet-stats">
-          <div><b>v${sn.version}</b> &middot; ${usable} usable</div>
-          <div class="subnet-anno ${n ? '' : 'zero'}">&bull; ${n} note${n === 1 ? '' : 's'}</div>
-        </div>
-        <div class="subnet-actions">
-          <button class="danger" data-act="remove">remove</button>
-        </div>
-      </div>`;
+    if (sn.id === renamingId) {
+      card.innerHTML = `
+        <div class="subnet-body">
+          <div class="subnet-main">
+            <input class="subnet-rename-input" type="text" value="${esc(sn.label)}" maxlength="64" />
+            <div class="subnet-cidr">${esc(sn.cidr)}</div>
+          </div>
+          <div class="subnet-stats">
+            <div><b>v${sn.version}</b> &middot; ${usable} usable</div>
+          </div>
+          <div class="subnet-actions">
+            <button class="ghost" data-act="rename-cancel" style="font-size:11px;padding:4px 8px">cancel</button>
+          </div>
+        </div>`;
+      const input = card.querySelector('.subnet-rename-input');
+      setTimeout(() => { input.focus(); input.select(); }, 0);
+      const commit = () => {
+        sn.label = input.value.trim() || sn.cidr;
+        renamingId = null;
+        renderSubnetList();
+        scheduleSave();
+      };
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') commit();
+        else if (e.key === 'Escape') { renamingId = null; renderSubnetList(); }
+      });
+      input.addEventListener('blur', () => { if (renamingId === sn.id) commit(); });
+    } else {
+      card.innerHTML = `
+        <div class="subnet-body">
+          <div class="subnet-main">
+            <div class="subnet-label">${esc(sn.label)}</div>
+            <div class="subnet-cidr">${esc(sn.cidr)}</div>
+          </div>
+          <div class="subnet-stats">
+            <div><b>v${sn.version}</b> &middot; ${usable} usable</div>
+            <div class="subnet-anno ${n ? '' : 'zero'}">&bull; ${n} note${n === 1 ? '' : 's'}</div>
+          </div>
+          <div class="subnet-actions">
+            <button class="ghost" data-act="rename" style="font-size:11px;padding:4px 8px">rename</button>
+            <button class="danger" data-act="remove">remove</button>
+          </div>
+        </div>`;
+    }
 
     card.addEventListener('click', e => {
+      if (e.target.dataset.act === 'rename') {
+        e.stopPropagation();
+        renamingId = sn.id;
+        renderSubnetList();
+        return;
+      }
+      if (e.target.dataset.act === 'rename-cancel') {
+        e.stopPropagation();
+        renamingId = null;
+        renderSubnetList();
+        return;
+      }
       if (e.target.dataset.act === 'remove') {
         e.stopPropagation();
         const had = annoCount(sn);
@@ -723,9 +778,12 @@ function renderSubnetList() {
         })();
         return;
       }
+      if (sn.id === renamingId) return;
       state.selectedId = sn.id;
+      Object.keys(arpState).forEach(k => delete arpState[k]);
       renderSubnetList(); renderPlan();
       scheduleSave();
+      triggerArpScan(sn);
     });
 
     listEl.appendChild(card);
@@ -776,6 +834,60 @@ function renderPlan() {
 
   if (enumerable(sn)) renderEnumPlan(sn);
   else renderRegistryPlan(sn);
+}
+
+function tagClass(role, ip) {
+  if (role !== 'host') return role;
+  const s = arpState[ip];
+  return s ? 'host arp-' + s : 'host';
+}
+
+function refreshArpTags() {
+  document.querySelectorAll('.addr-row[data-ip] .a-tag .t').forEach(tag => {
+    const row = tag.closest('.addr-row');
+    if (!row) return;
+    const ip = row.dataset.ip;
+    if (!tag.classList.contains('host') && !tag.classList.contains('arp-up') &&
+        !tag.classList.contains('arp-down') && !tag.classList.contains('arp-pending') &&
+        !tag.classList.contains('arp-up-manual') && !tag.classList.contains('arp-down-manual')) return;
+    tag.className = 't ' + tagClass('host', ip);
+  });
+}
+
+async function triggerArpScan(sn) {
+  const ips = Object.keys(sn.comments).filter(ip => (sn.comments[ip] || '').trim());
+  if (!ips.length) return;
+  ips.forEach(ip => { arpState[ip] = 'pending'; });
+  refreshArpTags();
+  try {
+    const r = await fetch('/api/arp/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ips })
+    });
+    if (!r.ok) { ips.forEach(ip => { delete arpState[ip]; }); refreshArpTags(); return; }
+    const results = await r.json();
+    Object.entries(results).forEach(([ip, up]) => {
+      arpState[ip] = up === true ? 'up' : up === false ? 'down' : null;
+      if (!arpState[ip]) delete arpState[ip];
+    });
+  } catch { ips.forEach(ip => { delete arpState[ip]; }); }
+  refreshArpTags();
+}
+
+async function triggerSingleArp(ip, sn) {
+  arpState[ip] = 'pending';
+  refreshArpTags();
+  try {
+    const r = await fetch('/api/arp/' + encodeURIComponent(ip));
+    if (!r.ok) { delete arpState[ip]; refreshArpTags(); return; }
+    const d = await r.json();
+    const hasComment = !!(sn.comments[ip] && (sn.comments[ip] || '').trim());
+    if (d.up === true)       arpState[ip] = hasComment ? 'up'   : 'up-manual';
+    else if (d.up === false) arpState[ip] = hasComment ? 'down' : 'down-manual';
+    else                     delete arpState[ip];
+  } catch { delete arpState[ip]; }
+  refreshArpTags();
 }
 
 function setComment(sn, ip, val) {
@@ -850,6 +962,14 @@ function renderEnumPlan(sn) {
     }
   });
 
+  scroll.addEventListener('click', e => {
+    const tag = e.target.closest('.t.host, .t.arp-up, .t.arp-down, .t.arp-pending, .t.arp-up-manual, .t.arp-down-manual');
+    if (!tag) return;
+    const row = tag.closest('.addr-row');
+    if (!row || !row.dataset.ip) return;
+    triggerSingleArp(row.dataset.ip, sn);
+  });
+
   let lastStart = -1, lastEnd = -1;
   function draw(force) {
     const scrollTop = scroll.scrollTop;
@@ -870,7 +990,7 @@ function renderEnumPlan(sn) {
       const dim = (role === 'net' || role === 'bcast') ? ' dim' : '';
       html += `
         <div class="addr-row" style="top:${r * rowH}px" data-ip="${ip}">
-          <div class="a-tag"><span class="t ${role}">${roleLabel(role)}</span></div>
+          <div class="a-tag"><span class="t ${tagClass(role, ip)}">${roleLabel(role)}</span></div>
           <div class="a-ip${dim}">${ip}</div>
           <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${ip}"
                  value="${esc(note)}" placeholder="add a note…" />
@@ -958,7 +1078,7 @@ function renderRegistryPlan(sn) {
     const note = sn.comments[ip] || '';
     rows += `
       <div class="addr-row reg" data-ip="${esc(ip)}">
-        <div class="a-tag"><span class="t host">host</span></div>
+        <div class="a-tag"><span class="t ${tagClass('host', ip)}">host</span></div>
         <div class="a-ip">${esc(ip)}</div>
         <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…" />
         <button class="danger a-del" data-del="${esc(ip)}">&times;</button>
@@ -989,6 +1109,12 @@ function renderRegistryPlan(sn) {
     if (e.target.dataset.del) {
       delete sn.comments[e.target.dataset.del];
       renderPlan(); renderSubnetList(); scheduleSave(); rebuildSearchIndex();
+      return;
+    }
+    const tag = e.target.closest('.t.host, .t.arp-up, .t.arp-down, .t.arp-pending, .t.arp-up-manual, .t.arp-down-manual');
+    if (tag) {
+      const row = tag.closest('.addr-row');
+      if (row && row.dataset.ip) triggerSingleArp(row.dataset.ip, sn);
     }
   });
 

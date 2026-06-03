@@ -162,6 +162,26 @@
   .user-table tr:last-child td { border-bottom: 0; }
   .user-table tr:hover td { background: rgba(255,255,255,0.015); }
 
+  .plan-expand-row td { padding: 0; background: var(--bg-sunk) !important; }
+  .plan-expand { padding: 14px 18px; border-top: 1px dashed var(--line-strong); }
+  .plan-expand-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  }
+  .edit-plan-link {
+    color: var(--accent); font-family: var(--mono); font-size: 11px;
+    text-decoration: none; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .edit-plan-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .subnet-summary-list { display: flex; flex-direction: column; gap: 5px; }
+  .subnet-summary-item {
+    display: flex; align-items: center; gap: 16px; padding: 7px 10px;
+    background: var(--bg-elev); border: 1px solid var(--line); border-radius: 2px;
+  }
+  .sn-label { font-family: var(--sans); font-size: 13px; color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sn-cidr  { font-family: var(--mono); font-size: 11px; color: var(--accent); flex-shrink: 0; }
+  .sn-notes { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+
   .u-name { color: var(--ink); font-weight: 500; }
   .badge {
     display: inline-block; font-family: var(--mono); font-size: 9px;
@@ -450,6 +470,7 @@ async function loadUsers() {
         : '<span class="badge badge-no-plan">no plan</span>'}</td>
       <td>
         <div class="action-cell">
+          <button class="ghost" data-action="view-plan" data-user="${esc(u.username)}">view plan</button>
           <button class="ghost" data-action="change-pw" data-user="${esc(u.username)}">change pw</button>
           ${u.hasPlan ? `<button class="ghost" data-action="delete-plan" data-user="${esc(u.username)}">delete plan</button>` : ''}
           ${u.username !== currentUser?.username
@@ -466,6 +487,46 @@ document.getElementById('user-tbody').addEventListener('click', async e => {
   if (!btn) return;
   const action = btn.dataset.action;
   const username = btn.dataset.user;
+
+  if (action === 'view-plan') {
+    const userRow = btn.closest('tr');
+    const nextRow = userRow.nextElementSibling;
+    if (nextRow && nextRow.classList.contains('plan-expand-row')) {
+      nextRow.remove();
+      btn.textContent = 'view plan';
+      return;
+    }
+    btn.textContent = 'hide plan';
+    const expandRow = document.createElement('tr');
+    expandRow.className = 'plan-expand-row';
+    expandRow.innerHTML = `<td colspan="4"><div class="plan-expand" id="pe-${esc(username)}"><span style="color:var(--ink-faint);font-family:var(--mono);font-size:12px">Loading...</span></div></td>`;
+    userRow.after(expandRow);
+
+    const r = await fetch('/api/admin/plans/' + encodeURIComponent(username));
+    const plan = r.ok ? await r.json() : null;
+    const div = document.getElementById('pe-' + esc(username));
+    const editHref = '/ip-planner?admin_user=' + encodeURIComponent(username);
+
+    if (!plan || !Array.isArray(plan.subnets) || !plan.subnets.length) {
+      div.innerHTML = `<div class="plan-expand-head"><span>No subnets in this plan.</span><a href="${editHref}" class="edit-plan-link">open in planner &rarr;</a></div>`;
+      return;
+    }
+    const noteCount = sn => Object.values(sn.comments || {}).filter(v => v && v.trim()).length;
+    div.innerHTML = `
+      <div class="plan-expand-head">
+        <span>${plan.subnets.length} subnet${plan.subnets.length === 1 ? '' : 's'}</span>
+        <a href="${editHref}" class="edit-plan-link">edit in planner &rarr;</a>
+      </div>
+      <div class="subnet-summary-list">
+        ${plan.subnets.map(sn => `
+          <div class="subnet-summary-item">
+            <span class="sn-label">${esc(sn.label)}</span>
+            <span class="sn-cidr">${esc(sn.cidr)}</span>
+            <span class="sn-notes">${noteCount(sn)} note${noteCount(sn) === 1 ? '' : 's'}</span>
+          </div>`).join('')}
+      </div>`;
+    return;
+  }
 
   if (action === 'change-pw') {
     openPwModal(username);

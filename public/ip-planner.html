@@ -90,6 +90,11 @@
   }
   .user-nav .u-name { color: var(--ink-mute); }
   .user-nav a { color: var(--accent); }
+  .admin-banner {
+    flex-basis: 100%; background: rgba(232,168,92,0.08); border: 1px solid var(--accent-dim);
+    border-radius: 2px; padding: 6px 14px; font-family: var(--mono); font-size: 11px;
+    color: var(--accent); text-align: center; letter-spacing: 0.04em;
+  }
 
   .searchbar {
     position: sticky; top: 0; z-index: 40;
@@ -419,6 +424,7 @@
       <a href="https://asjhosting.com" target="_blank" rel="noopener" class="byline">Andreas Skarmark-Jakobsen</a> &nbsp;&middot;&nbsp; <span>IPv4 + IPv6</span> &nbsp;&middot;&nbsp; per-address notes
     </div>
     <div class="user-nav" id="user-nav"></div>
+    <div class="admin-banner" id="admin-banner" style="display:none"></div>
   </header>
 
   <div class="searchbar">
@@ -610,6 +616,14 @@ function roleLabel(r) {
   return { net: 'net', bcast: 'bcast', host: 'host', gw: 'gw' }[r] || r;
 }
 
+const adminUser = new URLSearchParams(window.location.search).get('admin_user');
+
+function planApiUrl() {
+  return adminUser
+    ? '/api/admin/plans/' + encodeURIComponent(adminUser)
+    : '/api/plan';
+}
+
 let saveTimer = null;
 function scheduleSave() {
   clearTimeout(saveTimer);
@@ -617,7 +631,7 @@ function scheduleSave() {
 }
 async function saveState() {
   try {
-    await fetch('/api/plan', {
+    await fetch(planApiUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId })
@@ -626,7 +640,7 @@ async function saveState() {
 }
 async function loadState() {
   try {
-    const r = await fetch('/api/plan');
+    const r = await fetch(planApiUrl());
     if (!r.ok) return false;
     const d = await r.json();
     if (d && Array.isArray(d.subnets)) {
@@ -854,25 +868,46 @@ function refreshArpTags() {
   });
 }
 
+const MAX_AUTO_SCAN = 510;
+
 async function triggerArpScan(sn) {
-  const ips = Object.keys(sn.comments).filter(ip => (sn.comments[ip] || '').trim());
+  let ips;
+  if (sn.version === 4 && sn.total <= MAX_AUTO_SCAN) {
+    ips = [];
+    for (let i = 0; i < sn.total; i++) {
+      const int = (sn.networkInt + i) >>> 0;
+      const role = roleOf(sn, int);
+      if (role === 'net' || role === 'bcast') continue;
+      ips.push(intToIpv4(int));
+    }
+  } else {
+    ips = Object.keys(sn.comments).filter(ip => (sn.comments[ip] || '').trim());
+  }
   if (!ips.length) return;
+
   ips.forEach(ip => { arpState[ip] = 'pending'; });
   refreshArpTags();
-  try {
-    const r = await fetch('/api/arp/scan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ips })
-    });
-    if (!r.ok) { ips.forEach(ip => { delete arpState[ip]; }); refreshArpTags(); return; }
-    const results = await r.json();
-    Object.entries(results).forEach(([ip, up]) => {
-      arpState[ip] = up === true ? 'up' : up === false ? 'down' : null;
-      if (!arpState[ip]) delete arpState[ip];
-    });
-  } catch { ips.forEach(ip => { delete arpState[ip]; }); }
-  refreshArpTags();
+
+  const BATCH = 30;
+  for (let i = 0; i < ips.length; i += BATCH) {
+    const batch = ips.slice(i, i + BATCH);
+    try {
+      const r = await fetch('/api/arp/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ips: batch })
+      });
+      if (!r.ok) continue;
+      const results = await r.json();
+      Object.entries(results).forEach(([ip, up]) => {
+        const hasComment = !!(sn.comments[ip] && (sn.comments[ip] || '').trim());
+        if (up === true)       arpState[ip] = hasComment ? 'up'   : 'up-manual';
+        else if (up === false) arpState[ip] = hasComment ? 'down' : 'down-manual';
+        else                   delete arpState[ip];
+      });
+      refreshArpTags();
+    } catch {}
+  }
 }
 
 async function triggerSingleArp(ip, sn) {
@@ -1361,6 +1396,7 @@ fetch('/api/me').then(r => {
   return r.json();
 }).then(data => {
   if (!data) return;
+  if (adminUser && !data.isAdmin) { window.location.href = '/'; return; }
   const nav = document.getElementById('user-nav');
   nav.innerHTML = '<span class="u-name">' + esc(data.username) + '</span>' +
     (data.isAdmin ? ' &nbsp;&middot;&nbsp; <a href="/admin">admin</a>' : '') +
@@ -1371,6 +1407,11 @@ fetch('/api/me').then(r => {
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/login';
   });
+  if (adminUser) {
+    const banner = document.getElementById('admin-banner');
+    banner.textContent = 'Admin view — editing plan for: ' + adminUser;
+    banner.style.display = 'block';
+  }
 }).catch(() => { window.location.href = '/login'; });
 
 (async function boot() {

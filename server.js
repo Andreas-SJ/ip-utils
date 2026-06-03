@@ -214,6 +214,25 @@ app.delete('/api/admin/users/:username', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/admin/plans/:username', requireAdmin, (req, res) => {
+  const { username } = req.params;
+  if (!loadUsers()[username]) return res.status(404).json({ error: 'User not found.' });
+  const file = path.join(PLANS_DIR, username + '.json');
+  if (!fs.existsSync(file)) return res.json(null);
+  try { res.json(JSON.parse(fs.readFileSync(file, 'utf8'))); }
+  catch { res.json(null); }
+});
+
+app.post('/api/admin/plans/:username', requireAdmin, async (req, res) => {
+  const { username } = req.params;
+  if (!loadUsers()[username]) return res.status(404).json({ error: 'User not found.' });
+  const file = path.join(PLANS_DIR, username + '.json');
+  try {
+    fs.writeFileSync(file, JSON.stringify(req.body, null, 2));
+    res.json({ ok: true });
+  } catch { res.status(500).json({ error: 'Failed to save plan.' }); }
+});
+
 app.delete('/api/admin/plans/:username', requireAdmin, (req, res) => {
   const { username } = req.params;
   const planFile = path.join(PLANS_DIR, username + '.json');

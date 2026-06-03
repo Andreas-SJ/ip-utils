@@ -104,6 +104,14 @@
     letter-spacing: 0;
   }
 
+  .user-nav {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    flex-shrink: 0;
+  }
+  .user-nav .u-name { color: var(--ink-mute); }
+  .user-nav a { color: var(--accent); }
+
   main {
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
@@ -618,6 +626,7 @@
   <div class="meta">
     <a href="https://asjhosting.com" target="_blank" rel="noopener" class="byline">Andreas Skarmark-Jakobsen</a> &nbsp;·&nbsp; <span>v2 schema</span> &nbsp;·&nbsp; ubuntu / debian &nbsp;·&nbsp; <span>networkd · NetworkManager</span>
   </div>
+  <div class="user-nav" id="user-nav"></div>
 </header>
 
 <main>
@@ -1367,6 +1376,35 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 
 state.ifaces.push(defaultIface('ethernets'));
 render();
+
+(async function initNav() {
+  const [cfg, me] = await Promise.all([
+    fetch('/api/config').then(r => r.json()).catch(() => ({})),
+    fetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null)
+  ]);
+  const nav = document.getElementById('user-nav');
+  let html = '';
+  if (cfg.hasPlanner) {
+    html += '<a href="/ip-planner">ip-planner</a>';
+  }
+  if (me) {
+    if (html) html += ' &nbsp;&middot;&nbsp; ';
+    html = '<span class="u-name">' + esc(me.username) + '</span> &nbsp;&middot;&nbsp; ' + html;
+    if (me.isAdmin) html += ' &nbsp;&middot;&nbsp; <a href="/admin">admin</a>';
+    html += ' &nbsp;&middot;&nbsp; <a href="#" id="btn-logout">logout</a>';
+  } else if (cfg.hasPlanner) {
+    html += ' &nbsp;&middot;&nbsp; <a href="/login">log in</a>';
+  }
+  nav.innerHTML = html;
+  const logoutBtn = document.getElementById('btn-logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async e => {
+      e.preventDefault();
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.reload();
+    });
+  }
+})();
 </script>
 
 </body>

@@ -4,12 +4,8 @@ set -e
 if [ ! -t 0 ]; then
     SCRIPT_URL="https://raw.githubusercontent.com/Andreas-SJ/ip-utils/main/installer.sh"
     TMPSCRIPT=$(mktemp /tmp/ip-utils-install-XXXXX.sh)
-    curl -fsSL "$SCRIPT_URL" -o "$TMPSCRIPT" || { echo "Error: failed to download installer."; rm -f "$TMPSCRIPT"; exit 1; }
-    if [ "$EUID" -ne 0 ]; then
-        sudo bash "$TMPSCRIPT"
-    else
-        bash "$TMPSCRIPT"
-    fi
+    curl -fsSL "$SCRIPT_URL" -o "$TMPSCRIPT" < /dev/null || { echo "Error: failed to download installer."; rm -f "$TMPSCRIPT"; exit 1; }
+    bash "$TMPSCRIPT" < /dev/tty
     EXIT_CODE=$?
     rm -f "$TMPSCRIPT"
     exit $EXIT_CODE

@@ -131,7 +131,7 @@ print_summary() {
 }
 
 EXISTING_CONTAINER=false
-if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${CONTAINER_NAME}$"; then
+if $SUDO docker container inspect "$CONTAINER_NAME" &>/dev/null; then
   EXISTING_CONTAINER=true
 fi
 
@@ -153,7 +153,7 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
       say "Updating installation..."
       echo ""
 
-      EXISTING_MODE=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
+      EXISTING_MODE=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
       if [ -z "$EXISTING_MODE" ]; then EXISTING_MODE="both"; fi
 
       hr
@@ -249,11 +249,9 @@ fi
 say "Creating data directory at $DATA_DIR ..."
 $SUDO mkdir -p "$DATA_DIR/plans"
 
-if [ "$EXISTING_CONTAINER" = "true" ]; then
-  say "Stopping existing container ..."
-  $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
-  $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
-fi
+say "Removing any existing container ..."
+$SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
+$SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
 say "Building Docker image (this may take a minute) ..."
 $SUDO docker build --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"

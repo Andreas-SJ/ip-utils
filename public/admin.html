@@ -202,6 +202,14 @@
   .modal-ok { border-color: var(--danger); color: var(--danger); padding: 8px 16px; }
   .modal-ok:hover { background: var(--danger); color: var(--bg); border-color: var(--danger); }
 
+  .pw-modal { border-left-color: var(--accent-dim); }
+  .pw-modal h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 6px; }
+  .pw-modal .pw-sub { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin: 0 0 20px; }
+  .pw-modal .field { margin-bottom: 14px; }
+  .pw-ok { border-color: var(--accent-dim); color: var(--accent); padding: 8px 16px; }
+  .pw-ok:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .pw-err { color: var(--danger); font-family: var(--mono); font-size: 12px; min-height: 16px; margin-top: 6px; }
+
   footer {
     border-top: 1px solid var(--line); padding: 20px 0 28px;
     color: var(--ink-faint); font-family: var(--mono); font-size: 11px;
@@ -303,6 +311,26 @@
   </div>
 </div>
 
+<div id="pw-modal-back" class="modal-back">
+  <div class="modal pw-modal">
+    <h3 id="pw-modal-title">Change password</h3>
+    <p class="pw-sub" id="pw-modal-sub"></p>
+    <div class="field">
+      <span class="lbl">New password</span>
+      <input type="password" id="pw-new" placeholder="min. 8 characters" autocomplete="new-password" />
+    </div>
+    <div class="field">
+      <span class="lbl">Confirm password</span>
+      <input type="password" id="pw-confirm" placeholder="repeat password" autocomplete="new-password" />
+    </div>
+    <div class="pw-err" id="pw-err"></div>
+    <div class="modal-actions" style="margin-top:18px">
+      <button class="ghost" id="pw-cancel" style="padding:8px 14px">Cancel</button>
+      <button class="pw-ok" id="pw-ok">Save password</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -345,6 +373,56 @@ function confirmDialog(title, msg, label) {
 
 let currentUser = null;
 
+function openPwModal(username) {
+  document.getElementById('pw-modal-title').textContent = 'Change password';
+  document.getElementById('pw-modal-sub').textContent = 'User: ' + username;
+  document.getElementById('pw-new').value = '';
+  document.getElementById('pw-confirm').value = '';
+  document.getElementById('pw-err').textContent = '';
+  document.getElementById('pw-modal-back').classList.add('show');
+  document.getElementById('pw-new').focus();
+
+  const back = document.getElementById('pw-modal-back');
+  const okBtn = document.getElementById('pw-ok');
+  const cancelBtn = document.getElementById('pw-cancel');
+
+  function cleanup() {
+    back.classList.remove('show');
+    okBtn.onclick = cancelBtn.onclick = back.onclick = null;
+    document.removeEventListener('keydown', onKey);
+  }
+
+  async function submit() {
+    const pw = document.getElementById('pw-new').value;
+    const pw2 = document.getElementById('pw-confirm').value;
+    const errEl = document.getElementById('pw-err');
+    errEl.textContent = '';
+    if (pw.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; return; }
+    if (pw !== pw2) { errEl.textContent = 'Passwords do not match.'; return; }
+    okBtn.disabled = true;
+    const r = await fetch('/api/admin/users/' + encodeURIComponent(username) + '/password', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw })
+    });
+    const d = await r.json();
+    okBtn.disabled = false;
+    if (!r.ok) { errEl.textContent = d.error || 'Failed to change password.'; return; }
+    cleanup();
+    showToast('Password updated');
+  }
+
+  function onKey(e) {
+    if (e.key === 'Escape') cleanup();
+    else if (e.key === 'Enter') submit();
+  }
+
+  okBtn.onclick = submit;
+  cancelBtn.onclick = cleanup;
+  back.onclick = e => { if (e.target === back) cleanup(); };
+  document.addEventListener('keydown', onKey);
+}
+
 async function loadMe() {
   const r = await fetch('/api/me');
   if (!r.ok) { window.location.href = '/login'; return; }
@@ -372,6 +450,7 @@ async function loadUsers() {
         : '<span class="badge badge-no-plan">no plan</span>'}</td>
       <td>
         <div class="action-cell">
+          <button class="ghost" data-action="change-pw" data-user="${esc(u.username)}">change pw</button>
           ${u.hasPlan ? `<button class="ghost" data-action="delete-plan" data-user="${esc(u.username)}">delete plan</button>` : ''}
           ${u.username !== currentUser?.username
             ? `<button class="danger" data-action="delete-user" data-user="${esc(u.username)}">delete user</button>`
@@ -387,6 +466,11 @@ document.getElementById('user-tbody').addEventListener('click', async e => {
   if (!btn) return;
   const action = btn.dataset.action;
   const username = btn.dataset.user;
+
+  if (action === 'change-pw') {
+    openPwModal(username);
+    return;
+  }
 
   if (action === 'delete-plan') {
     const ok = await confirmDialog(

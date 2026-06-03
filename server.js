@@ -185,6 +185,20 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.put('/api/admin/users/:username/password', requireAdmin, async (req, res) => {
+  const { username } = req.params;
+  const { password } = req.body;
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+  }
+  const users = loadUsers();
+  if (!users[username]) return res.status(404).json({ error: 'User not found.' });
+  const hash = await bcrypt.hash(password, 10);
+  users[username].passwordHash = hash;
+  saveUsers(users);
+  res.json({ ok: true });
+});
+
 app.delete('/api/admin/users/:username', requireAdmin, (req, res) => {
   const { username } = req.params;
   if (username === req.session.user.username) {

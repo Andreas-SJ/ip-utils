@@ -99,6 +99,95 @@ if ! command -v git &>/dev/null; then
   install_git
 fi
 
+do_start_container() {
+  local mode="$1" admin_user="$2" admin_pass="$3"
+  say "Starting container ..."
+  $SUDO docker run -d \
+    --name "$CONTAINER_NAME" \
+    --restart unless-stopped \
+    -p 80:80 \
+    -v "${DATA_DIR}:/app/data" \
+    -e "ADMIN_USER=${admin_user}" \
+    -e "ADMIN_PASS=${admin_pass}" \
+    -e "MODE=${mode}" \
+    "$IMAGE_NAME" > /dev/null
+}
+
+print_summary() {
+  local mode="$1" admin_user="$2"
+  LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+  if [ -z "$LOCAL_IP" ]; then LOCAL_IP="<server-ip>"; fi
+  hr
+  echo ""
+  say "  Running at:  http://${LOCAL_IP}"
+  if [ "$mode" = "planner" ] || [ "$mode" = "both" ]; then
+    say "  Admin login: http://${LOCAL_IP}/login"
+    say "  Admin panel: http://${LOCAL_IP}/admin"
+    if [ -n "$admin_user" ]; then
+      say "  Admin user:  ${admin_user}"
+    fi
+  fi
+  echo ""
+  say "Container name:  $CONTAINER_NAME"
+  say "Data directory:  $DATA_DIR"
+  say "To stop:         docker stop $CONTAINER_NAME"
+  say "To view logs:    docker logs $CONTAINER_NAME"
+  echo ""
+}
+
+EXISTING_CONTAINER=false
+if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${CONTAINER_NAME}$"; then
+  EXISTING_CONTAINER=true
+fi
+
+if [ "$EXISTING_CONTAINER" = "true" ]; then
+  echo ""
+  say "An existing ip-utils installation was detected."
+  echo ""
+  say "  1) Update  (pull latest code, rebuild, keep all data)  [default]"
+  say "  2) Full reinstall  (asks for new settings and admin credentials)"
+  say "  3) Exit"
+  echo ""
+  read -r -p "Enter choice [1-3, default 1]: " install_choice
+  echo ""
+
+  case "$install_choice" in
+    2) say "Proceeding with full reinstall..." ;;
+    3) say "Exiting."; exit 0 ;;
+    *)
+      say "Updating installation..."
+      echo ""
+
+      EXISTING_MODE=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
+      if [ -z "$EXISTING_MODE" ]; then EXISTING_MODE="both"; fi
+
+      hr
+
+      if [ -d "$INSTALL_DIR/.git" ]; then
+        say "Pulling latest code ..."
+        $SUDO git -C "$INSTALL_DIR" fetch --quiet
+        $SUDO git -C "$INSTALL_DIR" reset --hard origin/main --quiet
+      else
+        say "Cloning repository to $INSTALL_DIR ..."
+        $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
+      fi
+
+      say "Building Docker image (this may take a minute) ..."
+      $SUDO docker build --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
+
+      say "Stopping existing container ..."
+      $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
+      $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+      do_start_container "$EXISTING_MODE" "" ""
+
+      say "Update complete."
+      print_summary "$EXISTING_MODE" ""
+      exit 0
+      ;;
+  esac
+fi
+
 echo ""
 say "Select installation mode:"
 say "  1) Both tools: IP Planner + Netplan Generator  [default]"
@@ -154,7 +243,7 @@ echo ""
 hr
 
 if [ -d "$INSTALL_DIR/.git" ]; then
-  say "Updating existing installation in $INSTALL_DIR ..."
+  say "Pulling latest code in $INSTALL_DIR ..."
   $SUDO git -C "$INSTALL_DIR" fetch --quiet
   $SUDO git -C "$INSTALL_DIR" reset --hard origin/main --quiet
 else
@@ -165,7 +254,7 @@ fi
 say "Creating data directory at $DATA_DIR ..."
 $SUDO mkdir -p "$DATA_DIR/plans"
 
-if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${CONTAINER_NAME}$"; then
+if [ "$EXISTING_CONTAINER" = "true" ]; then
   say "Stopping existing container ..."
   $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
   $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
@@ -174,34 +263,7 @@ fi
 say "Building Docker image (this may take a minute) ..."
 $SUDO docker build --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
 
-say "Starting container ..."
-$SUDO docker run -d \
-  --name "$CONTAINER_NAME" \
-  --restart unless-stopped \
-  -p 80:80 \
-  -v "${DATA_DIR}:/app/data" \
-  -e "ADMIN_USER=${ADMIN_USER}" \
-  -e "ADMIN_PASS=${ADMIN_PASS}" \
-  -e "MODE=${MODE}" \
-  "$IMAGE_NAME" > /dev/null
+do_start_container "$MODE" "$ADMIN_USER" "$ADMIN_PASS"
 
-hr
-echo ""
 say "Installation complete."
-echo ""
-
-LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
-if [ -z "$LOCAL_IP" ]; then LOCAL_IP="<server-ip>"; fi
-
-say "  Running at:  http://${LOCAL_IP}"
-if [ "$MODE" = "planner" ] || [ "$MODE" = "both" ]; then
-  say "  Admin login: http://${LOCAL_IP}/login"
-  say "  Admin panel: http://${LOCAL_IP}/admin"
-  say "  Admin user:  ${ADMIN_USER}"
-fi
-echo ""
-say "Container name:  $CONTAINER_NAME"
-say "Data directory:  $DATA_DIR"
-say "To stop:         docker stop $CONTAINER_NAME"
-say "To view logs:    docker logs $CONTAINER_NAME"
-echo ""
+print_summary "$MODE" "$ADMIN_USER"

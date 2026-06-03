@@ -645,7 +645,7 @@ async function loadState() {
     const d = await r.json();
     if (d && Array.isArray(d.subnets)) {
       state.subnets = d.subnets;
-      state.selectedId = d.selectedId || null;
+      state.selectedId = null;
       nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
       return true;
     }
@@ -821,7 +821,7 @@ function renderPlan() {
 
   if (!sn) {
     planCidr.textContent = '';
-    planRegion.innerHTML = `<div class="plan-empty">select a subnet on the left<br>— or add one — to see its address plan</div>`;
+    planRegion.innerHTML = `<div class="plan-empty">&larr; Select a subnet from the list<br><span style="font-size:11px;color:var(--ink-faint)">or add one above to get started</span></div>`;
     return;
   }
 
@@ -1424,7 +1424,7 @@ fetch('/api/me').then(r => {
       comments: { '192.168.1.1': 'gateway / router', '192.168.1.10': 'NAS', '192.168.1.20': 'printer' }
     };
     state.subnets = [sn];
-    state.selectedId = sn.id;
+    state.selectedId = null;
   }
   renderSubnetList();
   renderPlan();

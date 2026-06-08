@@ -1349,7 +1349,8 @@ function renderOtherPlansSection() {
   }
 }
 
-document.getElementById('other-plans-head').addEventListener('click', () => {
+const _otherPlansHead = document.getElementById('other-plans-head');
+if (_otherPlansHead) _otherPlansHead.addEventListener('click', () => {
   otherPlansSectionOpen = !otherPlansSectionOpen;
   renderOtherPlansSection();
 });
@@ -1569,6 +1570,7 @@ fetch('/api/me').then(r => {
   if (adminUser && !data.isAdmin) { window.location.href = '/'; return; }
   const nav = document.getElementById('user-nav');
   nav.innerHTML = '<span class="u-name">' + esc(data.username) + '</span>' +
+    ' &nbsp;&middot;&nbsp; <a href="/">home</a>' +
     (data.isAdmin ? ' &nbsp;&middot;&nbsp; <a href="/admin">admin</a>' : '') +
     ' &nbsp;&middot;&nbsp; <a href="/netplan-gen">netplan-gen</a>' +
     ' &nbsp;&middot;&nbsp; <a href="#" id="btn-logout">logout</a>';

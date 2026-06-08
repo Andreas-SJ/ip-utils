@@ -650,6 +650,7 @@ let nextId = 1;
 let renamingId = null;
 const arpState = {};
 let otherUserView = null;
+let editingUser = null;
 let otherPlansData = [];
 let otherPlansSectionOpen = false;
 const otherUserOpen = {};
@@ -667,12 +668,41 @@ function roleLabel(r) {
   return { net: 'net', bcast: 'bcast', host: 'host', gw: 'gw' }[r] || r;
 }
 
-const adminUser = new URLSearchParams(window.location.search).get('admin_user');
-
 function planApiUrl() {
-  return adminUser
-    ? '/api/admin/plans/' + encodeURIComponent(adminUser)
+  return editingUser
+    ? '/api/admin/plans/' + encodeURIComponent(editingUser)
     : '/api/plan';
+}
+
+async function switchToEditMode(username) {
+  editingUser = username;
+  otherUserView = null;
+  state.subnets = [];
+  state.selectedId = null;
+  const ok = await loadState();
+  if (ok) nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
+  renderSubnetList();
+  renderPlan();
+  if (otherPlansData.length) renderOtherPlansSection();
+  rebuildSearchIndex();
+  const banner = document.getElementById('admin-banner');
+  banner.innerHTML = 'Editing plan for <b>' + esc(username) + '</b> &mdash; <a href="#" id="back-own-plan" style="color:inherit;text-decoration:underline">back to own plan</a>';
+  banner.style.display = 'block';
+  document.getElementById('back-own-plan').addEventListener('click', e => { e.preventDefault(); switchToOwnPlan(); });
+}
+
+async function switchToOwnPlan() {
+  editingUser = null;
+  otherUserView = null;
+  state.subnets = [];
+  state.selectedId = null;
+  const ok = await loadState();
+  if (ok) nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
+  renderSubnetList();
+  renderPlan();
+  if (otherPlansData.length) renderOtherPlansSection();
+  rebuildSearchIndex();
+  document.getElementById('admin-banner').style.display = 'none';
 }
 
 let saveTimer = null;
@@ -906,9 +936,14 @@ function renderPlan() {
     const ro = document.createElement('div');
     ro.className = 'notice';
     ro.style.cssText = 'margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:16px';
-    ro.innerHTML = '<span>Viewing ' + esc(otherUserView.username) + "&apos;s plan &mdash; read-only</span>"
-      + '<a href="/ip-planner?admin_user=' + encodeURIComponent(otherUserView.username)
-      + '" style="font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">edit plan &rarr;</a>';
+    const capturedUser = otherUserView.username;
+    ro.innerHTML = '<span>Viewing ' + esc(capturedUser) + '&apos;s plan &mdash; read-only</span>';
+    const editBtn = document.createElement('a');
+    editBtn.href = '#';
+    editBtn.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em';
+    editBtn.textContent = 'edit plan →';
+    editBtn.addEventListener('click', e => { e.preventDefault(); switchToEditMode(capturedUser); });
+    ro.appendChild(editBtn);
     planRegion.appendChild(ro);
   }
   if (enumerable(sn)) renderEnumPlan(sn, readOnly);
@@ -1567,7 +1602,6 @@ fetch('/api/me').then(r => {
   return r.json();
 }).then(data => {
   if (!data) return;
-  if (adminUser && !data.isAdmin) { window.location.href = '/'; return; }
   const nav = document.getElementById('user-nav');
   nav.innerHTML = '<span class="u-name">' + esc(data.username) + '</span>' +
     ' &nbsp;&middot;&nbsp; <a href="/">home</a>' +
@@ -1579,11 +1613,7 @@ fetch('/api/me').then(r => {
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/login';
   });
-  if (adminUser) {
-    const banner = document.getElementById('admin-banner');
-    banner.textContent = 'Admin view — editing plan for: ' + adminUser;
-    banner.style.display = 'block';
-  } else if (data.isAdmin) {
+  if (data.isAdmin) {
     loadOtherPlans(data.username);
   }
 }).catch(() => { window.location.href = '/login'; });

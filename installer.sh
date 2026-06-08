@@ -213,6 +213,9 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
         $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
       fi
 
+      COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
+      [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
+
       say "Stopping existing container ..."
       $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
       $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
@@ -315,6 +318,9 @@ else
   say "Cloning repository to $INSTALL_DIR ..."
   $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
 fi
+
+COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
+[ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
 
 say "Creating data directory at $DATA_DIR ..."
 $SUDO mkdir -p "$DATA_DIR/plans"

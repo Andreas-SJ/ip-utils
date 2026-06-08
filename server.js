@@ -298,6 +298,9 @@ app.post('/api/arp/scan', requireAuth, async (req, res) => {
 
 const UPDATES_FILE = path.join(DATA_DIR, 'update_notifications.json');
 const GITHUB_REPO = 'Andreas-SJ/ip-utils';
+const DEPLOYED_SHA = (() => {
+  try { return fs.readFileSync(path.join(__dirname, 'version.txt'), 'utf8').trim() || null; } catch { return null; }
+})();
 const UPDATE_TAGS = [
   { tag: '[security fix]', type: 'security fix' },
   { tag: '[bug fix]',      type: 'bug fix' },
@@ -338,6 +341,11 @@ async function checkForUpdates() {
   if (!Array.isArray(commits) || !commits.length) return;
 
   const latestSha = commits[0].sha;
+
+  if (DEPLOYED_SHA && state.lastCheckedSha !== DEPLOYED_SHA) {
+    state.lastCheckedSha = DEPLOYED_SHA;
+    saveUpdates(state);
+  }
 
   if (!state.lastCheckedSha) {
     state.lastCheckedSha = latestSha;

@@ -903,10 +903,12 @@ function renderPlan() {
   }
 
   if (readOnly) {
-    const ro = document.createElement('div');
-    ro.className = 'notice';
-    ro.style.marginBottom = '10px';
-    ro.textContent = 'Viewing ' + otherUserView.username + '’s plan — read-only';
+    const ro = document.createElement(‘div’);
+    ro.className = ‘notice’;
+    ro.style.cssText = ‘margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:16px’;
+    ro.innerHTML = ‘<span>Viewing ‘’ + esc(otherUserView.username) + ‘’’s plan — read-only</span>’
+      + ‘<a href="/ip-planner?admin_user=’ + encodeURIComponent(otherUserView.username)
+      + ‘" style="font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">edit plan &rarr;</a>’;
     planRegion.appendChild(ro);
   }
   if (enumerable(sn)) renderEnumPlan(sn, readOnly);
@@ -1256,8 +1258,8 @@ async function loadOtherPlans(currentUsername) {
   if (!r.ok) return;
   const users = await r.json();
   const others = users
+    .filter(u => !u.isAdmin && u.username !== currentUsername)
     .map(u => u.username)
-    .filter(u => u !== currentUsername)
     .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   if (!others.length) return;
 

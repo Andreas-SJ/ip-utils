@@ -404,6 +404,44 @@
   #modal-ok { border-color: var(--danger); color: var(--danger); padding: 8px 16px; }
   #modal-ok:hover { background: var(--danger); color: var(--bg); border-color: var(--danger); }
 
+  .other-plans-section { margin-top: 36px; }
+  .other-plans-hd {
+    display: flex; align-items: center; gap: 14px;
+    padding-bottom: 10px; border-bottom: 1px dashed var(--line-strong);
+    cursor: pointer; user-select: none; margin-bottom: 0;
+  }
+  .other-plans-hd:hover .section-title { color: var(--accent); }
+  .other-plans-toggle { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+  .other-user-group { margin-top: 10px; }
+  .other-user-hd {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    background: var(--bg-elev); border: 1px solid var(--line-strong); border-radius: 2px;
+    cursor: pointer; user-select: none; font-family: var(--mono); font-size: 12px;
+    transition: border-color .15s;
+  }
+  .other-user-hd:hover { border-color: var(--ink-faint); }
+  .other-user-hd.viewing { border-color: var(--accent-dim); }
+  .other-user-name { color: var(--accent); }
+  .other-user-count { color: var(--ink-faint); font-size: 11px; }
+  .other-user-arrow { margin-left: auto; color: var(--ink-faint); font-size: 10px; }
+  .other-user-list { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
+  .other-user-empty {
+    padding: 14px; text-align: center; color: var(--ink-faint);
+    font-family: var(--mono); font-size: 12px; font-style: italic;
+  }
+  .other-subnet {
+    border: 1px solid var(--line); background: var(--bg-elev); border-radius: 3px;
+    overflow: hidden; position: relative; cursor: pointer; transition: border-color .15s;
+  }
+  .other-subnet::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--line-strong); transition: background .15s;
+  }
+  .other-subnet:hover { border-color: var(--ink-faint); }
+  .other-subnet.selected { border-color: var(--accent-dim); }
+  .other-subnet.selected::before { background: var(--accent); }
+  .a-cm[readonly] { color: var(--ink-mute); cursor: default; border-bottom-color: transparent !important; }
+
   ::selection { background: var(--accent); color: var(--bg); }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: var(--bg-sunk); }
@@ -464,6 +502,15 @@
 
         <div id="subnet-list" class="subnet-list"></div>
         <div id="subnet-empty" class="empty">no subnets yet &mdash; add one above to begin</div>
+      </div>
+
+      <div id="other-plans-section" class="other-plans-section" style="display:none">
+        <div class="other-plans-hd" id="other-plans-head">
+          <span class="section-num">§ 02</span>
+          <h2 class="section-title">Other netplans</h2>
+          <span class="other-plans-toggle" id="other-plans-toggle">&#9660;</span>
+        </div>
+        <div id="other-plans-body"></div>
       </div>
     </section>
 
@@ -602,6 +649,10 @@ const state = { subnets: [], selectedId: null };
 let nextId = 1;
 let renamingId = null;
 const arpState = {};
+let otherUserView = null;
+let otherPlansData = [];
+let otherPlansSectionOpen = false;
+const otherUserOpen = {};
 
 function enumerable(sn) { return sn.version === 4 && sn.total <= MAX_ENUM; }
 
@@ -793,9 +844,11 @@ function renderSubnetList() {
         return;
       }
       if (sn.id === renamingId) return;
+      otherUserView = null;
       state.selectedId = sn.id;
       Object.keys(arpState).forEach(k => delete arpState[k]);
       renderSubnetList(); renderPlan();
+      if (otherPlansData.length) renderOtherPlansSection();
       scheduleSave();
       triggerArpScan(sn);
     });
@@ -815,7 +868,10 @@ let pendingScrollIp = null;
 function selectedSubnet() { return state.subnets.find(s => s.id === state.selectedId) || null; }
 
 function renderPlan() {
-  const sn = selectedSubnet();
+  const readOnly = !!otherUserView;
+  const sn = readOnly
+    ? (otherUserView.subnets.find(s => s.id === otherUserView.selectedId) || null)
+    : selectedSubnet();
   planRegion.innerHTML = '';
   planFacts.innerHTML = '';
 
@@ -846,8 +902,15 @@ function renderPlan() {
       <div class="f"><b>addresses</b><span>2^${128 - sn.prefix}</span></div>`;
   }
 
-  if (enumerable(sn)) renderEnumPlan(sn);
-  else renderRegistryPlan(sn);
+  if (readOnly) {
+    const ro = document.createElement('div');
+    ro.className = 'notice';
+    ro.style.marginBottom = '10px';
+    ro.textContent = 'Viewing ' + otherUserView.username + '’s plan — read-only';
+    planRegion.appendChild(ro);
+  }
+  if (enumerable(sn)) renderEnumPlan(sn, readOnly);
+  else renderRegistryPlan(sn, readOnly);
 }
 
 function tagClass(role, ip) {
@@ -930,7 +993,7 @@ function setComment(sn, ip, val) {
   else delete sn.comments[ip];
 }
 
-function renderEnumPlan(sn) {
+function renderEnumPlan(sn, readOnly) {
   const wrap = document.createElement('div');
   wrap.style.display = 'flex';
   wrap.style.flexDirection = 'column';
@@ -987,7 +1050,7 @@ function renderEnumPlan(sn) {
   wrap.appendChild(scroll);
   planRegion.appendChild(wrap);
 
-  scroll.addEventListener('input', e => {
+  if (!readOnly) scroll.addEventListener('input', e => {
     if (e.target.classList.contains('a-cm')) {
       const ip = e.target.dataset.ip;
       setComment(sn, ip, e.target.value);
@@ -1028,7 +1091,7 @@ function renderEnumPlan(sn) {
           <div class="a-tag"><span class="t ${tagClass(role, ip)}">${roleLabel(role)}</span></div>
           <div class="a-ip${dim}">${ip}</div>
           <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${ip}"
-                 value="${esc(note)}" placeholder="add a note…" />
+                 value="${esc(note)}" placeholder="add a note…"${readOnly ? ' readonly' : ''} />
         </div>`;
     }
     sizer.innerHTML = html;
@@ -1084,7 +1147,7 @@ function wireFilter(sn) {
   if (an) an.addEventListener('change', () => { planFilter.onlyAnno = an.checked; renderPlan(); });
 }
 
-function renderRegistryPlan(sn) {
+function renderRegistryPlan(sn, readOnly) {
   const wrap = document.createElement('div');
   wrap.style.display = 'flex'; wrap.style.flexDirection = 'column'; wrap.style.flex = '1'; wrap.style.minHeight = '0';
 
@@ -1115,8 +1178,8 @@ function renderRegistryPlan(sn) {
       <div class="addr-row reg" data-ip="${esc(ip)}">
         <div class="a-tag"><span class="t ${tagClass('host', ip)}">host</span></div>
         <div class="a-ip">${esc(ip)}</div>
-        <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…" />
-        <button class="danger a-del" data-del="${esc(ip)}">&times;</button>
+        <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…"${readOnly ? ' readonly' : ''} />
+        ${!readOnly ? `<button class="danger a-del" data-del="${esc(ip)}">&times;</button>` : ''}
       </div>`;
   });
   if (!filtered.length) {
@@ -1124,16 +1187,18 @@ function renderRegistryPlan(sn) {
   }
   scroll.innerHTML = rows;
 
-  const add = document.createElement('div');
-  add.className = 'reg-add';
-  add.innerHTML = `
-    <input type="text" id="reg-ip" placeholder="${sn.version === 6 ? '2001:db8::10' : '10.5.0.42'}" />
-    <button id="reg-add-btn" class="primary">+ track address</button>`;
-  scroll.appendChild(add);
+  if (!readOnly) {
+    const add = document.createElement('div');
+    add.className = 'reg-add';
+    add.innerHTML = `
+      <input type="text" id="reg-ip" placeholder="${sn.version === 6 ? '2001:db8::10' : '10.5.0.42'}" />
+      <button id="reg-add-btn" class="primary">+ track address</button>`;
+    scroll.appendChild(add);
+  }
   wrap.appendChild(scroll);
   planRegion.appendChild(wrap);
 
-  scroll.addEventListener('input', e => {
+  if (!readOnly) scroll.addEventListener('input', e => {
     if (e.target.classList.contains('a-cm')) {
       setComment(sn, e.target.dataset.ip, e.target.value);
       e.target.classList.toggle('has', !!e.target.value.trim());
@@ -1141,7 +1206,7 @@ function renderRegistryPlan(sn) {
     }
   });
   scroll.addEventListener('click', e => {
-    if (e.target.dataset.del) {
+    if (!readOnly && e.target.dataset.del) {
       delete sn.comments[e.target.dataset.del];
       renderPlan(); renderSubnetList(); scheduleSave(); rebuildSearchIndex();
       return;
@@ -1153,36 +1218,139 @@ function renderRegistryPlan(sn) {
     }
   });
 
-  const regIp = document.getElementById('reg-ip');
-  const addAddr = () => {
-    const val = regIp.value.trim();
-    if (!val) return;
-    let ok = false, norm = val;
-    if (sn.version === 6) {
-      const b = ipv6ToBig(val);
-      if (b !== null) { ok = true; norm = bigToIpv6(b); }
-    } else {
-      const v = ipv4ToInt(val);
-      if (v !== null && v >= sn.networkInt && v <= sn.broadcastInt) { ok = true; norm = intToIpv4(v); }
-    }
-    if (!ok) { regIp.style.borderColor = 'var(--danger)'; return; }
-    if (!(norm in sn.comments)) sn.comments[norm] = '';
-    planFilter.text = ''; planFilter.onlyAnno = false;
-    renderPlan(); renderSubnetList(); scheduleSave(); rebuildSearchIndex();
-    requestAnimationFrame(() => {
-      const inp = planRegion.querySelector('.a-cm[data-ip="' + cssEsc(norm) + '"]');
-      if (inp) inp.focus();
-    });
-  };
-  document.getElementById('reg-add-btn').addEventListener('click', addAddr);
-  regIp.addEventListener('keydown', e => { if (e.key === 'Enter') addAddr(); });
-  regIp.addEventListener('input', () => { regIp.style.borderColor = ''; });
+  if (!readOnly) {
+    const regIp = document.getElementById('reg-ip');
+    const addAddr = () => {
+      const val = regIp.value.trim();
+      if (!val) return;
+      let ok = false, norm = val;
+      if (sn.version === 6) {
+        const b = ipv6ToBig(val);
+        if (b !== null) { ok = true; norm = bigToIpv6(b); }
+      } else {
+        const v = ipv4ToInt(val);
+        if (v !== null && v >= sn.networkInt && v <= sn.broadcastInt) { ok = true; norm = intToIpv4(v); }
+      }
+      if (!ok) { regIp.style.borderColor = 'var(--danger)'; return; }
+      if (!(norm in sn.comments)) sn.comments[norm] = '';
+      planFilter.text = ''; planFilter.onlyAnno = false;
+      renderPlan(); renderSubnetList(); scheduleSave(); rebuildSearchIndex();
+      requestAnimationFrame(() => {
+        const inp = planRegion.querySelector('.a-cm[data-ip="' + cssEsc(norm) + '"]');
+        if (inp) inp.focus();
+      });
+    };
+    document.getElementById('reg-add-btn').addEventListener('click', addAddr);
+    regIp.addEventListener('keydown', e => { if (e.key === 'Enter') addAddr(); });
+    regIp.addEventListener('input', () => { regIp.style.borderColor = ''; });
+  }
 }
 
 function sortIps(version) {
   if (version === 4) return (a, b) => (ipv4ToInt(a) - ipv4ToInt(b));
   return (a, b) => { const x = ipv6ToBig(a), y = ipv6ToBig(b); return x < y ? -1 : x > y ? 1 : 0; };
 }
+
+async function loadOtherPlans(currentUsername) {
+  const r = await fetch('/api/admin/users');
+  if (!r.ok) return;
+  const users = await r.json();
+  const others = users
+    .map(u => u.username)
+    .filter(u => u !== currentUsername)
+    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  if (!others.length) return;
+
+  otherPlansData = await Promise.all(others.map(async u => {
+    try {
+      const r2 = await fetch('/api/admin/plans/' + encodeURIComponent(u));
+      const plan = r2.ok ? await r2.json() : null;
+      return { username: u, subnets: (plan && Array.isArray(plan.subnets)) ? plan.subnets : [] };
+    } catch { return { username: u, subnets: [] }; }
+  }));
+
+  const section = document.getElementById('other-plans-section');
+  if (section) section.style.display = '';
+  renderOtherPlansSection();
+}
+
+function renderOtherPlansSection() {
+  const body = document.getElementById('other-plans-body');
+  const toggle = document.getElementById('other-plans-toggle');
+  if (!body) return;
+  if (toggle) toggle.innerHTML = otherPlansSectionOpen ? '&#9650;' : '&#9660;';
+  body.style.display = otherPlansSectionOpen ? '' : 'none';
+  if (!otherPlansSectionOpen) return;
+
+  body.innerHTML = '';
+  for (const { username, subnets } of otherPlansData) {
+    const group = document.createElement('div');
+    group.className = 'other-user-group';
+    const isExpanded = !!otherUserOpen[username];
+    const isViewingThis = otherUserView && otherUserView.username === username;
+
+    const hd = document.createElement('div');
+    hd.className = 'other-user-hd' + (isViewingThis ? ' viewing' : '');
+    hd.innerHTML = `
+      <span class="other-user-name">${esc(username)}</span>
+      <span class="other-user-count">${subnets.length} subnet${subnets.length !== 1 ? 's' : ''}</span>
+      <span class="other-user-arrow">${isExpanded ? '&#9650;' : '&#9660;'}</span>`;
+    hd.addEventListener('click', () => { otherUserOpen[username] = !isExpanded; renderOtherPlansSection(); });
+
+    const list = document.createElement('div');
+    list.className = 'other-user-list';
+    list.style.display = isExpanded ? 'flex' : 'none';
+
+    if (!subnets.length) {
+      const em = document.createElement('div');
+      em.className = 'other-user-empty';
+      em.textContent = 'no subnets';
+      list.appendChild(em);
+    } else {
+      subnets.forEach(sn => {
+        const isSelected = isViewingThis && otherUserView.selectedId === sn.id;
+        const card = document.createElement('div');
+        card.className = 'other-subnet' + (isSelected ? ' selected' : '');
+        let usable;
+        if (sn.version === 4) {
+          usable = (sn.prefix >= 31 ? (sn.prefix === 32 ? 1 : 2) : sn.total - 2).toLocaleString();
+        } else {
+          usable = '2^' + (128 - sn.prefix);
+        }
+        const n = Object.values(sn.comments || {}).filter(v => v && v.trim()).length;
+        card.innerHTML = `
+          <div class="subnet-body">
+            <div class="subnet-main">
+              <div class="subnet-label">${esc(sn.label)}</div>
+              <div class="subnet-cidr">${esc(sn.cidr)}</div>
+            </div>
+            <div class="subnet-stats">
+              <div><b>v${sn.version}</b> &middot; ${usable} usable</div>
+              <div class="subnet-anno ${n ? '' : 'zero'}">&bull; ${n} note${n !== 1 ? 's' : ''}</div>
+            </div>
+          </div>`;
+        card.addEventListener('click', e => {
+          e.stopPropagation();
+          otherUserView = { subnets, selectedId: sn.id, username };
+          state.selectedId = null;
+          renderSubnetList();
+          renderPlan();
+          renderOtherPlansSection();
+        });
+        list.appendChild(card);
+      });
+    }
+
+    group.appendChild(hd);
+    group.appendChild(list);
+    body.appendChild(group);
+  }
+}
+
+document.getElementById('other-plans-head').addEventListener('click', () => {
+  otherPlansSectionOpen = !otherPlansSectionOpen;
+  renderOtherPlansSection();
+});
 
 const searchEl = document.getElementById('search');
 const resultsEl = document.getElementById('results');
@@ -1411,6 +1579,8 @@ fetch('/api/me').then(r => {
     const banner = document.getElementById('admin-banner');
     banner.textContent = 'Admin view — editing plan for: ' + adminUser;
     banner.style.display = 'block';
+  } else if (data.isAdmin) {
+    loadOtherPlans(data.username);
   }
 }).catch(() => { window.location.href = '/login'; });
 

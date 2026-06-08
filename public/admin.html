@@ -230,6 +230,40 @@
   .pw-ok:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
   .pw-err { color: var(--danger); font-family: var(--mono); font-size: 12px; min-height: 16px; margin-top: 6px; }
 
+  .update-banner {
+    margin: 24px 0 -20px;
+    border: 1px solid var(--line-strong); border-radius: 3px; overflow: hidden;
+  }
+  .update-banner-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px; background: var(--bg-elev);
+    border-bottom: 1px solid var(--line-strong);
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--ink-faint);
+  }
+  .update-entry {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; border-bottom: 1px solid var(--line);
+    border-left: 3px solid transparent;
+  }
+  .update-entry:last-child { border-bottom: 0; }
+  .update-entry.type-security-fix { border-left-color: var(--danger); }
+  .update-entry.type-bug-fix      { border-left-color: var(--accent); }
+  .update-entry.type-new-feature  { border-left-color: var(--ok); }
+  .update-tag {
+    flex-shrink: 0; font-family: var(--mono); font-size: 9px;
+    text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 7px;
+    border-radius: 2px; border: 1px solid;
+  }
+  .update-tag.type-security-fix { color: var(--danger); border-color: rgba(217,104,86,0.4); }
+  .update-tag.type-bug-fix      { color: var(--accent); border-color: var(--accent-dim); }
+  .update-tag.type-new-feature  { color: var(--ok);     border-color: rgba(127,176,105,0.4); }
+  .update-msg {
+    flex: 1; font-family: var(--mono); font-size: 12px; color: var(--ink-mute);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .update-date { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+
   footer {
     border-top: 1px solid var(--line); padding: 20px 0 28px;
     color: var(--ink-faint); font-family: var(--mono); font-size: 11px;
@@ -258,6 +292,14 @@
       <a href="#" id="logout-link">logout</a>
     </div>
   </header>
+
+  <div id="update-banner" class="update-banner" style="display:none">
+    <div class="update-banner-header">
+      <span>updates available</span>
+      <button class="ghost" id="dismiss-updates" style="padding:3px 8px;font-size:10px">dismiss all</button>
+    </div>
+    <div id="update-list"></div>
+  </div>
 
   <main>
 
@@ -598,9 +640,37 @@ document.getElementById('logout-link').addEventListener('click', async e => {
   window.location.href = '/login';
 });
 
+async function loadUpdates() {
+  const r = await fetch('/api/admin/updates');
+  if (!r.ok) return;
+  const updates = await r.json();
+  const banner = document.getElementById('update-banner');
+  const list = document.getElementById('update-list');
+  if (!updates.length) { banner.style.display = 'none'; return; }
+
+  const typeClass = t => t.replace(/ /g, '-');
+  const dateLabel = iso => {
+    try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
+    catch { return ''; }
+  };
+
+  list.innerHTML = updates.map(u => `
+    <div class="update-entry type-${esc(typeClass(u.type))}">
+      <span class="update-tag type-${esc(typeClass(u.type))}">${esc(u.type)}</span>
+      <span class="update-msg" title="${esc(u.message)}">${esc(u.message)}</span>
+      <span class="update-date">${esc(dateLabel(u.date))}</span>
+    </div>`).join('');
+  banner.style.display = '';
+}
+
+document.getElementById('dismiss-updates').addEventListener('click', async () => {
+  await fetch('/api/admin/updates/dismiss', { method: 'POST' });
+  document.getElementById('update-banner').style.display = 'none';
+});
+
 (async function init() {
   await loadMe();
-  await loadUsers();
+  await Promise.all([loadUsers(), loadUpdates()]);
 })();
 </script>
 

@@ -95,18 +95,24 @@ if ! command -v git &>/dev/null; then
 fi
 
 do_start_container() {
-  local mode="$1" admin_user="$2" admin_pass="$3"
+  local mode="$1" admin_user="$2" admin_pass="$3" trust_proxy="$4"
   say "Starting container ..."
-  $SUDO docker run -d \
-    --name "$CONTAINER_NAME" \
-    --restart unless-stopped \
-    --network host \
-    --cap-add NET_RAW \
-    -v "${DATA_DIR}:/app/data" \
-    -e "ADMIN_USER=${admin_user}" \
-    -e "ADMIN_PASS=${admin_pass}" \
-    -e "MODE=${mode}" \
-    "$IMAGE_NAME" > /dev/null
+  local args=(
+    run -d
+    --name "$CONTAINER_NAME"
+    --restart unless-stopped
+    --network host
+    --cap-add NET_RAW
+    -v "${DATA_DIR}:/app/data"
+    -e "ADMIN_USER=${admin_user}"
+    -e "ADMIN_PASS=${admin_pass}"
+    -e "MODE=${mode}"
+  )
+  if [ -n "$trust_proxy" ]; then
+    args+=(-e "TRUST_PROXY=${trust_proxy}")
+  fi
+  args+=("$IMAGE_NAME")
+  $SUDO docker "${args[@]}" > /dev/null
 }
 
 print_summary() {
@@ -156,6 +162,7 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
 
       EXISTING_MODE=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
       if [ -z "$EXISTING_MODE" ]; then EXISTING_MODE="both"; fi
+      EXISTING_TRUST_PROXY=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^TRUST_PROXY=' | cut -d= -f2- || true)
 
       hr
 
@@ -175,7 +182,7 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
       $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
       $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
-      do_start_container "$EXISTING_MODE" "" ""
+      do_start_container "$EXISTING_MODE" "" "" "$EXISTING_TRUST_PROXY"
 
       say "Update complete."
       print_summary "$EXISTING_MODE" ""
@@ -236,6 +243,27 @@ else
 fi
 
 echo ""
+read -r -p "Is this installation behind a reverse proxy? [y/N]: " proxy_choice
+echo ""
+if [[ "$proxy_choice" =~ ^[Yy]$ ]]; then
+  while true; do
+    read -r -p "Trusted reverse proxy IP (e.g. 127.0.0.1): " TRUST_PROXY
+    if [ -z "$TRUST_PROXY" ]; then
+      say "IP cannot be empty."
+      continue
+    fi
+    if echo "$TRUST_PROXY" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+      break
+    fi
+    say "Please enter a valid IPv4 address."
+  done
+  say "Reverse proxy trusted IP: $TRUST_PROXY"
+else
+  TRUST_PROXY=""
+  say "Running in HTTP mode (no reverse proxy)."
+fi
+
+echo ""
 hr
 
 if [ -d "$INSTALL_DIR/.git" ]; then
@@ -257,7 +285,7 @@ $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
 say "Building Docker image (this may take a minute) ..."
 $SUDO docker build --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
 
-do_start_container "$MODE" "$ADMIN_USER" "$ADMIN_PASS"
+do_start_container "$MODE" "$ADMIN_USER" "$ADMIN_PASS" "$TRUST_PROXY"
 
 say "Installation complete."
 print_summary "$MODE" "$ADMIN_USER"

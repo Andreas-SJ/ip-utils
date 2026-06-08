@@ -5,9 +5,12 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { exec } = require('child_process');
+const https = require('https');
 
 const app = express();
 const PORT = process.env.PORT || 80;
+const TRUST_PROXY = process.env.TRUST_PROXY || '';
+if (TRUST_PROXY) app.set('trust proxy', TRUST_PROXY);
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PLANS_DIR = path.join(DATA_DIR, 'plans');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -51,7 +54,7 @@ app.use(session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 }
+  cookie: { httpOnly: true, sameSite: 'lax', secure: TRUST_PROXY ? 'auto' : false, maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
 
 function requireAuth(req, res, next) {
@@ -293,6 +296,91 @@ app.post('/api/arp/scan', requireAuth, async (req, res) => {
   res.json(results);
 });
 
+const UPDATES_FILE = path.join(DATA_DIR, 'update_notifications.json');
+const GITHUB_REPO = 'Andreas-SJ/ip-utils';
+const UPDATE_TAGS = [
+  { tag: '[security fix]', type: 'security fix' },
+  { tag: '[bug fix]',      type: 'bug fix' },
+  { tag: '[new feature]',  type: 'new feature' },
+];
+
+function loadUpdates() {
+  try { return JSON.parse(fs.readFileSync(UPDATES_FILE, 'utf8')); }
+  catch { return { lastCheckedSha: null, pending: [] }; }
+}
+
+function saveUpdates(state) {
+  fs.writeFileSync(UPDATES_FILE, JSON.stringify(state, null, 2));
+}
+
+function fetchGithubCommits() {
+  return new Promise(resolve => {
+    const req = https.get({
+      hostname: 'api.github.com',
+      path: `/repos/${GITHUB_REPO}/commits?per_page=30`,
+      headers: { 'User-Agent': 'ip-utils-update-checker' },
+    }, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode !== 200) { resolve([]); return; }
+        try { resolve(JSON.parse(data)); } catch { resolve([]); }
+      });
+    });
+    req.on('error', () => resolve([]));
+    req.end();
+  });
+}
+
+async function checkForUpdates() {
+  const state = loadUpdates();
+  const commits = await fetchGithubCommits();
+  if (!Array.isArray(commits) || !commits.length) return;
+
+  const latestSha = commits[0].sha;
+
+  if (!state.lastCheckedSha) {
+    state.lastCheckedSha = latestSha;
+    saveUpdates(state);
+    return;
+  }
+
+  if (latestSha === state.lastCheckedSha) return;
+
+  const newNotifications = [];
+  for (const commit of commits) {
+    if (commit.sha === state.lastCheckedSha) break;
+    const msg = (commit.commit?.message || '').trim();
+    const lower = msg.toLowerCase();
+    for (const { tag, type } of UPDATE_TAGS) {
+      if (lower.includes(tag)) {
+        newNotifications.push({
+          sha: commit.sha,
+          type,
+          message: msg.split('\n')[0],
+          date: commit.commit?.author?.date || new Date().toISOString(),
+        });
+        break;
+      }
+    }
+  }
+
+  state.lastCheckedSha = latestSha;
+  if (newNotifications.length) state.pending = [...(state.pending || []), ...newNotifications];
+  saveUpdates(state);
+}
+
+app.get('/api/admin/updates', requireAdmin, (req, res) => {
+  res.json(loadUpdates().pending || []);
+});
+
+app.post('/api/admin/updates/dismiss', requireAdmin, (req, res) => {
+  const state = loadUpdates();
+  state.pending = [];
+  saveUpdates(state);
+  res.json({ ok: true });
+});
+
 async function bootstrap() {
   const ADMIN_USER = process.env.ADMIN_USER;
   const ADMIN_PASS = process.env.ADMIN_PASS;
@@ -308,6 +396,9 @@ async function bootstrap() {
   app.listen(PORT, () => {
     console.log('ip-utils listening on port ' + PORT + ' (mode: ' + MODE + ')');
   });
+
+  checkForUpdates().catch(() => {});
+  setInterval(() => checkForUpdates().catch(() => {}), 10 * 60 * 1000);
 }
 
 bootstrap().catch(err => {

@@ -164,6 +164,44 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
       if [ -z "$EXISTING_MODE" ]; then EXISTING_MODE="both"; fi
       EXISTING_TRUST_PROXY=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^TRUST_PROXY=' | cut -d= -f2- || true)
 
+      if [ -n "$EXISTING_TRUST_PROXY" ]; then
+        say "Current trusted proxy IP: $EXISTING_TRUST_PROXY"
+        read -r -p "Change proxy IP? [y/N]: " change_proxy
+        if [[ "$change_proxy" =~ ^[Yy]$ ]]; then
+          while true; do
+            read -r -p "New trusted proxy IP (leave blank to remove): " NEW_PROXY
+            if [ -z "$NEW_PROXY" ]; then
+              EXISTING_TRUST_PROXY=""
+              say "Reverse proxy disabled."
+              break
+            fi
+            if echo "$NEW_PROXY" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+              EXISTING_TRUST_PROXY="$NEW_PROXY"
+              say "Trusted proxy IP set to: $EXISTING_TRUST_PROXY"
+              break
+            fi
+            say "Please enter a valid IPv4 address."
+          done
+        fi
+      else
+        read -r -p "Is this installation behind a reverse proxy? [y/N]: " proxy_choice
+        if [[ "$proxy_choice" =~ ^[Yy]$ ]]; then
+          while true; do
+            read -r -p "Trusted reverse proxy IP (e.g. 127.0.0.1): " EXISTING_TRUST_PROXY
+            if [ -z "$EXISTING_TRUST_PROXY" ]; then
+              say "IP cannot be empty."
+              continue
+            fi
+            if echo "$EXISTING_TRUST_PROXY" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+              say "Trusted proxy IP set to: $EXISTING_TRUST_PROXY"
+              break
+            fi
+            say "Please enter a valid IPv4 address."
+          done
+        fi
+      fi
+      echo ""
+
       hr
 
       if [ -d "$INSTALL_DIR/.git" ]; then

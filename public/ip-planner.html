@@ -906,7 +906,7 @@ function renderPlan() {
     const ro = document.createElement(‘div’);
     ro.className = ‘notice’;
     ro.style.cssText = ‘margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:16px’;
-    ro.innerHTML = ‘<span>Viewing ‘ + esc(otherUserView.username) + ‘\’s plan — read-only</span>’
+    ro.innerHTML = ‘<span>Viewing ‘ + esc(otherUserView.username) + "&apos;s plan &mdash; read-only</span>"
       + ‘<a href="/ip-planner?admin_user=’ + encodeURIComponent(otherUserView.username)
       + ‘" style="font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em">edit plan &rarr;</a>’;
     planRegion.appendChild(ro);

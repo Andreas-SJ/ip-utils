@@ -650,7 +650,6 @@ let nextId = 1;
 let renamingId = null;
 const arpState = {};
 let otherUserView = null;
-let editingUser = null;
 let otherPlansData = [];
 let otherPlansSectionOpen = false;
 const otherUserOpen = {};
@@ -668,42 +667,7 @@ function roleLabel(r) {
   return { net: 'net', bcast: 'bcast', host: 'host', gw: 'gw' }[r] || r;
 }
 
-function planApiUrl() {
-  return editingUser
-    ? '/api/admin/plans/' + encodeURIComponent(editingUser)
-    : '/api/plan';
-}
-
-async function switchToEditMode(username) {
-  editingUser = username;
-  otherUserView = null;
-  state.subnets = [];
-  state.selectedId = null;
-  const ok = await loadState();
-  if (ok) nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
-  renderSubnetList();
-  renderPlan();
-  if (otherPlansData.length) renderOtherPlansSection();
-  rebuildSearchIndex();
-  const banner = document.getElementById('admin-banner');
-  banner.innerHTML = 'Editing plan for <b>' + esc(username) + '</b> &mdash; <a href="#" id="back-own-plan" style="color:inherit;text-decoration:underline">back to own plan</a>';
-  banner.style.display = 'block';
-  document.getElementById('back-own-plan').addEventListener('click', e => { e.preventDefault(); switchToOwnPlan(); });
-}
-
-async function switchToOwnPlan() {
-  editingUser = null;
-  otherUserView = null;
-  state.subnets = [];
-  state.selectedId = null;
-  const ok = await loadState();
-  if (ok) nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
-  renderSubnetList();
-  renderPlan();
-  if (otherPlansData.length) renderOtherPlansSection();
-  rebuildSearchIndex();
-  document.getElementById('admin-banner').style.display = 'none';
-}
+function planApiUrl() { return '/api/plan'; }
 
 let saveTimer = null;
 function scheduleSave() {
@@ -712,11 +676,19 @@ function scheduleSave() {
 }
 async function saveState() {
   try {
-    await fetch(planApiUrl(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId })
-    });
+    if (otherUserView && !otherUserView.readOnly) {
+      await fetch('/api/admin/plans/' + encodeURIComponent(otherUserView.username), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subnets: otherUserView.subnets, selectedId: otherUserView.selectedId })
+      });
+    } else {
+      await fetch(planApiUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId })
+      });
+    }
   } catch (e) {}
 }
 async function loadState() {
@@ -898,8 +870,8 @@ let pendingScrollIp = null;
 function selectedSubnet() { return state.subnets.find(s => s.id === state.selectedId) || null; }
 
 function renderPlan() {
-  const readOnly = !!otherUserView;
-  const sn = readOnly
+  const readOnly = otherUserView ? !!otherUserView.readOnly : false;
+  const sn = otherUserView
     ? (otherUserView.subnets.find(s => s.id === otherUserView.selectedId) || null)
     : selectedSubnet();
   planRegion.innerHTML = '';
@@ -932,18 +904,28 @@ function renderPlan() {
       <div class="f"><b>addresses</b><span>2^${128 - sn.prefix}</span></div>`;
   }
 
-  if (readOnly) {
+  if (otherUserView) {
     const ro = document.createElement('div');
     ro.className = 'notice';
     ro.style.cssText = 'margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:16px';
-    const capturedUser = otherUserView.username;
-    ro.innerHTML = '<span>Viewing ' + esc(capturedUser) + '&apos;s plan &mdash; read-only</span>';
-    const editBtn = document.createElement('a');
-    editBtn.href = '#';
-    editBtn.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em';
-    editBtn.textContent = 'edit plan →';
-    editBtn.addEventListener('click', e => { e.preventDefault(); switchToEditMode(capturedUser); });
-    ro.appendChild(editBtn);
+    const linkStyle = 'font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em';
+    if (readOnly) {
+      ro.innerHTML = '<span>Viewing ' + esc(otherUserView.username) + '&apos;s plan &mdash; read-only</span>';
+      const editBtn = document.createElement('a');
+      editBtn.href = '#';
+      editBtn.style.cssText = linkStyle;
+      editBtn.textContent = 'edit plan →';
+      editBtn.addEventListener('click', e => { e.preventDefault(); otherUserView.readOnly = false; renderPlan(); });
+      ro.appendChild(editBtn);
+    } else {
+      ro.innerHTML = '<span>Editing plan for <b>' + esc(otherUserView.username) + '</b></span>';
+      const backBtn = document.createElement('a');
+      backBtn.href = '#';
+      backBtn.style.cssText = linkStyle;
+      backBtn.textContent = 'back to read-only';
+      backBtn.addEventListener('click', e => { e.preventDefault(); otherUserView.readOnly = true; renderPlan(); });
+      ro.appendChild(backBtn);
+    }
     planRegion.appendChild(ro);
   }
   if (enumerable(sn)) renderEnumPlan(sn, readOnly);
@@ -1368,7 +1350,7 @@ function renderOtherPlansSection() {
           </div>`;
         card.addEventListener('click', e => {
           e.stopPropagation();
-          otherUserView = { subnets, selectedId: sn.id, username };
+          otherUserView = { subnets, selectedId: sn.id, username, readOnly: true };
           state.selectedId = null;
           renderSubnetList();
           renderPlan();

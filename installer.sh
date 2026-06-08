@@ -213,12 +213,15 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
         $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
       fi
 
-      say "Building Docker image (this may take a minute) ..."
-      $SUDO docker build --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
-
       say "Stopping existing container ..."
       $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
       $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+      say "Removing old Docker image ..."
+      $SUDO docker rmi "$IMAGE_NAME" 2>/dev/null || true
+
+      say "Building Docker image (this may take a minute) ..."
+      $SUDO docker build --no-cache --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
 
       do_start_container "$EXISTING_MODE" "" "" "$EXISTING_TRUST_PROXY"
 
@@ -319,9 +322,10 @@ $SUDO mkdir -p "$DATA_DIR/plans"
 say "Removing any existing container ..."
 $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
 $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
+$SUDO docker rmi "$IMAGE_NAME" 2>/dev/null || true
 
 say "Building Docker image (this may take a minute) ..."
-$SUDO docker build --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
+$SUDO docker build --no-cache --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
 
 do_start_container "$MODE" "$ADMIN_USER" "$ADMIN_PASS" "$TRUST_PROXY"
 

@@ -115,6 +115,67 @@ do_start_container() {
   $SUDO docker "${args[@]}" > /dev/null
 }
 
+do_reset_password() {
+  local existing_mode existing_trust_proxy current_admin_user new_admin_user new_admin_pass new_admin_pass2
+
+  existing_mode=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
+  if [ -z "$existing_mode" ]; then existing_mode="both"; fi
+
+  if [ "$existing_mode" != "planner" ] && [ "$existing_mode" != "both" ]; then
+    die "Current installation mode ($existing_mode) does not use authentication; there is no admin password to reset."
+  fi
+
+  current_admin_user=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^ADMIN_USER=' | cut -d= -f2- || true)
+  existing_trust_proxy=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^TRUST_PROXY=' | cut -d= -f2- || true)
+
+  echo ""
+  if [ -n "$current_admin_user" ]; then
+    say "Current admin username: $current_admin_user"
+  fi
+
+  while true; do
+    read -r -p "New admin username (leave blank to keep '${current_admin_user}'): " new_admin_user
+    if [ -z "$new_admin_user" ]; then
+      if [ -z "$current_admin_user" ]; then
+        say "Username cannot be empty."
+        continue
+      fi
+      new_admin_user="$current_admin_user"
+    fi
+    if echo "$new_admin_user" | grep -qE '^[a-zA-Z0-9_-]{1,32}$'; then
+      break
+    fi
+    say "Username must be 1-32 alphanumeric characters (a-z, A-Z, 0-9, _, -)."
+  done
+
+  while true; do
+    read -r -s -p "New admin password (min. 8 characters): " new_admin_pass
+    echo ""
+    if [ ${#new_admin_pass} -lt 8 ]; then
+      say "Password must be at least 8 characters."
+      continue
+    fi
+    read -r -s -p "Confirm password: " new_admin_pass2
+    echo ""
+    if [ "$new_admin_pass" = "$new_admin_pass2" ]; then
+      break
+    fi
+    say "Passwords do not match. Try again."
+  done
+
+  echo ""
+  hr
+  say "Restarting container with new admin credentials ..."
+  $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
+  $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+  do_start_container "$existing_mode" "$new_admin_user" "$new_admin_pass" "$existing_trust_proxy"
+
+  say "Admin password reset complete."
+  print_summary "$existing_mode" "$new_admin_user"
+  exit 0
+}
+
 print_summary() {
   local mode="$1" admin_user="$2"
   LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
@@ -147,15 +208,17 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
   say "An existing ip-utils installation was detected."
   echo ""
   say "  1) Update  (pull latest code, rebuild, keep all data)  [default]"
-  say "  2) Full reinstall  (asks for new settings and admin credentials)"
-  say "  3) Exit"
+  say "  2) Reset admin password  (keep everything else unchanged)"
+  say "  3) Full reinstall  (asks for new settings and admin credentials)"
+  say "  4) Exit"
   echo ""
-  read -r -p "Enter choice [1-3, default 1]: " install_choice
+  read -r -p "Enter choice [1-4, default 1]: " install_choice
   echo ""
 
   case "$install_choice" in
-    2) say "Proceeding with full reinstall..." ;;
-    3) say "Exiting."; exit 0 ;;
+    2) do_reset_password ;;
+    3) say "Proceeding with full reinstall..." ;;
+    4) say "Exiting."; exit 0 ;;
     *)
       say "Updating installation..."
       echo ""

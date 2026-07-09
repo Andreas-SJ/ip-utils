@@ -116,7 +116,7 @@ do_start_container() {
 }
 
 do_reset_password() {
-  local existing_mode existing_trust_proxy current_admin_user new_admin_user new_admin_pass new_admin_pass2
+  local existing_mode current_admins current_admin_user new_admin_user new_admin_pass new_admin_pass2 was_running
 
   existing_mode=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
   if [ -z "$existing_mode" ]; then existing_mode="both"; fi
@@ -125,12 +125,34 @@ do_reset_password() {
     die "Current installation mode ($existing_mode) does not use authentication; there is no admin password to reset."
   fi
 
-  current_admin_user=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^ADMIN_USER=' | cut -d= -f2- || true)
-  existing_trust_proxy=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^TRUST_PROXY=' | cut -d= -f2- || true)
+  # NOTE: ip-utils only reads ADMIN_USER/ADMIN_PASS once, to bootstrap the very
+  # first admin account if that username doesn't already exist in users.json.
+  # Existing accounts and their passwords live in users.json inside the data
+  # volume, so resetting the password has to edit that file directly (using
+  # the app's own bcrypt module inside the container) rather than restarting
+  # the container with different env vars.
+
+  was_running=$($SUDO docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null || echo "false")
+  if [ "$was_running" != "true" ]; then
+    say "Starting container to perform the reset ..."
+    $SUDO docker start "$CONTAINER_NAME" > /dev/null 2>&1 || die "Could not start the container to reset the password."
+    sleep 2
+  fi
+
+  current_admins=$($SUDO docker exec "$CONTAINER_NAME" node -e "
+    const fs = require('fs');
+    try {
+      const users = JSON.parse(fs.readFileSync('/app/data/users.json', 'utf8'));
+      console.log(Object.values(users).filter(u => u.isAdmin).map(u => u.username).join(','));
+    } catch (e) { console.log(''); }
+  " 2>/dev/null || true)
+  current_admin_user=$(echo "$current_admins" | cut -d, -f1)
 
   echo ""
   if [ -n "$current_admin_user" ]; then
     say "Current admin username: $current_admin_user"
+  else
+    say "No existing admin account was found; this will create one."
   fi
 
   while true; do
@@ -165,14 +187,44 @@ do_reset_password() {
 
   echo ""
   hr
-  say "Restarting container with new admin credentials ..."
-  $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
-  $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
+  say "Updating admin credentials ..."
 
-  do_start_container "$existing_mode" "$new_admin_user" "$new_admin_pass" "$existing_trust_proxy"
+  if ! $SUDO docker exec \
+    -e RESET_USER="$new_admin_user" \
+    -e RESET_PASS="$new_admin_pass" \
+    -e OLD_USER="$current_admin_user" \
+    "$CONTAINER_NAME" node -e "
+      const fs = require('fs');
+      const bcrypt = require('bcrypt');
+      const file = '/app/data/users.json';
+      let users = {};
+      try { users = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {}
+      const newUser = process.env.RESET_USER;
+      const oldUser = process.env.OLD_USER;
+      bcrypt.hash(process.env.RESET_PASS, 10).then(hash => {
+        if (oldUser && oldUser !== newUser && users[oldUser]) delete users[oldUser];
+        users[newUser] = { username: newUser, passwordHash: hash, isAdmin: true };
+        fs.writeFileSync(file, JSON.stringify(users, null, 2));
+        console.log('OK');
+      }).catch(err => { console.error(err); process.exit(1); });
+    " > /dev/null; then
+    if [ "$was_running" != "true" ]; then
+      $SUDO docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
+    fi
+    die "Failed to update admin credentials inside the container."
+  fi
 
+  if [ "$was_running" != "true" ]; then
+    say "Stopping container (it was not running before the reset) ..."
+    $SUDO docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
+  fi
+
+  echo ""
+  hr
   say "Admin password reset complete."
-  print_summary "$existing_mode" "$new_admin_user"
+  echo ""
+  say "  Admin user: $new_admin_user"
+  echo ""
   exit 0
 }
 

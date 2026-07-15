@@ -13,6 +13,7 @@ fi
 REPO_URL="https://github.com/Andreas-SJ/ip-utils.git"
 REPO_BRANCH="main"
 AUTO_UPDATE_NOW=false
+AUTO_REFRESH_DAEMON_ONLY=false
 AUTO_PROXY_MODE="keep"
 AUTO_PROXY_IP=""
 INSTALL_DIR="/opt/ip-utils"
@@ -63,6 +64,9 @@ parse_args() {
       --update-now)
         AUTO_UPDATE_NOW=true
         ;;
+      --refresh-daemon-only)
+        AUTO_REFRESH_DAEMON_ONLY=true
+        ;;
       --proxy-mode)
         shift
         [ -n "$1" ] || die "--proxy-mode requires one of: keep, remove, set"
@@ -80,12 +84,13 @@ parse_args() {
         AUTO_PROXY_IP="${1#*=}"
         ;;
       -h|--help)
-        echo "Usage: installer.sh [--testing] [--main] [--branch <name>] [--update-now] [--proxy-mode <keep|remove|set>] [--proxy-ip <IPv4>]"
+        echo "Usage: installer.sh [--testing] [--main] [--branch <name>] [--update-now] [--refresh-daemon-only] [--proxy-mode <keep|remove|set>] [--proxy-ip <IPv4>]"
         echo ""
         echo "  --testing        Use the testing branch"
         echo "  --main           Use the main branch (default)"
         echo "  --branch <name>  Use a specific branch"
         echo "  --update-now     Non-interactive update of an existing install"
+        echo "  --refresh-daemon-only  Refresh updater daemon/service files and restart daemon"
         echo "  --proxy-mode     Proxy setting for --update-now (keep/remove/set)"
         echo "  --proxy-ip       Proxy IP for --proxy-mode set"
         exit 0
@@ -176,6 +181,23 @@ write_status() {
   } > "\$STATUS_FILE"
 }
 
+schedule_daemon_refresh() {
+  local req_id="\$1"
+  if ! command -v systemd-run >/dev/null 2>&1; then
+    echo "[updater] WARNING: systemd-run not available; daemon refresh not scheduled." >> "\$OUTPUT_FILE"
+    return 1
+  fi
+
+  local refresh_unit="ip-utils-updater-refresh-\${req_id}"
+  if systemd-run --unit "\$refresh_unit" --property=Type=oneshot --property=After=network.target /bin/bash -lc "IP_UTILS_SKIP_STDIN_BOOTSTRAP=1 bash \"\$INSTALLER\" --refresh-daemon-only" >> "\$OUTPUT_FILE" 2>&1; then
+    echo "[updater] Scheduled daemon refresh via transient unit: \$refresh_unit" >> "\$OUTPUT_FILE"
+    return 0
+  fi
+
+  echo "[updater] WARNING: failed to schedule daemon refresh transient unit." >> "\$OUTPUT_FILE"
+  return 1
+}
+
 touch "\$OUTPUT_FILE"
 date +%s > "$HEARTBEAT_FILE"
 
@@ -217,6 +239,10 @@ while true; do
       ended_at="\$(date -Iseconds)"
       write_status "\$req_id" "\$status" "\$started_at" "\$ended_at" "\$exit_code" "\$branch" "\$error"
       echo "\$req_id" > "\$LAST_ID_FILE"
+
+      if [ "\$status" = "succeeded" ]; then
+        schedule_daemon_refresh "\$req_id" || true
+      fi
     fi
   fi
 
@@ -270,6 +296,13 @@ say "Repository: $REPO_URL"
 say "Branch: $REPO_BRANCH"
 hr
 echo ""
+
+if [ "$AUTO_REFRESH_DAEMON_ONLY" = "true" ]; then
+  say "Refreshing updater daemon only ..."
+  install_update_daemon
+  say "Updater daemon refresh complete."
+  exit 0
+fi
 
 check_docker() {
   if ! docker version &>/dev/null; then

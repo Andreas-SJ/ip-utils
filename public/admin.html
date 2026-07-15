@@ -631,6 +631,9 @@ let updateRefreshTimer = null;
 let updateOverlayActive = false;
 let activeUpdateJobId = null;
 let activeUpdateStatusToken = null;
+let updateChannelDeadlineAt = 0;
+
+const UPDATE_SUCCESS_STORAGE_KEY = 'ipUtilsUpdateSuccess';
 
 function parseSemver(v) {
   const m = String(v || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/i);
@@ -654,6 +657,26 @@ function setUpdateJobStatus(text, statusClass) {
   el.className = 'update-job-status' + (statusClass ? (' ' + statusClass) : '');
 }
 
+function setUpdateOverlayRefreshMessage(text) {
+  const refreshMsg = document.getElementById('update-overlay-refresh-msg');
+  if (refreshMsg) refreshMsg.textContent = text || '';
+}
+
+function handleUpdateChannelInterruption() {
+  if (!updateOverlayActive || !activeUpdateJobId || !activeUpdateStatusToken) return;
+
+  if (!updateChannelDeadlineAt) {
+    updateChannelDeadlineAt = Date.now() + 180000;
+  }
+
+  if (Date.now() < updateChannelDeadlineAt) {
+    setUpdateOverlayRefreshMessage('connection interrupted, waiting for app to come back...');
+    return;
+  }
+
+  hideUpdateOverlay('update confirmation timed out');
+}
+
 async function refreshUpdateJobStatus() {
   try {
     const statusUrl = updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken
@@ -662,11 +685,17 @@ async function refreshUpdateJobStatus() {
     const r = await fetch(statusUrl);
     if (!r.ok) {
       if (updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken) {
-        hideUpdateOverlay('lost update confirmation channel');
+        handleUpdateChannelInterruption();
       }
       return;
     }
     const job = await r.json();
+    if (updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken) {
+      updateChannelDeadlineAt = 0;
+      if (job.status === 'queued' || job.status === 'running') {
+        setUpdateOverlayRefreshMessage('waiting for updater confirmation...');
+      }
+    }
     if (!job || !job.status || job.status === 'idle') {
       setUpdateJobStatus('');
       return;
@@ -698,7 +727,9 @@ async function refreshUpdateJobStatus() {
       setUpdateJobStatus('Updater daemon offline. Update stopped.', 'failed');
       hideUpdateOverlay('updater daemon offline');
     }
-  } catch {}
+  } catch {
+    handleUpdateChannelInterruption();
+  }
 }
 
 function ensureUpdateStatusPolling() {
@@ -718,6 +749,7 @@ function showUpdateProgressOverlay() {
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
   updateOverlayActive = true;
+  updateChannelDeadlineAt = Date.now() + 180000;
   if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
   updateRefreshTimer = null;
 }
@@ -734,6 +766,13 @@ function showUpdateSuccessOverlay(branch) {
   title.innerHTML = '<i>update</i> <b>succeeded</b>';
   sub.textContent = `Branch ${branch} is now live`;
   refreshMsg.textContent = 'refreshing in 3 seconds';
+
+  try {
+    sessionStorage.setItem(UPDATE_SUCCESS_STORAGE_KEY, JSON.stringify({
+      branch,
+      at: new Date().toISOString(),
+    }));
+  } catch {}
 
   if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
   updateRefreshTimer = setTimeout(() => {
@@ -754,6 +793,7 @@ function hideUpdateOverlay(reasonText) {
   updateOverlayActive = false;
   activeUpdateJobId = null;
   activeUpdateStatusToken = null;
+  updateChannelDeadlineAt = 0;
   showToast(reasonText || 'update failed');
 }
 

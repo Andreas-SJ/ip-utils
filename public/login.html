@@ -104,6 +104,19 @@
   }
   .error.show { display: block; }
 
+  .notice {
+    background: rgba(127,176,105,0.12);
+    border: 1px solid rgba(127,176,105,0.45);
+    border-radius: 2px;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+    color: #a8d18f;
+    font-family: var(--mono);
+    font-size: 12px;
+    display: none;
+  }
+  .notice.show { display: block; }
+
   button[type="submit"] {
     width: 100%; cursor: pointer; font-family: var(--mono); font-size: 12px;
     letter-spacing: 0.08em; text-transform: uppercase;
@@ -133,6 +146,7 @@
   </div>
 
   <div class="error" id="error"></div>
+  <div class="notice" id="notice"></div>
 
   <form id="login-form" autocomplete="on">
     <div class="field">
@@ -152,9 +166,21 @@
 </div>
 
 <script>
+const UPDATE_SUCCESS_STORAGE_KEY = 'ipUtilsUpdateSuccess';
 const form = document.getElementById('login-form');
 const errorEl = document.getElementById('error');
+const noticeEl = document.getElementById('notice');
 const submitBtn = document.getElementById('submit-btn');
+
+try {
+  const raw = sessionStorage.getItem(UPDATE_SUCCESS_STORAGE_KEY);
+  if (raw) {
+    const parsed = JSON.parse(raw);
+    noticeEl.textContent = `Update complete${parsed?.branch ? ` (${parsed.branch})` : ''}. Please sign in again.`;
+    noticeEl.classList.add('show');
+    sessionStorage.removeItem(UPDATE_SUCCESS_STORAGE_KEY);
+  }
+} catch {}
 
 form.addEventListener('submit', async e => {
   e.preventDefault();

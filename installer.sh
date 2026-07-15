@@ -19,6 +19,12 @@ INSTALL_DIR="/opt/ip-utils"
 DATA_DIR="/opt/ip-utils-data"
 IMAGE_NAME="ip-utils"
 CONTAINER_NAME="ip-utils"
+UPDATER_DAEMON_SCRIPT="${INSTALL_DIR}/updater-daemon.sh"
+UPDATER_SERVICE_NAME="ip-utils-updater.service"
+UPDATER_REQUEST_FILE="${DATA_DIR}/update-request.env"
+UPDATER_STATUS_FILE="${DATA_DIR}/update-status.env"
+UPDATER_OUTPUT_FILE="${DATA_DIR}/update-status.log"
+UPDATER_LAST_ID_FILE="${DATA_DIR}/update-last-id"
 
 if [ "$EUID" -ne 0 ]; then SUDO="sudo"; else SUDO=""; fi
 
@@ -119,6 +125,126 @@ sync_repo_source() {
   fi
 }
 
+install_update_daemon() {
+  if ! command -v systemctl >/dev/null 2>&1; then
+    say "Update daemon: systemd not found; skipping daemon setup on this OS."
+    return 0
+  fi
+
+  $SUDO mkdir -p "$DATA_DIR"
+
+  $SUDO tee "$UPDATER_DAEMON_SCRIPT" > /dev/null <<EOF
+#!/bin/bash
+set -u
+
+DATA_DIR="$DATA_DIR"
+INSTALLER="$INSTALL_DIR/installer.sh"
+REQUEST_FILE="$UPDATER_REQUEST_FILE"
+STATUS_FILE="$UPDATER_STATUS_FILE"
+OUTPUT_FILE="$UPDATER_OUTPUT_FILE"
+LAST_ID_FILE="$UPDATER_LAST_ID_FILE"
+
+read_kv() {
+  local key="\$1" file="\$2"
+  [ -f "\$file" ] || { echo ""; return; }
+  awk -F= -v key="\$key" '\$1 == key { sub(/^[^=]*=/, ""); print; exit }' "\$file"
+}
+
+write_status() {
+  local id="\$1" status="\$2" started_at="\$3" ended_at="\$4" exit_code="\$5" branch="\$6" error="\$7"
+  {
+    echo "id=\$id"
+    echo "status=\$status"
+    echo "started_at=\$started_at"
+    echo "ended_at=\$ended_at"
+    echo "exit_code=\$exit_code"
+    echo "branch=\$branch"
+    echo "error=\$error"
+    echo "output_file=\$OUTPUT_FILE"
+  } > "\$STATUS_FILE"
+}
+
+touch "\$OUTPUT_FILE"
+
+while true; do
+  if [ -f "\$REQUEST_FILE" ]; then
+    req_id="\$(read_kv id "\$REQUEST_FILE")"
+    branch="\$(read_kv branch "\$REQUEST_FILE")"
+    proxy_mode="\$(read_kv proxy_mode "\$REQUEST_FILE")"
+    proxy_ip="\$(read_kv proxy_ip "\$REQUEST_FILE")"
+
+    [ -n "\$branch" ] || branch="main"
+    [ -n "\$proxy_mode" ] || proxy_mode="keep"
+
+    last_id=""
+    [ -f "\$LAST_ID_FILE" ] && last_id="\$(cat "\$LAST_ID_FILE" 2>/dev/null || true)"
+
+    if [ -n "\$req_id" ] && [ "\$req_id" != "\$last_id" ]; then
+      started_at="\$(date -Iseconds)"
+      write_status "\$req_id" "running" "\$started_at" "" "" "\$branch" ""
+
+      : > "\$OUTPUT_FILE"
+      cmd=(bash "\$INSTALLER" --branch "\$branch" --update-now --proxy-mode "\$proxy_mode")
+      if [ "\$proxy_mode" = "set" ] && [ -n "\$proxy_ip" ]; then
+        cmd+=(--proxy-ip "\$proxy_ip")
+      fi
+
+      if "\${cmd[@]}" > "\$OUTPUT_FILE" 2>&1; then
+        exit_code=0
+        status="succeeded"
+        error=""
+      else
+        exit_code=\$?
+        status="failed"
+        error="installer exited with code \$exit_code"
+      fi
+
+      ended_at="\$(date -Iseconds)"
+      write_status "\$req_id" "\$status" "\$started_at" "\$ended_at" "\$exit_code" "\$branch" "\$error"
+      echo "\$req_id" > "\$LAST_ID_FILE"
+    fi
+  fi
+
+  sleep 2
+done
+EOF
+
+  $SUDO chmod +x "$UPDATER_DAEMON_SCRIPT"
+
+  $SUDO tee "/etc/systemd/system/$UPDATER_SERVICE_NAME" > /dev/null <<EOF
+[Unit]
+Description=ip-utils host updater daemon
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+ExecStart=$UPDATER_DAEMON_SCRIPT
+Restart=always
+RestartSec=2
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  if ! $SUDO systemctl daemon-reload; then
+    say "Warning: failed to reload systemd for update daemon."
+    return 0
+  fi
+  if ! $SUDO systemctl enable "$UPDATER_SERVICE_NAME" >/dev/null 2>&1; then
+    say "Warning: failed to enable update daemon service."
+    return 0
+  fi
+  if ! $SUDO systemctl restart "$UPDATER_SERVICE_NAME"; then
+    say "Warning: failed to start update daemon service."
+    return 0
+  fi
+
+  say "Update daemon installed and running ($UPDATER_SERVICE_NAME)."
+  return 0
+}
+
 parse_args "$@"
 
 hr
@@ -212,6 +338,7 @@ do_start_container() {
   fi
   args+=("$IMAGE_NAME")
   $SUDO docker "${args[@]}" > /dev/null
+  install_update_daemon
 }
 
 upgrade_mode_to_both() {

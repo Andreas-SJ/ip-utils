@@ -277,6 +277,7 @@
     color: var(--ink-faint);
   }
   .update-job-status.running { color: var(--accent); }
+  .update-job-status.queued { color: var(--accent); }
   .update-job-status.succeeded { color: var(--ok); }
   .update-job-status.failed { color: var(--danger); }
 
@@ -528,7 +529,9 @@ async function refreshUpdateJobStatus() {
       setUpdateJobStatus('');
       return;
     }
-    if (job.status === 'running') {
+    if (job.status === 'queued') {
+      setUpdateJobStatus(`Update queued on branch ${job.branch || 'main'}...`, 'queued');
+    } else if (job.status === 'running') {
       setUpdateJobStatus(`Update running on branch ${job.branch || 'main'}...`, 'running');
     } else if (job.status === 'succeeded') {
       setUpdateJobStatus(`Last update succeeded (${job.branch || 'main'})`, 'succeeded');

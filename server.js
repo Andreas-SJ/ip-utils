@@ -17,6 +17,8 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 const VALID_MODES = new Set(['both', 'planner', 'netplan']);
 const MODE = VALID_MODES.has(process.env.MODE) ? process.env.MODE : 'both';
+const HAS_PLANNER = MODE === 'both' || MODE === 'planner';
+const HAS_NETPLAN = MODE === 'both' || MODE === 'netplan';
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(PLANS_DIR)) fs.mkdirSync(PLANS_DIR, { recursive: true });
@@ -86,22 +88,26 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+function sendToolNotInstalled(res, toolLabel) {
+  res.status(404).sendFile(path.join(__dirname, 'public', 'tool-not-installed.html'));
+}
+
 app.get('/login', (req, res) => {
   if (req.session.user) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-if (MODE === 'both' || MODE === 'netplan') {
-  app.get('/netplan-gen', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'netplan-gen.html'));
-  });
-}
+app.get('/netplan-gen', (req, res) => {
+  if (!HAS_NETPLAN) return sendToolNotInstalled(res, 'netplan-gen');
+  res.sendFile(path.join(__dirname, 'public', 'netplan-gen.html'));
+});
 
-if (MODE === 'both' || MODE === 'planner') {
-  app.get('/ip-planner', requireAuth, (req, res) => {
+app.get('/ip-planner', (req, res, next) => {
+  if (!HAS_PLANNER) return sendToolNotInstalled(res, 'ip-planner');
+  return requireAuth(req, res, () => {
     res.sendFile(path.join(__dirname, 'public', 'ip-planner.html'));
   });
-}
+});
 
 app.get('/admin', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
@@ -109,8 +115,8 @@ app.get('/admin', requireAdmin, (req, res) => {
 
 app.get('/api/config', (req, res) => {
   res.json({
-    hasPlanner: MODE === 'both' || MODE === 'planner',
-    hasNetplan: MODE === 'both' || MODE === 'netplan'
+    hasPlanner: HAS_PLANNER,
+    hasNetplan: HAS_NETPLAN
   });
 });
 

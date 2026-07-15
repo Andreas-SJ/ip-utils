@@ -17,6 +17,8 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 const VALID_MODES = new Set(['both', 'planner', 'netplan']);
 const MODE = VALID_MODES.has(process.env.MODE) ? process.env.MODE : 'both';
+const HAS_PLANNER = MODE === 'both' || MODE === 'planner';
+const HAS_NETPLAN = MODE === 'both' || MODE === 'netplan';
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(PLANS_DIR)) fs.mkdirSync(PLANS_DIR, { recursive: true });
@@ -86,22 +88,31 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+function sendToolNotInstalled(res, toolLabel) {
+  const encodedTool = encodeURIComponent(toolLabel || 'unknown');
+  return res.redirect(302, `/tool-not-installed?tool=${encodedTool}`);
+}
+
+app.get('/tool-not-installed', (req, res) => {
+  res.status(404).sendFile(path.join(__dirname, 'public', 'tool-not-installed.html'));
+});
+
 app.get('/login', (req, res) => {
   if (req.session.user) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-if (MODE === 'both' || MODE === 'netplan') {
-  app.get('/netplan-gen', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'netplan-gen.html'));
-  });
-}
+app.get('/netplan-gen', (req, res) => {
+  if (!HAS_NETPLAN) return sendToolNotInstalled(res, 'netplan-gen');
+  res.sendFile(path.join(__dirname, 'public', 'netplan-gen.html'));
+});
 
-if (MODE === 'both' || MODE === 'planner') {
-  app.get('/ip-planner', requireAuth, (req, res) => {
+app.get('/ip-planner', (req, res, next) => {
+  if (!HAS_PLANNER) return sendToolNotInstalled(res, 'ip-planner');
+  return requireAuth(req, res, () => {
     res.sendFile(path.join(__dirname, 'public', 'ip-planner.html'));
   });
-}
+});
 
 app.get('/admin', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
@@ -109,8 +120,8 @@ app.get('/admin', requireAdmin, (req, res) => {
 
 app.get('/api/config', (req, res) => {
   res.json({
-    hasPlanner: MODE === 'both' || MODE === 'planner',
-    hasNetplan: MODE === 'both' || MODE === 'netplan'
+    hasPlanner: HAS_PLANNER,
+    hasNetplan: HAS_NETPLAN
   });
 });
 
@@ -297,83 +308,115 @@ app.post('/api/arp/scan', requireAuth, async (req, res) => {
 });
 
 const UPDATES_FILE = path.join(DATA_DIR, 'update_notifications.json');
-const GITHUB_REPO = 'Andreas-SJ/ip-utils';
-const DEPLOYED_SHA = (() => {
-  try { return fs.readFileSync(path.join(__dirname, 'version.txt'), 'utf8').trim() || null; } catch { return null; }
-})();
-const UPDATE_TAGS = [
-  { tag: '[security fix]', type: 'security fix' },
-  { tag: '[bug fix]',      type: 'bug fix' },
-  { tag: '[new feature]',  type: 'new feature' },
-];
+const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/Andreas-SJ/ip-utils/refs/heads/main/version.json';
 
 function loadUpdates() {
-  try { return JSON.parse(fs.readFileSync(UPDATES_FILE, 'utf8')); }
-  catch { return { lastCheckedSha: null, pending: [] }; }
+  try {
+    const state = JSON.parse(fs.readFileSync(UPDATES_FILE, 'utf8'));
+    return normalizeUpdatesState(state);
+  } catch {
+    return { lastSeenVersion: null, pending: [] };
+  }
 }
 
 function saveUpdates(state) {
-  fs.writeFileSync(UPDATES_FILE, JSON.stringify(state, null, 2));
+  fs.writeFileSync(UPDATES_FILE, JSON.stringify(normalizeUpdatesState(state), null, 2));
 }
 
-function fetchGithubCommits() {
+function normalizeUpdatesState(state) {
+  const pending = Array.isArray(state?.pending) ? state.pending : [];
+  const seen = new Set();
+  const normalizedPending = [];
+
+  for (const entry of pending) {
+    const version = String(entry?.version || '').trim();
+    if (!version || seen.has(version)) continue;
+    seen.add(version);
+    normalizedPending.push({
+      version,
+      type: entry.type || 'bug fix',
+      message: entry.message || version,
+      date: entry.date || new Date().toISOString(),
+    });
+  }
+
+  return {
+    lastSeenVersion: state?.lastSeenVersion || null,
+    pending: normalizedPending,
+  };
+}
+
+function fetchVersionManifest() {
   return new Promise(resolve => {
-    const req = https.get({
-      hostname: 'api.github.com',
-      path: `/repos/${GITHUB_REPO}/commits?per_page=30`,
+    const req = https.get(VERSION_MANIFEST_URL, {
       headers: { 'User-Agent': 'ip-utils-update-checker' },
     }, res => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
-        if (res.statusCode !== 200) { resolve([]); return; }
-        try { resolve(JSON.parse(data)); } catch { resolve([]); }
+        if (res.statusCode !== 200) { resolve(null); return; }
+        try { resolve(JSON.parse(data)); } catch { resolve(null); }
       });
     });
-    req.on('error', () => resolve([]));
+    req.on('error', () => resolve(null));
     req.end();
   });
 }
 
+function versionToComparableParts(version) {
+  const match = String(version || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/i);
+  if (!match) return null;
+  return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+}
+
+function compareVersions(a, b) {
+  const left = versionToComparableParts(a);
+  const right = versionToComparableParts(b);
+  if (!left || !right) return 0;
+  for (let i = 0; i < 3; i += 1) {
+    if (left[i] !== right[i]) return left[i] > right[i] ? 1 : -1;
+  }
+  return 0;
+}
+
+function toNotification(entry) {
+  return {
+    version: entry.version,
+    type: entry.security ? 'security fix' : (entry.type === 'feature' ? 'new feature' : 'bug fix'),
+    message: entry.summary || entry.version,
+    date: entry.date || new Date().toISOString(),
+  };
+}
+
 async function checkForUpdates() {
   const state = loadUpdates();
-  const commits = await fetchGithubCommits();
-  if (!Array.isArray(commits) || !commits.length) return;
+  const manifest = await fetchVersionManifest();
+  if (!manifest || !Array.isArray(manifest.history) || !manifest.current) return;
 
-  const latestSha = commits[0].sha;
-
-  if (DEPLOYED_SHA && state.lastCheckedSha !== DEPLOYED_SHA) {
-    state.lastCheckedSha = DEPLOYED_SHA;
-    saveUpdates(state);
-  }
-
-  if (!state.lastCheckedSha) {
-    state.lastCheckedSha = latestSha;
+  if (!state.lastSeenVersion) {
+    state.lastSeenVersion = manifest.current;
     saveUpdates(state);
     return;
   }
 
-  if (latestSha === state.lastCheckedSha) return;
+  if (compareVersions(manifest.current, state.lastSeenVersion) <= 0) return;
 
-  const newNotifications = [];
-  for (const commit of commits) {
-    if (commit.sha === state.lastCheckedSha) break;
-    const msg = (commit.commit?.message || '').trim();
-    const lower = msg.toLowerCase();
-    for (const { tag, type } of UPDATE_TAGS) {
-      if (lower.includes(tag)) {
-        newNotifications.push({
-          sha: commit.sha,
-          type,
-          message: msg.split('\n')[0],
-          date: commit.commit?.author?.date || new Date().toISOString(),
-        });
-        break;
-      }
-    }
+  const history = manifest.history;
+  const lastSeenIndex = history.findIndex(entry => entry.version === state.lastSeenVersion);
+  if (lastSeenIndex < 0) {
+    state.lastSeenVersion = manifest.current;
+    saveUpdates(state);
+    return;
   }
 
-  state.lastCheckedSha = latestSha;
+  const existingVersions = new Set((state.pending || []).map(entry => String(entry.version || '').trim()).filter(Boolean));
+
+  const newNotifications = history
+    .slice(lastSeenIndex + 1)
+    .map(toNotification)
+    .filter(entry => entry.version && !existingVersions.has(entry.version));
+
+  state.lastSeenVersion = manifest.current;
   if (newNotifications.length) state.pending = [...(state.pending || []), ...newNotifications];
   saveUpdates(state);
 }

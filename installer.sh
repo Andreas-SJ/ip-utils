@@ -2,16 +2,16 @@
 set -e
 
 if [ ! -t 0 ]; then
-    SCRIPT_URL="https://raw.githubusercontent.com/Andreas-SJ/ip-utils/main/installer.sh"
     TMPSCRIPT=$(mktemp /tmp/ip-utils-install-XXXXX.sh)
-    curl -fsSL "$SCRIPT_URL" -o "$TMPSCRIPT" < /dev/null || { echo "Error: failed to download installer."; rm -f "$TMPSCRIPT"; exit 1; }
-    bash "$TMPSCRIPT" < /dev/tty
+  cat > "$TMPSCRIPT" || { echo "Error: failed to read installer script from stdin."; rm -f "$TMPSCRIPT"; exit 1; }
+    bash "$TMPSCRIPT" "$@" < /dev/tty
     EXIT_CODE=$?
     rm -f "$TMPSCRIPT"
     exit $EXIT_CODE
 fi
 
 REPO_URL="https://github.com/Andreas-SJ/ip-utils.git"
+REPO_BRANCH="main"
 INSTALL_DIR="/opt/ip-utils"
 DATA_DIR="/opt/ip-utils-data"
 IMAGE_NAME="ip-utils"
@@ -23,9 +23,70 @@ die() { echo ""; echo "Error: $1" >&2; exit 1; }
 say() { echo "$1"; }
 hr() { echo "------------------------------------------------------------"; }
 
+normalize_mode() {
+  local raw="$1"
+  case "$(echo "$raw" | tr '[:upper:]' '[:lower:]')" in
+    both|all|full) echo "both" ;;
+    planner|ip-planner|ip_planner|subnet-planner|subnet_planner) echo "planner" ;;
+    netplan|netplan-gen|netplan_generator|netplan-generator) echo "netplan" ;;
+    *) echo "" ;;
+  esac
+}
+
+parse_args() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --testing)
+        REPO_BRANCH="testing"
+        ;;
+      --main)
+        REPO_BRANCH="main"
+        ;;
+      --branch)
+        shift
+        [ -n "$1" ] || die "--branch requires a branch name."
+        REPO_BRANCH="$1"
+        ;;
+      --branch=*)
+        REPO_BRANCH="${1#*=}"
+        ;;
+      -h|--help)
+        echo "Usage: installer.sh [--testing] [--main] [--branch <name>]"
+        echo ""
+        echo "  --testing        Use the testing branch"
+        echo "  --main           Use the main branch (default)"
+        echo "  --branch <name>  Use a specific branch"
+        exit 0
+        ;;
+      *)
+        die "Unknown argument: $1"
+        ;;
+    esac
+    shift
+  done
+
+  if ! echo "$REPO_BRANCH" | grep -qE '^[A-Za-z0-9._/-]+$'; then
+    die "Invalid branch name: $REPO_BRANCH"
+  fi
+}
+
+sync_repo_source() {
+  if [ -d "$INSTALL_DIR/.git" ]; then
+    say "Pulling latest code from branch '$REPO_BRANCH' ..."
+    $SUDO git -C "$INSTALL_DIR" fetch --quiet origin "$REPO_BRANCH" || die "Failed to fetch branch '$REPO_BRANCH'."
+    $SUDO git -C "$INSTALL_DIR" reset --hard "origin/${REPO_BRANCH}" --quiet || die "Failed to reset to branch '$REPO_BRANCH'."
+  else
+    say "Cloning branch '$REPO_BRANCH' to $INSTALL_DIR ..."
+    $SUDO git clone --quiet --single-branch --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR" || die "Failed to clone branch '$REPO_BRANCH'."
+  fi
+}
+
+parse_args "$@"
+
 hr
 say "ip-utils installer"
 say "Repository: $REPO_URL"
+say "Branch: $REPO_BRANCH"
 hr
 echo ""
 
@@ -115,10 +176,93 @@ do_start_container() {
   $SUDO docker "${args[@]}" > /dev/null
 }
 
-do_reset_password() {
-  local existing_mode current_admins current_admin_user new_admin_user new_admin_pass new_admin_pass2 was_running
+upgrade_mode_to_both() {
+  local from_mode="$1" trust_proxy="$2"
+  local admin_user="" admin_pass="" admin_pass2=""
 
-  existing_mode=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
+  if [ "$from_mode" = "netplan" ]; then
+    echo ""
+    say "Adding IP Planner requires creating an admin account."
+    echo ""
+
+    while true; do
+      read -r -p "Admin username: " admin_user
+      if [ -z "$admin_user" ]; then
+        say "Username cannot be empty."
+        continue
+      fi
+      if echo "$admin_user" | grep -qE '^[a-zA-Z0-9_-]{1,32}$'; then
+        break
+      fi
+      say "Username must be 1-32 alphanumeric characters (a-z, A-Z, 0-9, _, -)."
+    done
+
+    while true; do
+      read -r -s -p "Admin password (min. 8 characters): " admin_pass
+      echo ""
+      if [ ${#admin_pass} -lt 8 ]; then
+        say "Password must be at least 8 characters."
+        continue
+      fi
+      read -r -s -p "Confirm password: " admin_pass2
+      echo ""
+      if [ "$admin_pass" = "$admin_pass2" ]; then
+        break
+      fi
+      say "Passwords do not match. Try again."
+    done
+  fi
+
+  echo ""
+  hr
+  say "Installing missing tool and switching mode to: both"
+
+  sync_repo_source
+
+  COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
+  [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
+
+  say "Stopping existing container ..."
+  $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
+  $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+  say "Removing old Docker image ..."
+  $SUDO docker rmi "$IMAGE_NAME" 2>/dev/null || true
+
+  say "Building Docker image (this may take a minute) ..."
+  $SUDO docker build --no-cache --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
+
+  do_start_container "both" "$admin_user" "$admin_pass" "$trust_proxy"
+
+  say "Missing tool installed."
+  print_summary "both" "$admin_user"
+  exit 0
+}
+
+manual_install_missing_tool() {
+  local trust_proxy="$1"
+
+  echo ""
+  say "Select currently installed single-tool mode:"
+  say "  1) IP Planner only  (add Netplan Generator)"
+  say "  2) Netplan Generator only  (add IP Planner)"
+  say "  3) Cancel"
+  echo ""
+  read -r -p "Enter choice [1-3]: " missing_choice
+  echo ""
+
+  case "$missing_choice" in
+    1) upgrade_mode_to_both "planner" "$trust_proxy" ;;
+    2) upgrade_mode_to_both "netplan" "$trust_proxy" ;;
+    *) say "Cancelled."; exit 0 ;;
+  esac
+}
+
+do_reset_password() {
+  local raw_existing_mode existing_mode current_admins current_admin_user new_admin_user new_admin_pass new_admin_pass2 was_running
+
+  raw_existing_mode=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
+  existing_mode=$(normalize_mode "$raw_existing_mode")
   if [ -z "$existing_mode" ]; then existing_mode="both"; fi
 
   if [ "$existing_mode" != "planner" ] && [ "$existing_mode" != "both" ]; then
@@ -256,28 +400,213 @@ if $SUDO docker container inspect "$CONTAINER_NAME" &>/dev/null; then
 fi
 
 if [ "$EXISTING_CONTAINER" = "true" ]; then
+  RAW_EXISTING_MODE=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
+  EXISTING_MODE=$(normalize_mode "$RAW_EXISTING_MODE")
+  EXISTING_TRUST_PROXY=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^TRUST_PROXY=' | cut -d= -f2- || true)
+
+  if [ -z "$EXISTING_MODE" ]; then
+    echo ""
+    say "Could not determine installed tool mode from container env: MODE=${RAW_EXISTING_MODE:-<unset>}"
+    say "Please select current installed mode so installer options are correct:"
+    say "  1) Both tools"
+    say "  2) IP Planner only"
+    say "  3) Netplan Generator only"
+    echo ""
+    read -r -p "Enter choice [1-3, default 1]: " detected_mode_choice
+    case "$detected_mode_choice" in
+      2) EXISTING_MODE="planner" ;;
+      3) EXISTING_MODE="netplan" ;;
+      *) EXISTING_MODE="both" ;;
+    esac
+  fi
+
   echo ""
   say "An existing ip-utils installation was detected."
   echo ""
-  say "  1) Update  (pull latest code, rebuild, keep all data)  [default]"
-  say "  2) Reset admin password  (keep everything else unchanged)"
-  say "  3) Full reinstall  (asks for new settings and admin credentials)"
-  say "  4) Exit"
-  echo ""
-  read -r -p "Enter choice [1-4, default 1]: " install_choice
+  if [ "$EXISTING_MODE" = "planner" ]; then
+    say "Detected mode: IP Planner only"
+    say "  1) Update  (pull latest code, rebuild, keep all data)  [default]"
+    say "  2) Reset admin password  (keep everything else unchanged)"
+    say "  3) Install Netplan Generator  (switch mode to both)"
+    say "  4) Full reinstall  (asks for new settings and admin credentials)"
+    say "  5) Exit"
+  elif [ "$EXISTING_MODE" = "netplan" ]; then
+    say "Detected mode: Netplan Generator only"
+    say "  1) Update  (pull latest code, rebuild, keep all data)  [default]"
+    say "  2) Install IP Planner  (switch mode to both)"
+    say "  3) Full reinstall  (asks for new settings and admin credentials)"
+    say "  4) Exit"
+  else
+    say "Detected mode: Both tools"
+    say "  1) Update  (pull latest code, rebuild, keep all data)  [default]"
+    say "  2) Reset admin password  (keep everything else unchanged)"
+    say "  3) Install missing tool  (manual mode selection, switches to both)"
+    say "  4) Full reinstall  (asks for new settings and admin credentials)"
+    say "  5) Exit"
+  fi
   echo ""
 
-  case "$install_choice" in
-    2) do_reset_password ;;
-    3) say "Proceeding with full reinstall..." ;;
-    4) say "Exiting."; exit 0 ;;
-    *)
+  if [ "$EXISTING_MODE" = "planner" ]; then
+    read -r -p "Enter choice [1-5, default 1]: " install_choice
+  elif [ "$EXISTING_MODE" = "netplan" ]; then
+    read -r -p "Enter choice [1-4, default 1]: " install_choice
+  else
+    read -r -p "Enter choice [1-5, default 1]: " install_choice
+  fi
+  echo ""
+
+  if [ "$EXISTING_MODE" = "planner" ]; then
+    case "$install_choice" in
+      2) do_reset_password ;;
+      3) upgrade_mode_to_both "planner" "$EXISTING_TRUST_PROXY" ;;
+      4) say "Proceeding with full reinstall..." ;;
+      5) say "Exiting."; exit 0 ;;
+      *)
+        say "Updating installation..."
+        echo ""
+
+        if [ -n "$EXISTING_TRUST_PROXY" ]; then
+          say "Current trusted proxy IP: $EXISTING_TRUST_PROXY"
+          read -r -p "Change proxy IP? [y/N]: " change_proxy
+          if [[ "$change_proxy" =~ ^[Yy]$ ]]; then
+            while true; do
+              read -r -p "New trusted proxy IP (leave blank to remove): " NEW_PROXY
+              if [ -z "$NEW_PROXY" ]; then
+                EXISTING_TRUST_PROXY=""
+                say "Reverse proxy disabled."
+                break
+              fi
+              if echo "$NEW_PROXY" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+                EXISTING_TRUST_PROXY="$NEW_PROXY"
+                say "Trusted proxy IP set to: $EXISTING_TRUST_PROXY"
+                break
+              fi
+              say "Please enter a valid IPv4 address."
+            done
+          fi
+        else
+          read -r -p "Is this installation behind a reverse proxy? [y/N]: " proxy_choice
+          if [[ "$proxy_choice" =~ ^[Yy]$ ]]; then
+            while true; do
+              read -r -p "Trusted reverse proxy IP (e.g. 127.0.0.1): " EXISTING_TRUST_PROXY
+              if [ -z "$EXISTING_TRUST_PROXY" ]; then
+                say "IP cannot be empty."
+                continue
+              fi
+              if echo "$EXISTING_TRUST_PROXY" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+                say "Trusted proxy IP set to: $EXISTING_TRUST_PROXY"
+                break
+              fi
+              say "Please enter a valid IPv4 address."
+            done
+          fi
+        fi
+        echo ""
+
+        hr
+
+        sync_repo_source
+
+        COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
+        [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
+
+        say "Stopping existing container ..."
+        $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
+        $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+        say "Removing old Docker image ..."
+        $SUDO docker rmi "$IMAGE_NAME" 2>/dev/null || true
+
+        say "Building Docker image (this may take a minute) ..."
+        $SUDO docker build --no-cache --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
+
+        do_start_container "$EXISTING_MODE" "" "" "$EXISTING_TRUST_PROXY"
+
+        say "Update complete."
+        print_summary "$EXISTING_MODE" ""
+        exit 0
+        ;;
+    esac
+  elif [ "$EXISTING_MODE" = "netplan" ]; then
+    case "$install_choice" in
+      2) upgrade_mode_to_both "netplan" "$EXISTING_TRUST_PROXY" ;;
+      3) say "Proceeding with full reinstall..." ;;
+      4) say "Exiting."; exit 0 ;;
+      *)
+        say "Updating installation..."
+        echo ""
+
+        if [ -n "$EXISTING_TRUST_PROXY" ]; then
+          say "Current trusted proxy IP: $EXISTING_TRUST_PROXY"
+          read -r -p "Change proxy IP? [y/N]: " change_proxy
+          if [[ "$change_proxy" =~ ^[Yy]$ ]]; then
+            while true; do
+              read -r -p "New trusted proxy IP (leave blank to remove): " NEW_PROXY
+              if [ -z "$NEW_PROXY" ]; then
+                EXISTING_TRUST_PROXY=""
+                say "Reverse proxy disabled."
+                break
+              fi
+              if echo "$NEW_PROXY" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+                EXISTING_TRUST_PROXY="$NEW_PROXY"
+                say "Trusted proxy IP set to: $EXISTING_TRUST_PROXY"
+                break
+              fi
+              say "Please enter a valid IPv4 address."
+            done
+          fi
+        else
+          read -r -p "Is this installation behind a reverse proxy? [y/N]: " proxy_choice
+          if [[ "$proxy_choice" =~ ^[Yy]$ ]]; then
+            while true; do
+              read -r -p "Trusted reverse proxy IP (e.g. 127.0.0.1): " EXISTING_TRUST_PROXY
+              if [ -z "$EXISTING_TRUST_PROXY" ]; then
+                say "IP cannot be empty."
+                continue
+              fi
+              if echo "$EXISTING_TRUST_PROXY" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+                say "Trusted proxy IP set to: $EXISTING_TRUST_PROXY"
+                break
+              fi
+              say "Please enter a valid IPv4 address."
+            done
+          fi
+        fi
+        echo ""
+
+        hr
+
+        sync_repo_source
+
+        COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
+        [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
+
+        say "Stopping existing container ..."
+        $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
+        $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+        say "Removing old Docker image ..."
+        $SUDO docker rmi "$IMAGE_NAME" 2>/dev/null || true
+
+        say "Building Docker image (this may take a minute) ..."
+        $SUDO docker build --no-cache --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
+
+        do_start_container "$EXISTING_MODE" "" "" "$EXISTING_TRUST_PROXY"
+
+        say "Update complete."
+        print_summary "$EXISTING_MODE" ""
+        exit 0
+        ;;
+    esac
+  else
+    case "$install_choice" in
+      2) do_reset_password ;;
+      3) manual_install_missing_tool "$EXISTING_TRUST_PROXY" ;;
+      4) say "Proceeding with full reinstall..." ;;
+      5) say "Exiting."; exit 0 ;;
+      *)
       say "Updating installation..."
       echo ""
-
-      EXISTING_MODE=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
-      if [ -z "$EXISTING_MODE" ]; then EXISTING_MODE="both"; fi
-      EXISTING_TRUST_PROXY=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^TRUST_PROXY=' | cut -d= -f2- || true)
 
       if [ -n "$EXISTING_TRUST_PROXY" ]; then
         say "Current trusted proxy IP: $EXISTING_TRUST_PROXY"
@@ -319,14 +648,7 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
 
       hr
 
-      if [ -d "$INSTALL_DIR/.git" ]; then
-        say "Pulling latest code ..."
-        $SUDO git -C "$INSTALL_DIR" fetch --quiet
-        $SUDO git -C "$INSTALL_DIR" reset --hard origin/main --quiet
-      else
-        say "Cloning repository to $INSTALL_DIR ..."
-        $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
-      fi
+      sync_repo_source
 
       COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
       [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
@@ -347,7 +669,8 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
       print_summary "$EXISTING_MODE" ""
       exit 0
       ;;
-  esac
+    esac
+  fi
 fi
 
 echo ""
@@ -425,14 +748,7 @@ fi
 echo ""
 hr
 
-if [ -d "$INSTALL_DIR/.git" ]; then
-  say "Pulling latest code in $INSTALL_DIR ..."
-  $SUDO git -C "$INSTALL_DIR" fetch --quiet
-  $SUDO git -C "$INSTALL_DIR" reset --hard origin/main --quiet
-else
-  say "Cloning repository to $INSTALL_DIR ..."
-  $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
-fi
+sync_repo_source
 
 COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
 [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null

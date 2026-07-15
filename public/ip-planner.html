@@ -90,6 +90,16 @@
   }
   .user-nav .u-name { color: var(--ink-mute); }
   .user-nav a { color: var(--accent); }
+  .user-nav a.nav-disabled {
+    color: var(--ink-faint);
+    opacity: 0.75;
+    cursor: not-allowed;
+    text-decoration: none;
+  }
+  .user-nav a.nav-disabled:hover {
+    text-decoration: none;
+    color: var(--ink-faint);
+  }
   .admin-banner {
     flex-basis: 100%; background: rgba(232,168,92,0.08); border: 1px solid var(--accent-dim);
     border-radius: 2px; padding: 6px 14px; font-family: var(--mono); font-size: 11px;
@@ -1579,22 +1589,42 @@ function confirmDialog(title, message, confirmLabel) {
   });
 }
 
-fetch('/api/me').then(r => {
-  if (!r.ok) { window.location.href = '/login'; return null; }
-  return r.json();
-}).then(data => {
+Promise.all([
+  fetch('/api/config').then(r => r.ok ? r.json() : { hasPlanner: true, hasNetplan: true }).catch(() => ({ hasPlanner: true, hasNetplan: true })),
+  fetch('/api/me').then(r => {
+    if (!r.ok) { window.location.href = '/login'; return null; }
+    return r.json();
+  })
+]).then(([cfg, data]) => {
   if (!data) return;
   const nav = document.getElementById('user-nav');
-  nav.innerHTML = '<span class="u-name">' + esc(data.username) + '</span>' +
+  let html = '<span class="u-name">' + esc(data.username) + '</span>' +
     ' &nbsp;&middot;&nbsp; <a href="/">home</a>' +
-    (data.isAdmin ? ' &nbsp;&middot;&nbsp; <a href="/admin">admin</a>' : '') +
-    ' &nbsp;&middot;&nbsp; <a href="/netplan-gen">netplan-gen</a>' +
-    ' &nbsp;&middot;&nbsp; <a href="#" id="btn-logout">logout</a>';
+    (data.isAdmin ? ' &nbsp;&middot;&nbsp; <a href="/admin">admin</a>' : '');
+
+  if (cfg.hasNetplan) {
+    html += ' &nbsp;&middot;&nbsp; <a href="/netplan-gen">netplan-gen</a>';
+  } else {
+    html += ' &nbsp;&middot;&nbsp; <a href="#" id="btn-netplan-missing" class="nav-disabled" aria-disabled="true">netplan-gen</a>';
+  }
+
+  html += ' &nbsp;&middot;&nbsp; <a href="#" id="btn-logout">logout</a>';
+  nav.innerHTML = html;
+
   document.getElementById('btn-logout').addEventListener('click', async e => {
     e.preventDefault();
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/login';
   });
+
+  const missingNetplanBtn = document.getElementById('btn-netplan-missing');
+  if (missingNetplanBtn) {
+    missingNetplanBtn.addEventListener('click', e => {
+      e.preventDefault();
+      showToast('netplan-gen is not installed in this deployment');
+    });
+  }
+
   if (data.isAdmin) {
     loadOtherPlans(data.username);
   }

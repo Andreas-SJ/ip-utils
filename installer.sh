@@ -23,6 +23,16 @@ die() { echo ""; echo "Error: $1" >&2; exit 1; }
 say() { echo "$1"; }
 hr() { echo "------------------------------------------------------------"; }
 
+normalize_mode() {
+  local raw="$1"
+  case "$(echo "$raw" | tr '[:upper:]' '[:lower:]')" in
+    both|all|full) echo "both" ;;
+    planner|ip-planner|ip_planner|subnet-planner|subnet_planner) echo "planner" ;;
+    netplan|netplan-gen|netplan_generator|netplan-generator) echo "netplan" ;;
+    *) echo "" ;;
+  esac
+}
+
 hr
 say "ip-utils installer"
 say "Repository: $REPO_URL"
@@ -326,9 +336,25 @@ if $SUDO docker container inspect "$CONTAINER_NAME" &>/dev/null; then
 fi
 
 if [ "$EXISTING_CONTAINER" = "true" ]; then
-  EXISTING_MODE=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
-  if [ -z "$EXISTING_MODE" ]; then EXISTING_MODE="both"; fi
+  RAW_EXISTING_MODE=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
+  EXISTING_MODE=$(normalize_mode "$RAW_EXISTING_MODE")
   EXISTING_TRUST_PROXY=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^TRUST_PROXY=' | cut -d= -f2- || true)
+
+  if [ -z "$EXISTING_MODE" ]; then
+    echo ""
+    say "Could not determine installed tool mode from container env: MODE=${RAW_EXISTING_MODE:-<unset>}"
+    say "Please select current installed mode so installer options are correct:"
+    say "  1) Both tools"
+    say "  2) IP Planner only"
+    say "  3) Netplan Generator only"
+    echo ""
+    read -r -p "Enter choice [1-3, default 1]: " detected_mode_choice
+    case "$detected_mode_choice" in
+      2) EXISTING_MODE="planner" ;;
+      3) EXISTING_MODE="netplan" ;;
+      *) EXISTING_MODE="both" ;;
+    esac
+  fi
 
   echo ""
   say "An existing ip-utils installation was detected."

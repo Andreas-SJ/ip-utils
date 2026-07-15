@@ -32,7 +32,7 @@ function parseCommit(commit) {
   const subjectRaw = lines[0].trim();
   const match = subjectRaw.match(TAG_REGEX);
 
-  if (!match) return null; // untagged commit, skip.
+  if (!match) return null; // untagged commit, skip
 
   const type = match[1].toLowerCase();
   const subject = subjectRaw.replace(TAG_REGEX, '').trim();

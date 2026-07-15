@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 5,
-  "patch": 5,
-  "current": "v1.5.5",
+  "patch": 6,
+  "current": "v1.5.6",
   "history": [
     {
       "version": "v1.1.0",
@@ -159,6 +159,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T17:33:31+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/bd8239eab1d7ea77d4ef80ddc0464bfc4f511d88"
+    },
+    {
+      "version": "v1.5.6",
+      "type": "bug",
+      "security": false,
+      "summary": "likely fixed root cause as to updating trough UI failing",
+      "description": null,
+      "hash": "e20e88ce023cfe80e5e3c376bbb3abab3883d83d",
+      "shortHash": "e20e88c",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T17:38:15+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/e20e88ce023cfe80e5e3c376bbb3abab3883d83d"
     }
   ]
 }

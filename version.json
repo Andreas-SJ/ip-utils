@@ -1,0 +1,20 @@
+{
+  "major": 1,
+  "minor": 1,
+  "patch": 0,
+  "current": "v1.1.0",
+  "history": [
+    {
+      "version": "v1.1.0",
+      "type": "feature",
+      "security": false,
+      "summary": "version manager workflow",
+      "description": null,
+      "hash": "570c931f87f80aa072915ad897dde40b6287d68b",
+      "shortHash": "570c931",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T14:00:14+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/570c931f87f80aa072915ad897dde40b6287d68b"
+    }
+  ]
+}

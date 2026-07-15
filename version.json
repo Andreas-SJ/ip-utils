@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 5,
-  "patch": 7,
-  "current": "v1.5.7",
+  "patch": 8,
+  "current": "v1.5.8",
   "history": [
     {
       "version": "v1.1.0",
@@ -183,6 +183,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T18:04:09+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/16fac2184da9ff108efb5b708a4730fcd62325a1"
+    },
+    {
+      "version": "v1.5.8",
+      "type": "bug",
+      "security": false,
+      "summary": "fixed issue with daemon trying to install itself during UI updates",
+      "description": null,
+      "hash": "ef11c74dafbe2962f2e4000a099373fd9f614060",
+      "shortHash": "ef11c74",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T18:22:59+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/ef11c74dafbe2962f2e4000a099373fd9f614060"
     }
   ]
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-if [ ! -t 0 ]; then
+if [ ! -t 0 ] && [ -z "$IP_UTILS_SKIP_STDIN_BOOTSTRAP" ]; then
     TMPSCRIPT=$(mktemp /tmp/ip-utils-install-XXXXX.sh)
   cat > "$TMPSCRIPT" || { echo "Error: failed to read installer script from stdin."; rm -f "$TMPSCRIPT"; exit 1; }
     bash "$TMPSCRIPT" "$@" < /dev/tty
@@ -12,6 +12,9 @@ fi
 
 REPO_URL="https://github.com/Andreas-SJ/ip-utils.git"
 REPO_BRANCH="main"
+AUTO_UPDATE_NOW=false
+AUTO_PROXY_MODE="keep"
+AUTO_PROXY_IP=""
 INSTALL_DIR="/opt/ip-utils"
 DATA_DIR="/opt/ip-utils-data"
 IMAGE_NAME="ip-utils"
@@ -50,12 +53,34 @@ parse_args() {
       --branch=*)
         REPO_BRANCH="${1#*=}"
         ;;
+      --update-now)
+        AUTO_UPDATE_NOW=true
+        ;;
+      --proxy-mode)
+        shift
+        [ -n "$1" ] || die "--proxy-mode requires one of: keep, remove, set"
+        AUTO_PROXY_MODE="$1"
+        ;;
+      --proxy-mode=*)
+        AUTO_PROXY_MODE="${1#*=}"
+        ;;
+      --proxy-ip)
+        shift
+        [ -n "$1" ] || die "--proxy-ip requires an IPv4 value"
+        AUTO_PROXY_IP="$1"
+        ;;
+      --proxy-ip=*)
+        AUTO_PROXY_IP="${1#*=}"
+        ;;
       -h|--help)
-        echo "Usage: installer.sh [--testing] [--main] [--branch <name>]"
+        echo "Usage: installer.sh [--testing] [--main] [--branch <name>] [--update-now] [--proxy-mode <keep|remove|set>] [--proxy-ip <IPv4>]"
         echo ""
         echo "  --testing        Use the testing branch"
         echo "  --main           Use the main branch (default)"
         echo "  --branch <name>  Use a specific branch"
+        echo "  --update-now     Non-interactive update of an existing install"
+        echo "  --proxy-mode     Proxy setting for --update-now (keep/remove/set)"
+        echo "  --proxy-ip       Proxy IP for --proxy-mode set"
         exit 0
         ;;
       *)
@@ -67,6 +92,19 @@ parse_args() {
 
   if ! echo "$REPO_BRANCH" | grep -qE '^[A-Za-z0-9._/-]+$'; then
     die "Invalid branch name: $REPO_BRANCH"
+  fi
+
+  if [ "$AUTO_PROXY_MODE" != "keep" ] && [ "$AUTO_PROXY_MODE" != "remove" ] && [ "$AUTO_PROXY_MODE" != "set" ]; then
+    die "Invalid --proxy-mode value: $AUTO_PROXY_MODE"
+  fi
+
+  if [ "$AUTO_PROXY_MODE" = "set" ]; then
+    if [ -z "$AUTO_PROXY_IP" ]; then
+      die "--proxy-ip is required when --proxy-mode is set"
+    fi
+    if ! echo "$AUTO_PROXY_IP" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+      die "--proxy-ip must be a valid IPv4 address"
+    fi
   fi
 }
 
@@ -420,6 +458,38 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
     esac
   fi
 
+  if [ "$AUTO_UPDATE_NOW" = "true" ]; then
+    case "$AUTO_PROXY_MODE" in
+      remove) EXISTING_TRUST_PROXY="" ;;
+      set) EXISTING_TRUST_PROXY="$AUTO_PROXY_IP" ;;
+      *) : ;;
+    esac
+
+    echo ""
+    hr
+    say "Running non-interactive update..."
+    sync_repo_source
+
+    COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
+    [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
+
+    say "Stopping existing container ..."
+    $SUDO docker stop "$CONTAINER_NAME" 2>/dev/null || true
+    $SUDO docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+    say "Removing old Docker image ..."
+    $SUDO docker rmi "$IMAGE_NAME" 2>/dev/null || true
+
+    say "Building Docker image (this may take a minute) ..."
+    $SUDO docker build --no-cache --quiet -t "$IMAGE_NAME" "$INSTALL_DIR"
+
+    do_start_container "$EXISTING_MODE" "" "" "$EXISTING_TRUST_PROXY"
+
+    say "Update complete."
+    print_summary "$EXISTING_MODE" ""
+    exit 0
+  fi
+
   echo ""
   say "An existing ip-utils installation was detected."
   echo ""
@@ -671,6 +741,10 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
       ;;
     esac
   fi
+fi
+
+if [ "$AUTO_UPDATE_NOW" = "true" ]; then
+  die "--update-now requires an existing ip-utils installation/container."
 fi
 
 echo ""

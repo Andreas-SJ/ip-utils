@@ -258,6 +258,27 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .update-date { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+  .update-now-btn {
+    font-size: 10px;
+    padding: 4px 9px;
+    border-color: var(--accent-dim);
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .update-now-btn:hover {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  .update-job-status {
+    margin: 0 0 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .update-job-status.running { color: var(--accent); }
+  .update-job-status.succeeded { color: var(--ok); }
+  .update-job-status.failed { color: var(--danger); }
 
   footer {
     border-top: 1px solid var(--line); padding: 20px 0 28px;
@@ -301,6 +322,7 @@
       </div>
       <button class="ghost" id="dismiss-updates" style="padding:3px 8px;font-size:10px">dismiss all</button>
     </div>
+    <div id="update-job-status" class="update-job-status"></div>
     <div id="update-list"></div>
   </div>
 
@@ -399,6 +421,38 @@
   </div>
 </div>
 
+<div id="upd-modal-back" class="modal-back">
+  <div class="modal pw-modal">
+    <h3 id="upd-modal-title">Run update</h3>
+    <p class="pw-sub">Choose update options and confirm with your admin password.</p>
+    <div class="field">
+      <span class="lbl">Branch</span>
+      <input type="text" id="upd-branch" placeholder="main" autocomplete="off" />
+    </div>
+    <div class="field">
+      <span class="lbl">Reverse proxy setting</span>
+      <select id="upd-proxy-mode" style="width:100%;background:var(--bg-sunk);color:var(--ink);border:1px solid var(--line-strong);border-radius:2px;padding:9px 11px;font-family:var(--mono);font-size:13px;">
+        <option value="keep">Keep current proxy config</option>
+        <option value="remove">Remove proxy trust</option>
+        <option value="set">Set proxy IP</option>
+      </select>
+    </div>
+    <div class="field" id="upd-proxy-ip-wrap" style="display:none;">
+      <span class="lbl">Proxy IP</span>
+      <input type="text" id="upd-proxy-ip" placeholder="127.0.0.1" autocomplete="off" />
+    </div>
+    <div class="field">
+      <span class="lbl">Confirm admin password</span>
+      <input type="password" id="upd-admin-pass" placeholder="current admin password" autocomplete="current-password" />
+    </div>
+    <div class="pw-err" id="upd-err"></div>
+    <div class="modal-actions" style="margin-top:18px">
+      <button class="ghost" id="upd-cancel" style="padding:8px 14px">Cancel</button>
+      <button class="pw-ok" id="upd-submit">Submit update</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -440,6 +494,72 @@ function confirmDialog(title, msg, label) {
 }
 
 let currentUser = null;
+let latestUpdateVersion = null;
+let updateStatusPoll = null;
+
+function parseSemver(v) {
+  const m = String(v || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/i);
+  if (!m) return null;
+  return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
+}
+
+function compareSemver(a, b) {
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
+  if (!pa || !pb) return 0;
+  for (let i = 0; i < 3; i += 1) {
+    if (pa[i] !== pb[i]) return pa[i] > pb[i] ? 1 : -1;
+  }
+  return 0;
+}
+
+function setUpdateJobStatus(text, statusClass) {
+  const el = document.getElementById('update-job-status');
+  el.textContent = text || '';
+  el.className = 'update-job-status' + (statusClass ? (' ' + statusClass) : '');
+}
+
+async function refreshUpdateJobStatus() {
+  try {
+    const r = await fetch('/api/admin/update/status');
+    if (!r.ok) return;
+    const job = await r.json();
+    if (!job || !job.status || job.status === 'idle') {
+      setUpdateJobStatus('');
+      return;
+    }
+    if (job.status === 'running') {
+      setUpdateJobStatus(`Update running on branch ${job.branch || 'main'}...`, 'running');
+    } else if (job.status === 'succeeded') {
+      setUpdateJobStatus(`Last update succeeded (${job.branch || 'main'})`, 'succeeded');
+      await Promise.all([loadUpdates(), loadInstalledVersion()]);
+    } else if (job.status === 'failed') {
+      setUpdateJobStatus(`Last update failed (${job.branch || 'main'})`, 'failed');
+    }
+  } catch {}
+}
+
+function ensureUpdateStatusPolling() {
+  if (updateStatusPoll) return;
+  updateStatusPoll = setInterval(() => { refreshUpdateJobStatus(); }, 3000);
+}
+
+function openUpdateModal() {
+  const back = document.getElementById('upd-modal-back');
+  document.getElementById('upd-branch').value = 'main';
+  document.getElementById('upd-proxy-mode').value = 'keep';
+  document.getElementById('upd-proxy-ip').value = '';
+  document.getElementById('upd-admin-pass').value = '';
+  document.getElementById('upd-err').textContent = '';
+  document.getElementById('upd-proxy-ip-wrap').style.display = 'none';
+  back.classList.add('show');
+  document.getElementById('upd-admin-pass').focus();
+}
+
+function closeUpdateModal() {
+  const back = document.getElementById('upd-modal-back');
+  back.classList.remove('show');
+}
 
 function openPwModal(username) {
   document.getElementById('pw-modal-title').textContent = 'Change password';
@@ -634,19 +754,93 @@ async function loadUpdates() {
   };
 
   if (!updates.length) {
+    latestUpdateVersion = null;
     list.innerHTML = '<div class="update-current">You are on the most recent version.</div>';
     dismissBtn.style.visibility = 'hidden';
     return;
   }
 
+  const sorted = [...updates].sort((a, b) => compareSemver(b.version, a.version));
+  latestUpdateVersion = sorted[0]?.version || null;
+
   dismissBtn.style.visibility = 'visible';
-  list.innerHTML = updates.map(u => `
+  list.innerHTML = sorted.map((u, idx) => `
     <div class="update-entry type-${esc(typeClass(u.type))}">
       <span class="update-tag type-${esc(typeClass(u.type))}">${esc(u.version || u.type)}</span>
       <span class="update-msg" title="${esc(u.message)}">${esc(u.message)}</span>
       <span class="update-date">${esc(dateLabel(u.date))}</span>
+      ${idx === 0 ? `<button class="update-now-btn" id="update-now-btn" title="Update to latest version">update now</button>` : ''}
     </div>`).join('');
+
+  const updateNowBtn = document.getElementById('update-now-btn');
+  if (updateNowBtn) {
+    updateNowBtn.addEventListener('click', e => {
+      e.preventDefault();
+      openUpdateModal();
+    });
+  }
 }
+
+document.getElementById('upd-proxy-mode').addEventListener('change', e => {
+  const wrap = document.getElementById('upd-proxy-ip-wrap');
+  wrap.style.display = e.target.value === 'set' ? '' : 'none';
+});
+
+document.getElementById('upd-cancel').addEventListener('click', e => {
+  e.preventDefault();
+  closeUpdateModal();
+});
+
+document.getElementById('upd-modal-back').addEventListener('click', e => {
+  if (e.target.id === 'upd-modal-back') closeUpdateModal();
+});
+
+document.getElementById('upd-submit').addEventListener('click', async e => {
+  e.preventDefault();
+  const errEl = document.getElementById('upd-err');
+  const submitBtn = document.getElementById('upd-submit');
+  errEl.textContent = '';
+
+  const branch = document.getElementById('upd-branch').value.trim() || 'main';
+  const proxyMode = document.getElementById('upd-proxy-mode').value;
+  const proxyIp = document.getElementById('upd-proxy-ip').value.trim();
+  const adminPassword = document.getElementById('upd-admin-pass').value;
+
+  if (!adminPassword) {
+    errEl.textContent = 'Please re-enter your admin password.';
+    return;
+  }
+  if (proxyMode === 'set' && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(proxyIp)) {
+    errEl.textContent = 'Please enter a valid proxy IPv4 address.';
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting...';
+  try {
+    const r = await fetch('/api/admin/update/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ branch, proxyMode, proxyIp, adminPassword }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      errEl.textContent = d.error || 'Failed to start update.';
+      return;
+    }
+
+    closeUpdateModal();
+    showToast('update started');
+    setUpdateJobStatus(`Update running on branch ${branch}...`, 'running');
+    ensureUpdateStatusPolling();
+    await refreshUpdateJobStatus();
+  } catch {
+    errEl.textContent = 'Failed to start update.';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit update';
+  }
+});
 
 document.getElementById('check-updates').addEventListener('click', async e => {
   e.preventDefault();
@@ -679,6 +873,8 @@ document.getElementById('dismiss-updates').addEventListener('click', async () =>
 (async function init() {
   await loadMe();
   await Promise.all([loadUsers(), loadUpdates(), loadInstalledVersion()]);
+  ensureUpdateStatusPolling();
+  await refreshUpdateJobStatus();
 })();
 </script>
 

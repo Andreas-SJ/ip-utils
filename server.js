@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const https = require('https');
 
 const app = express();
@@ -327,6 +327,91 @@ app.post('/api/arp/scan', requireAuth, async (req, res) => {
 
 const UPDATES_FILE = path.join(DATA_DIR, 'update_notifications.json');
 const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/Andreas-SJ/ip-utils/refs/heads/main/version.json';
+const INSTALLER_PATH = path.join(__dirname, 'installer.sh');
+
+let updateJob = {
+  id: null,
+  status: 'idle',
+  startedAt: null,
+  endedAt: null,
+  exitCode: null,
+  branch: null,
+  output: '',
+  error: null,
+};
+
+function appendJobOutput(chunk) {
+  const text = String(chunk || '');
+  updateJob.output += text;
+  if (updateJob.output.length > 50000) {
+    updateJob.output = updateJob.output.slice(-50000);
+  }
+}
+
+function normalizeBranchName(branch) {
+  const b = String(branch || '').trim() || 'main';
+  return /^[A-Za-z0-9._/-]+$/.test(b) ? b : null;
+}
+
+function isValidProxyIp(ip) {
+  return /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(String(ip || ''));
+}
+
+function sanitizeJob(job) {
+  return {
+    id: job.id,
+    status: job.status,
+    startedAt: job.startedAt,
+    endedAt: job.endedAt,
+    exitCode: job.exitCode,
+    branch: job.branch,
+    error: job.error,
+    output: job.output,
+  };
+}
+
+function startUpdateJob(options) {
+  const { branch, proxyMode, proxyIp } = options;
+  const args = [INSTALLER_PATH, '--branch', branch, '--update-now', '--proxy-mode', proxyMode];
+  if (proxyMode === 'set') args.push('--proxy-ip', proxyIp);
+
+  const id = crypto.randomBytes(8).toString('hex');
+  updateJob = {
+    id,
+    status: 'running',
+    startedAt: new Date().toISOString(),
+    endedAt: null,
+    exitCode: null,
+    branch,
+    output: `Starting update job ${id} on branch '${branch}'...\n`,
+    error: null,
+  };
+
+  const child = spawn('bash', args, {
+    cwd: __dirname,
+    env: { ...process.env, IP_UTILS_SKIP_STDIN_BOOTSTRAP: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  child.stdout.on('data', appendJobOutput);
+  child.stderr.on('data', appendJobOutput);
+  child.on('error', err => {
+    updateJob.status = 'failed';
+    updateJob.endedAt = new Date().toISOString();
+    updateJob.exitCode = -1;
+    updateJob.error = err.message || 'Failed to start update process.';
+    appendJobOutput(`\n[error] ${updateJob.error}\n`);
+  });
+  child.on('close', code => {
+    updateJob.endedAt = new Date().toISOString();
+    updateJob.exitCode = code;
+    updateJob.status = code === 0 ? 'succeeded' : 'failed';
+    if (code !== 0 && !updateJob.error) updateJob.error = `Installer exited with code ${code}`;
+    appendJobOutput(`\n[done] update job completed with exit code ${code}\n`);
+  });
+
+  return id;
+}
 
 function loadUpdates() {
   try {
@@ -477,6 +562,45 @@ app.get('/api/admin/updates', requireAdmin, (req, res) => {
 
 app.get('/api/admin/version', requireAdmin, (req, res) => {
   res.json({ version: getInstalledVersion() });
+});
+
+app.get('/api/admin/update/status', requireAdmin, (req, res) => {
+  res.json(sanitizeJob(updateJob));
+});
+
+app.post('/api/admin/update/start', requireAdmin, async (req, res) => {
+  if (updateJob.status === 'running') {
+    return res.status(409).json({ error: 'An update is already running.', job: sanitizeJob(updateJob) });
+  }
+
+  const branch = normalizeBranchName(req.body?.branch);
+  if (!branch) return res.status(400).json({ error: 'Invalid branch name.' });
+
+  const proxyMode = String(req.body?.proxyMode || 'keep').trim();
+  if (!['keep', 'remove', 'set'].includes(proxyMode)) {
+    return res.status(400).json({ error: 'Invalid proxy mode.' });
+  }
+
+  const proxyIp = String(req.body?.proxyIp || '').trim();
+  if (proxyMode === 'set' && !isValidProxyIp(proxyIp)) {
+    return res.status(400).json({ error: 'Valid proxy IP is required when proxy mode is set.' });
+  }
+
+  const adminPassword = String(req.body?.adminPassword || '');
+  if (!adminPassword) return res.status(400).json({ error: 'Admin password confirmation is required.' });
+
+  const users = loadUsers();
+  const sessionUser = req.session?.user?.username;
+  const user = sessionUser ? users[sessionUser] : null;
+  if (!user || !user.isAdmin) {
+    return res.status(403).json({ error: 'Admin access required.' });
+  }
+
+  const ok = await bcrypt.compare(adminPassword, user.passwordHash);
+  if (!ok) return res.status(401).json({ error: 'Invalid admin password.' });
+
+  const id = startUpdateJob({ branch, proxyMode, proxyIp });
+  return res.json({ ok: true, id, job: sanitizeJob(updateJob) });
 });
 
 app.post('/api/admin/updates/check', requireAdmin, async (req, res) => {

@@ -1,0 +1,39 @@
+name: Update version manifest
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Update version.json
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: node .github/scripts/update-version.js
+
+      - name: Commit version.json
+        run: |
+          git config user.name "version-bot"
+          git config user.email "version-bot@users.noreply.github.com"
+          git add version.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update version.json [skip ci]"
+            git push
+          else
+            echo "No version-tagged commits in this push, nothing to do."
+          fi

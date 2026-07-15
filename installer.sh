@@ -25,6 +25,7 @@ UPDATER_REQUEST_FILE="${DATA_DIR}/update-request.env"
 UPDATER_STATUS_FILE="${DATA_DIR}/update-status.env"
 UPDATER_OUTPUT_FILE="${DATA_DIR}/update-status.log"
 UPDATER_LAST_ID_FILE="${DATA_DIR}/update-last-id"
+UPDATER_HEARTBEAT_FILE="${DATA_DIR}/update-heartbeat"
 
 if [ "$EUID" -ne 0 ]; then SUDO="sudo"; else SUDO=""; fi
 
@@ -153,6 +154,7 @@ REQUEST_FILE="$UPDATER_REQUEST_FILE"
 STATUS_FILE="$UPDATER_STATUS_FILE"
 OUTPUT_FILE="$UPDATER_OUTPUT_FILE"
 LAST_ID_FILE="$UPDATER_LAST_ID_FILE"
+HEARTBEAT_FILE="$UPDATER_HEARTBEAT_FILE"
 
 read_kv() {
   local key="\$1" file="\$2"
@@ -175,8 +177,11 @@ write_status() {
 }
 
 touch "\$OUTPUT_FILE"
+date +%s > "$HEARTBEAT_FILE"
 
 while true; do
+  date +%s > "$HEARTBEAT_FILE"
+
   if [ -f "\$REQUEST_FILE" ]; then
     req_id="\$(read_kv id "\$REQUEST_FILE")"
     branch="\$(read_kv branch "\$REQUEST_FILE")"

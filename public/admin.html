@@ -310,6 +310,11 @@
     text-align: center;
     position: relative;
     overflow: hidden;
+    transition: border-color .45s ease, box-shadow .45s ease;
+  }
+  .update-overlay.success .update-overlay-panel {
+    border-left-color: rgba(127,176,105,0.6);
+    box-shadow: 0 30px 90px rgba(0,0,0,0.6), 0 0 0 1px rgba(127,176,105,0.18) inset;
   }
   .update-overlay-title {
     margin: 0;
@@ -341,6 +346,20 @@
     margin-bottom: 26px;
     animation: update-spin 1s linear infinite;
     position: relative;
+    transition: transform .45s ease, border-color .45s ease, background .45s ease;
+  }
+  .update-throbber::before {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 34px;
+    border-right: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    left: 31px;
+    top: 18px;
+    transform: rotate(45deg) scale(0.65);
+    opacity: 0;
+    transition: transform .38s ease, opacity .3s ease, border-color .3s ease;
   }
   .update-throbber::after {
     content: '';
@@ -352,6 +371,22 @@
   }
   @keyframes update-spin {
     to { transform: rotate(360deg); }
+  }
+  .update-overlay.success .update-throbber {
+    animation: none;
+    transform: scale(1.04);
+    border-color: rgba(127,176,105,0.5);
+    background: rgba(127,176,105,0.14);
+  }
+  .update-overlay.success .update-throbber::after {
+    animation: none;
+    border-color: rgba(127,176,105,0.35);
+  }
+  .update-overlay.success .update-throbber::before {
+    border-right-color: var(--ok);
+    border-bottom-color: var(--ok);
+    transform: rotate(45deg) scale(1);
+    opacity: 1;
   }
   .update-overlay-refresh-msg {
     position: absolute;
@@ -542,9 +577,9 @@
 <div id="update-progress-overlay" class="update-overlay" aria-live="polite" aria-hidden="true">
   <div class="update-overlay-panel">
     <div class="update-throbber" aria-hidden="true"></div>
-    <h2 class="update-overlay-title"><i>applying</i> <b>update</b></h2>
-    <p class="update-overlay-sub">Please wait while ip-utils restarts</p>
-    <p class="update-overlay-refresh-msg">the site will automatically refresh in 40 seconds</p>
+    <h2 class="update-overlay-title" id="update-overlay-title"><i>applying</i> <b>update</b></h2>
+    <p class="update-overlay-sub" id="update-overlay-sub">Please wait while ip-utils restarts</p>
+    <p class="update-overlay-refresh-msg" id="update-overlay-refresh-msg">the site will automatically refresh in 40 seconds</p>
   </div>
 </div>
 
@@ -593,6 +628,8 @@ let latestUpdateVersion = null;
 let updateStatusPoll = null;
 let updatesAutoCheckTimer = null;
 let updateRefreshTimer = null;
+let updateOverlayActive = false;
+let activeUpdateJobId = null;
 
 function parseSemver(v) {
   const m = String(v || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/i);
@@ -631,9 +668,26 @@ async function refreshUpdateJobStatus() {
       setUpdateJobStatus(`Update running on branch ${job.branch || 'main'}...`, 'running');
     } else if (job.status === 'succeeded') {
       setUpdateJobStatus(`Last update succeeded (${job.branch || 'main'})`, 'succeeded');
+      if (updateOverlayActive && activeUpdateJobId && job.id === activeUpdateJobId) {
+        showUpdateSuccessOverlay(job.branch || 'main');
+      }
       await Promise.all([loadUpdates(), loadInstalledVersion()]);
     } else if (job.status === 'failed') {
       setUpdateJobStatus(`Last update failed (${job.branch || 'main'})`, 'failed');
+      if (updateOverlayActive && activeUpdateJobId && job.id === activeUpdateJobId) {
+        hideUpdateOverlay('update failed');
+      }
+    }
+
+    if (
+      updateOverlayActive &&
+      activeUpdateJobId &&
+      job.id === activeUpdateJobId &&
+      (job.status === 'queued' || job.status === 'running') &&
+      job.daemonAlive === false
+    ) {
+      setUpdateJobStatus('Updater daemon offline. Update stopped.', 'failed');
+      hideUpdateOverlay('updater daemon offline');
     }
   } catch {}
 }
@@ -645,12 +699,53 @@ function ensureUpdateStatusPolling() {
 
 function showUpdateProgressOverlay() {
   const overlay = document.getElementById('update-progress-overlay');
+  const title = document.getElementById('update-overlay-title');
+  const sub = document.getElementById('update-overlay-sub');
+  const refreshMsg = document.getElementById('update-overlay-refresh-msg');
+  overlay.classList.remove('success');
+  title.innerHTML = '<i>applying</i> <b>update</b>';
+  sub.textContent = 'Please wait while ip-utils restarts';
+  refreshMsg.textContent = 'the site will automatically refresh in 40 seconds';
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
+  updateOverlayActive = true;
   if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
   updateRefreshTimer = setTimeout(() => {
     window.location.reload();
   }, 40000);
+}
+
+function showUpdateSuccessOverlay(branch) {
+  const overlay = document.getElementById('update-progress-overlay');
+  const title = document.getElementById('update-overlay-title');
+  const sub = document.getElementById('update-overlay-sub');
+  const refreshMsg = document.getElementById('update-overlay-refresh-msg');
+
+  overlay.classList.add('show');
+  overlay.classList.add('success');
+  overlay.setAttribute('aria-hidden', 'false');
+  title.innerHTML = '<i>update</i> <b>succeeded</b>';
+  sub.textContent = `Branch ${branch} is now live`;
+  refreshMsg.textContent = 'refreshing now';
+
+  if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
+  updateRefreshTimer = setTimeout(() => {
+    window.location.reload();
+  }, 2600);
+  updateOverlayActive = false;
+  activeUpdateJobId = null;
+}
+
+function hideUpdateOverlay(reasonText) {
+  const overlay = document.getElementById('update-progress-overlay');
+  overlay.classList.remove('show');
+  overlay.classList.remove('success');
+  overlay.setAttribute('aria-hidden', 'true');
+  if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
+  updateRefreshTimer = null;
+  updateOverlayActive = false;
+  activeUpdateJobId = null;
+  showToast(reasonText || 'update failed');
 }
 
 function openUpdateModal() {
@@ -956,6 +1051,7 @@ document.getElementById('upd-submit').addEventListener('click', async e => {
       return;
     }
 
+    activeUpdateJobId = d.id || null;
     closeUpdateModal();
     showUpdateProgressOverlay();
     showToast('update started');

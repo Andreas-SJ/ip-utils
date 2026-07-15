@@ -330,6 +330,8 @@ const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/Andreas-SJ/ip-ut
 const UPDATE_REQUEST_FILE = path.join(DATA_DIR, 'update-request.env');
 const UPDATE_STATUS_FILE = path.join(DATA_DIR, 'update-status.env');
 const UPDATE_STATUS_LOG = path.join(DATA_DIR, 'update-status.log');
+const UPDATE_HEARTBEAT_FILE = path.join(DATA_DIR, 'update-heartbeat');
+const UPDATE_HEARTBEAT_MAX_AGE_MS = 15000;
 
 function normalizeBranchName(branch) {
   const b = String(branch || '').trim() || 'main';
@@ -350,7 +352,29 @@ function sanitizeJob(job) {
     branch: job.branch,
     error: job.error,
     output: job.output,
+    daemonAlive: !!job.daemonAlive,
+    daemonLastSeenAt: job.daemonLastSeenAt,
+    daemonStaleSeconds: job.daemonStaleSeconds,
   };
+}
+
+function readDaemonHeartbeat() {
+  try {
+    const stat = fs.statSync(UPDATE_HEARTBEAT_FILE);
+    const lastSeenAt = new Date(stat.mtimeMs).toISOString();
+    const staleMs = Math.max(0, Date.now() - stat.mtimeMs);
+    return {
+      daemonAlive: staleMs <= UPDATE_HEARTBEAT_MAX_AGE_MS,
+      daemonLastSeenAt: lastSeenAt,
+      daemonStaleSeconds: Math.floor(staleMs / 1000),
+    };
+  } catch {
+    return {
+      daemonAlive: false,
+      daemonLastSeenAt: null,
+      daemonStaleSeconds: null,
+    };
+  }
 }
 
 function parseEnvFile(filePath) {
@@ -386,6 +410,7 @@ function readLogTail(filePath, maxBytes = 50000) {
 }
 
 function readUpdateJobStatus() {
+  const heartbeat = readDaemonHeartbeat();
   const raw = parseEnvFile(UPDATE_STATUS_FILE);
   if (!raw) {
     return sanitizeJob({
@@ -397,6 +422,7 @@ function readUpdateJobStatus() {
       branch: null,
       error: null,
       output: '',
+      ...heartbeat,
     });
   }
 
@@ -409,6 +435,7 @@ function readUpdateJobStatus() {
     branch: raw.branch || null,
     error: raw.error || null,
     output: readLogTail(raw.output_file || UPDATE_STATUS_LOG),
+    ...heartbeat,
   });
 }
 
@@ -593,6 +620,12 @@ app.post('/api/admin/update/start', requireAdmin, async (req, res) => {
   const currentJob = readUpdateJobStatus();
   if (currentJob.status === 'running' || currentJob.status === 'queued') {
     return res.status(409).json({ error: 'An update is already running.', job: currentJob });
+  }
+  if (!currentJob.daemonAlive) {
+    return res.status(503).json({
+      error: 'Updater daemon is offline. Run installer once to install/repair ip-utils-updater.service and retry.',
+      job: currentJob,
+    });
   }
 
   const branch = normalizeBranchName(req.body?.branch);

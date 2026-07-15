@@ -275,7 +275,7 @@
 
   <div id="update-banner" class="update-banner" style="display:none">
     <div class="update-banner-header">
-      <span>updates available</span>
+      <span>version updates available</span>
       <button class="ghost" id="dismiss-updates" style="padding:3px 8px;font-size:10px">dismiss all</button>
     </div>
     <div id="update-list"></div>
@@ -595,7 +595,7 @@ async function loadUpdates() {
 
   list.innerHTML = updates.map(u => `
     <div class="update-entry type-${esc(typeClass(u.type))}">
-      <span class="update-tag type-${esc(typeClass(u.type))}">${esc(u.type)}</span>
+      <span class="update-tag type-${esc(typeClass(u.type))}">${esc(u.version || u.type)}</span>
       <span class="update-msg" title="${esc(u.message)}">${esc(u.message)}</span>
       <span class="update-date">${esc(dateLabel(u.date))}</span>
     </div>`).join('');

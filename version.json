@@ -1,8 +1,8 @@
 {
   "major": 1,
-  "minor": 7,
-  "patch": 2,
-  "current": "v1.7.2",
+  "minor": 8,
+  "patch": 0,
+  "current": "v1.8.0",
   "history": [
     {
       "version": "v1.1.0",
@@ -255,6 +255,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T19:10:02+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/bb697852033ee181a0e064133508d04e0402f02f"
+    },
+    {
+      "version": "v1.8.0",
+      "type": "feature",
+      "security": false,
+      "summary": "better updating experience",
+      "description": "instead of waiting for exactly 40 seconds to mark the update as completed, it now waits for a heartbeat from the systemd update daemon, this guarantees that the update is completed before it refreshes the page",
+      "hash": "504fdc09ef626bc6eb1572c54d54289c3ba8a61b",
+      "shortHash": "504fdc0",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T19:19:44+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/504fdc09ef626bc6eb1572c54d54289c3ba8a61b"
     }
   ]
 }

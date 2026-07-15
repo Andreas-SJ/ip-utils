@@ -262,6 +262,11 @@
   footer {
     border-top: 1px solid var(--line); padding: 20px 0 28px;
     color: var(--ink-faint); font-family: var(--mono); font-size: 11px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .footer-version {
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
   }
 
   ::selection { background: var(--accent); color: var(--bg); }
@@ -355,7 +360,10 @@
 
   </main>
 
-  <footer>ip-utils admin panel</footer>
+  <footer>
+    <span>ip-utils admin panel</span>
+    <span class="footer-version" id="installed-version">version: loading...</span>
+  </footer>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -488,6 +496,21 @@ async function loadMe() {
   if (!r.ok) { window.location.href = '/login'; return; }
   currentUser = await r.json();
   document.getElementById('admin-name').textContent = currentUser.username;
+}
+
+async function loadInstalledVersion() {
+  const el = document.getElementById('installed-version');
+  try {
+    const r = await fetch('/api/admin/version');
+    if (!r.ok) {
+      el.textContent = 'version: unknown';
+      return;
+    }
+    const d = await r.json();
+    el.textContent = 'version: ' + (d.version || 'unknown');
+  } catch {
+    el.textContent = 'version: unknown';
+  }
 }
 
 async function loadUsers() {
@@ -655,7 +678,7 @@ document.getElementById('dismiss-updates').addEventListener('click', async () =>
 
 (async function init() {
   await loadMe();
-  await Promise.all([loadUsers(), loadUpdates()]);
+  await Promise.all([loadUsers(), loadUpdates(), loadInstalledVersion()]);
 })();
 </script>
 

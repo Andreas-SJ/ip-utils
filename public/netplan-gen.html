@@ -111,6 +111,16 @@
   }
   .user-nav .u-name { color: var(--ink-mute); }
   .user-nav a { color: var(--accent); }
+  .user-nav a.nav-disabled {
+    color: var(--ink-faint);
+    opacity: 0.75;
+    cursor: not-allowed;
+    text-decoration: none;
+  }
+  .user-nav a.nav-disabled:hover {
+    color: var(--ink-faint);
+    text-decoration: none;
+  }
 
   main {
     display: grid;
@@ -1386,6 +1396,8 @@ render();
   let html = '';
   if (cfg.hasPlanner) {
     html += '<a href="/ip-planner">ip-planner</a>';
+  } else {
+    html += '<a href="#" id="btn-planner-missing" class="nav-disabled" aria-disabled="true">ip-planner</a>';
   }
   if (me) {
     if (html) html += ' &nbsp;&middot;&nbsp; ';
@@ -1402,6 +1414,14 @@ render();
       e.preventDefault();
       await fetch('/api/logout', { method: 'POST' });
       window.location.reload();
+    });
+  }
+
+  const missingPlannerBtn = document.getElementById('btn-planner-missing');
+  if (missingPlannerBtn) {
+    missingPlannerBtn.addEventListener('click', e => {
+      e.preventDefault();
+      showToast('ip-planner is not installed in this deployment');
     });
   }
 })();

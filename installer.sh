@@ -238,7 +238,12 @@ EOF
     die "Failed to start updater daemon service ($UPDATER_SERVICE_NAME)."
   fi
 
+  if ! $SUDO systemctl is-active --quiet "$UPDATER_SERVICE_NAME"; then
+    die "Updater daemon service is not active after restart ($UPDATER_SERVICE_NAME). Check: journalctl -u $UPDATER_SERVICE_NAME -n 100 --no-pager"
+  fi
+
   say "Update daemon installed and running ($UPDATER_SERVICE_NAME)."
+  say "Note: a 'systemd-ssh-generator ... AF_VSOCK CID' warning from systemd can appear on some hosts and is non-fatal."
   return 0
 }
 

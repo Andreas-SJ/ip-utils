@@ -4,13 +4,14 @@ set -e
 if [ ! -t 0 ]; then
     TMPSCRIPT=$(mktemp /tmp/ip-utils-install-XXXXX.sh)
   cat > "$TMPSCRIPT" || { echo "Error: failed to read installer script from stdin."; rm -f "$TMPSCRIPT"; exit 1; }
-    bash "$TMPSCRIPT" < /dev/tty
+    bash "$TMPSCRIPT" "$@" < /dev/tty
     EXIT_CODE=$?
     rm -f "$TMPSCRIPT"
     exit $EXIT_CODE
 fi
 
 REPO_URL="https://github.com/Andreas-SJ/ip-utils.git"
+REPO_BRANCH="main"
 INSTALL_DIR="/opt/ip-utils"
 DATA_DIR="/opt/ip-utils-data"
 IMAGE_NAME="ip-utils"
@@ -32,9 +33,60 @@ normalize_mode() {
   esac
 }
 
+parse_args() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --testing)
+        REPO_BRANCH="testing"
+        ;;
+      --main)
+        REPO_BRANCH="main"
+        ;;
+      --branch)
+        shift
+        [ -n "$1" ] || die "--branch requires a branch name."
+        REPO_BRANCH="$1"
+        ;;
+      --branch=*)
+        REPO_BRANCH="${1#*=}"
+        ;;
+      -h|--help)
+        echo "Usage: installer.sh [--testing] [--main] [--branch <name>]"
+        echo ""
+        echo "  --testing        Use the testing branch"
+        echo "  --main           Use the main branch (default)"
+        echo "  --branch <name>  Use a specific branch"
+        exit 0
+        ;;
+      *)
+        die "Unknown argument: $1"
+        ;;
+    esac
+    shift
+  done
+
+  if ! echo "$REPO_BRANCH" | grep -qE '^[A-Za-z0-9._/-]+$'; then
+    die "Invalid branch name: $REPO_BRANCH"
+  fi
+}
+
+sync_repo_source() {
+  if [ -d "$INSTALL_DIR/.git" ]; then
+    say "Pulling latest code from branch '$REPO_BRANCH' ..."
+    $SUDO git -C "$INSTALL_DIR" fetch --quiet origin "$REPO_BRANCH" || die "Failed to fetch branch '$REPO_BRANCH'."
+    $SUDO git -C "$INSTALL_DIR" reset --hard "origin/${REPO_BRANCH}" --quiet || die "Failed to reset to branch '$REPO_BRANCH'."
+  else
+    say "Cloning branch '$REPO_BRANCH' to $INSTALL_DIR ..."
+    $SUDO git clone --quiet --single-branch --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR" || die "Failed to clone branch '$REPO_BRANCH'."
+  fi
+}
+
+parse_args "$@"
+
 hr
 say "ip-utils installer"
 say "Repository: $REPO_URL"
+say "Branch: $REPO_BRANCH"
 hr
 echo ""
 
@@ -165,14 +217,7 @@ upgrade_mode_to_both() {
   hr
   say "Installing missing tool and switching mode to: both"
 
-  if [ -d "$INSTALL_DIR/.git" ]; then
-    say "Pulling latest code ..."
-    $SUDO git -C "$INSTALL_DIR" fetch --quiet
-    $SUDO git -C "$INSTALL_DIR" reset --hard origin/main --quiet
-  else
-    say "Cloning repository to $INSTALL_DIR ..."
-    $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
-  fi
+  sync_repo_source
 
   COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
   [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
@@ -460,14 +505,7 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
 
         hr
 
-        if [ -d "$INSTALL_DIR/.git" ]; then
-          say "Pulling latest code ..."
-          $SUDO git -C "$INSTALL_DIR" fetch --quiet
-          $SUDO git -C "$INSTALL_DIR" reset --hard origin/main --quiet
-        else
-          say "Cloning repository to $INSTALL_DIR ..."
-          $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
-        fi
+        sync_repo_source
 
         COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
         [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
@@ -538,14 +576,7 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
 
         hr
 
-        if [ -d "$INSTALL_DIR/.git" ]; then
-          say "Pulling latest code ..."
-          $SUDO git -C "$INSTALL_DIR" fetch --quiet
-          $SUDO git -C "$INSTALL_DIR" reset --hard origin/main --quiet
-        else
-          say "Cloning repository to $INSTALL_DIR ..."
-          $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
-        fi
+        sync_repo_source
 
         COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
         [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
@@ -617,14 +648,7 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
 
       hr
 
-      if [ -d "$INSTALL_DIR/.git" ]; then
-        say "Pulling latest code ..."
-        $SUDO git -C "$INSTALL_DIR" fetch --quiet
-        $SUDO git -C "$INSTALL_DIR" reset --hard origin/main --quiet
-      else
-        say "Cloning repository to $INSTALL_DIR ..."
-        $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
-      fi
+      sync_repo_source
 
       COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
       [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null
@@ -724,14 +748,7 @@ fi
 echo ""
 hr
 
-if [ -d "$INSTALL_DIR/.git" ]; then
-  say "Pulling latest code in $INSTALL_DIR ..."
-  $SUDO git -C "$INSTALL_DIR" fetch --quiet
-  $SUDO git -C "$INSTALL_DIR" reset --hard origin/main --quiet
-else
-  say "Cloning repository to $INSTALL_DIR ..."
-  $SUDO git clone --quiet "$REPO_URL" "$INSTALL_DIR"
-fi
+sync_repo_source
 
 COMMIT_SHA=$($SUDO git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)
 [ -n "$COMMIT_SHA" ] && printf '%s\n' "$COMMIT_SHA" | $SUDO tee "$INSTALL_DIR/version.txt" > /dev/null

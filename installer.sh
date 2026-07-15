@@ -195,6 +195,25 @@ upgrade_mode_to_both() {
   exit 0
 }
 
+manual_install_missing_tool() {
+  local trust_proxy="$1"
+
+  echo ""
+  say "Select currently installed single-tool mode:"
+  say "  1) IP Planner only  (add Netplan Generator)"
+  say "  2) Netplan Generator only  (add IP Planner)"
+  say "  3) Cancel"
+  echo ""
+  read -r -p "Enter choice [1-3]: " missing_choice
+  echo ""
+
+  case "$missing_choice" in
+    1) upgrade_mode_to_both "planner" "$trust_proxy" ;;
+    2) upgrade_mode_to_both "netplan" "$trust_proxy" ;;
+    *) say "Cancelled."; exit 0 ;;
+  esac
+}
+
 do_reset_password() {
   local raw_existing_mode existing_mode current_admins current_admin_user new_admin_user new_admin_pass new_admin_pass2 was_running
 
@@ -377,8 +396,9 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
     say "Detected mode: Both tools"
     say "  1) Update  (pull latest code, rebuild, keep all data)  [default]"
     say "  2) Reset admin password  (keep everything else unchanged)"
-    say "  3) Full reinstall  (asks for new settings and admin credentials)"
-    say "  4) Exit"
+    say "  3) Install missing tool  (manual mode selection, switches to both)"
+    say "  4) Full reinstall  (asks for new settings and admin credentials)"
+    say "  5) Exit"
   fi
   echo ""
 
@@ -387,7 +407,7 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
   elif [ "$EXISTING_MODE" = "netplan" ]; then
     read -r -p "Enter choice [1-4, default 1]: " install_choice
   else
-    read -r -p "Enter choice [1-4, default 1]: " install_choice
+    read -r -p "Enter choice [1-5, default 1]: " install_choice
   fi
   echo ""
 
@@ -551,8 +571,9 @@ if [ "$EXISTING_CONTAINER" = "true" ]; then
   else
     case "$install_choice" in
       2) do_reset_password ;;
-      3) say "Proceeding with full reinstall..." ;;
-      4) say "Exiting."; exit 0 ;;
+      3) manual_install_missing_tool "$EXISTING_TRUST_PROXY" ;;
+      4) say "Proceeding with full reinstall..." ;;
+      5) say "Exiting."; exit 0 ;;
       *)
       say "Updating installation..."
       echo ""

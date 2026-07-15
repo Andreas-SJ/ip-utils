@@ -311,12 +311,39 @@ const UPDATES_FILE = path.join(DATA_DIR, 'update_notifications.json');
 const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/Andreas-SJ/ip-utils/refs/heads/main/version.json';
 
 function loadUpdates() {
-  try { return JSON.parse(fs.readFileSync(UPDATES_FILE, 'utf8')); }
-  catch { return { lastSeenVersion: null, pending: [] }; }
+  try {
+    const state = JSON.parse(fs.readFileSync(UPDATES_FILE, 'utf8'));
+    return normalizeUpdatesState(state);
+  } catch {
+    return { lastSeenVersion: null, pending: [] };
+  }
 }
 
 function saveUpdates(state) {
-  fs.writeFileSync(UPDATES_FILE, JSON.stringify(state, null, 2));
+  fs.writeFileSync(UPDATES_FILE, JSON.stringify(normalizeUpdatesState(state), null, 2));
+}
+
+function normalizeUpdatesState(state) {
+  const pending = Array.isArray(state?.pending) ? state.pending : [];
+  const seen = new Set();
+  const normalizedPending = [];
+
+  for (const entry of pending) {
+    const version = String(entry?.version || '').trim();
+    if (!version || seen.has(version)) continue;
+    seen.add(version);
+    normalizedPending.push({
+      version,
+      type: entry.type || 'bug fix',
+      message: entry.message || version,
+      date: entry.date || new Date().toISOString(),
+    });
+  }
+
+  return {
+    lastSeenVersion: state?.lastSeenVersion || null,
+    pending: normalizedPending,
+  };
 }
 
 function fetchVersionManifest() {
@@ -382,10 +409,12 @@ async function checkForUpdates() {
     return;
   }
 
+  const existingVersions = new Set((state.pending || []).map(entry => String(entry.version || '').trim()).filter(Boolean));
+
   const newNotifications = history
     .slice(lastSeenIndex + 1)
     .map(toNotification)
-    .filter(entry => entry.version);
+    .filter(entry => entry.version && !existingVersions.has(entry.version));
 
   state.lastSeenVersion = manifest.current;
   if (newNotifications.length) state.pending = [...(state.pending || []), ...newNotifications];

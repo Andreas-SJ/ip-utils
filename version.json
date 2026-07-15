@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 5,
-  "patch": 2,
-  "current": "v1.5.2",
+  "patch": 3,
+  "current": "v1.5.3",
   "history": [
     {
       "version": "v1.1.0",
@@ -123,6 +123,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T17:10:19+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/bfed4097c73db5935fad19a6e4e9a62fe2cc8860"
+    },
+    {
+      "version": "v1.5.3",
+      "type": "bug",
+      "security": false,
+      "summary": "updated installation of updater systemd service",
+      "description": null,
+      "hash": "d1b7e87ae85a4d4c0166334dc816a3db5e4fde62",
+      "shortHash": "d1b7e87",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T17:19:18+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/d1b7e87ae85a4d4c0166334dc816a3db5e4fde62"
     }
   ]
 }

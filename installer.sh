@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-if [ ! -t 0 ] && [ -z "$IP_UTILS_SKIP_STDIN_BOOTSTRAP" ]; then
+if [ ! -t 0 ] && [ -p /dev/stdin ] && [ -z "$IP_UTILS_SKIP_STDIN_BOOTSTRAP" ]; then
     TMPSCRIPT=$(mktemp /tmp/ip-utils-install-XXXXX.sh)
   cat > "$TMPSCRIPT" || { echo "Error: failed to read installer script from stdin."; rm -f "$TMPSCRIPT"; exit 1; }
     bash "$TMPSCRIPT" "$@" < /dev/tty
@@ -184,7 +184,7 @@ while true; do
       write_status "\$req_id" "running" "\$started_at" "" "" "\$branch" ""
 
       : > "\$OUTPUT_FILE"
-      cmd=(bash "\$INSTALLER" --branch "\$branch" --update-now --proxy-mode "\$proxy_mode")
+      cmd=(env IP_UTILS_SKIP_STDIN_BOOTSTRAP=1 bash "\$INSTALLER" --branch "\$branch" --update-now --proxy-mode "\$proxy_mode")
       if [ "\$proxy_mode" = "set" ] && [ -n "\$proxy_ip" ]; then
         cmd+=(--proxy-ip "\$proxy_ip")
       fi

@@ -579,7 +579,7 @@
     <div class="update-throbber" aria-hidden="true"></div>
     <h2 class="update-overlay-title" id="update-overlay-title"><i>applying</i> <b>update</b></h2>
     <p class="update-overlay-sub" id="update-overlay-sub">Please wait while ip-utils restarts</p>
-    <p class="update-overlay-refresh-msg" id="update-overlay-refresh-msg">the site will automatically refresh in 40 seconds</p>
+    <p class="update-overlay-refresh-msg" id="update-overlay-refresh-msg">waiting for updater confirmation...</p>
   </div>
 </div>
 
@@ -705,14 +705,12 @@ function showUpdateProgressOverlay() {
   overlay.classList.remove('success');
   title.innerHTML = '<i>applying</i> <b>update</b>';
   sub.textContent = 'Please wait while ip-utils restarts';
-  refreshMsg.textContent = 'the site will automatically refresh in 40 seconds';
+  refreshMsg.textContent = 'waiting for updater confirmation...';
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
   updateOverlayActive = true;
   if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
-  updateRefreshTimer = setTimeout(() => {
-    window.location.reload();
-  }, 40000);
+  updateRefreshTimer = null;
 }
 
 function showUpdateSuccessOverlay(branch) {
@@ -726,12 +724,12 @@ function showUpdateSuccessOverlay(branch) {
   overlay.setAttribute('aria-hidden', 'false');
   title.innerHTML = '<i>update</i> <b>succeeded</b>';
   sub.textContent = `Branch ${branch} is now live`;
-  refreshMsg.textContent = 'refreshing now';
+  refreshMsg.textContent = 'refreshing in 3 seconds';
 
   if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
   updateRefreshTimer = setTimeout(() => {
     window.location.reload();
-  }, 2600);
+  }, 3000);
   updateOverlayActive = false;
   activeUpdateJobId = null;
 }

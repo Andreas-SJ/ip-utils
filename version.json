@@ -1,8 +1,8 @@
 {
   "major": 1,
-  "minor": 1,
-  "patch": 0,
-  "current": "v1.1.0",
+  "minor": 2,
+  "patch": 2,
+  "current": "v1.2.2",
   "history": [
     {
       "version": "v1.1.0",
@@ -15,6 +15,42 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T14:00:14+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/570c931f87f80aa072915ad897dde40b6287d68b"
+    },
+    {
+      "version": "v1.2.0",
+      "type": "feature",
+      "security": false,
+      "summary": "added github actions for version managment",
+      "description": null,
+      "hash": "3705f5eb213a9d8d39db00c8dd7b0a906470be9b",
+      "shortHash": "3705f5e",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T13:46:37+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/3705f5eb213a9d8d39db00c8dd7b0a906470be9b"
+    },
+    {
+      "version": "v1.2.1",
+      "type": "bug",
+      "security": false,
+      "summary": "Creating bullshit commit for testing of GH action",
+      "description": null,
+      "hash": "36904fbaa3a1d84795a33d2f0b85ab290e5af52a",
+      "shortHash": "36904fb",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T13:53:45+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/36904fbaa3a1d84795a33d2f0b85ab290e5af52a"
+    },
+    {
+      "version": "v1.2.2",
+      "type": "bug",
+      "security": false,
+      "summary": "Fixed a big that kept re-adding updates each time the update-checker ran",
+      "description": null,
+      "hash": "8b18062bb9a01350708f0a2da1db8ae01ce05b34",
+      "shortHash": "8b18062",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T14:24:17+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/8b18062bb9a01350708f0a2da1db8ae01ce05b34"
     }
   ]
 }

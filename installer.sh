@@ -229,16 +229,13 @@ WantedBy=multi-user.target
 EOF
 
   if ! $SUDO systemctl daemon-reload; then
-    say "Warning: failed to reload systemd for update daemon."
-    return 0
+    die "Failed to reload systemd for updater daemon ($UPDATER_SERVICE_NAME)."
   fi
   if ! $SUDO systemctl enable "$UPDATER_SERVICE_NAME" >/dev/null 2>&1; then
-    say "Warning: failed to enable update daemon service."
-    return 0
+    die "Failed to enable updater daemon service ($UPDATER_SERVICE_NAME)."
   fi
   if ! $SUDO systemctl restart "$UPDATER_SERVICE_NAME"; then
-    say "Warning: failed to start update daemon service."
-    return 0
+    die "Failed to start updater daemon service ($UPDATER_SERVICE_NAME)."
   fi
 
   say "Update daemon installed and running ($UPDATER_SERVICE_NAME)."
@@ -539,8 +536,20 @@ do_reset_password() {
 
 print_summary() {
   local mode="$1" admin_user="$2"
+  local updater_status="unknown"
   LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
   if [ -z "$LOCAL_IP" ]; then LOCAL_IP="<server-ip>"; fi
+
+  if command -v systemctl >/dev/null 2>&1; then
+    if $SUDO systemctl is-active --quiet "$UPDATER_SERVICE_NAME"; then
+      updater_status="active"
+    else
+      updater_status="inactive"
+    fi
+  else
+    updater_status="unsupported (no systemd)"
+  fi
+
   hr
   echo ""
   say "  Running at:  http://${LOCAL_IP}"
@@ -554,8 +563,12 @@ print_summary() {
   echo ""
   say "Container name:  $CONTAINER_NAME"
   say "Data directory:  $DATA_DIR"
+  say "Updater daemon: $UPDATER_SERVICE_NAME ($updater_status)"
   say "To stop:         docker stop $CONTAINER_NAME"
   say "To view logs:    docker logs $CONTAINER_NAME"
+  if [ "$updater_status" = "inactive" ]; then
+    say "Daemon logs:     journalctl -u $UPDATER_SERVICE_NAME -n 100 --no-pager"
+  fi
   echo ""
 }
 
@@ -565,6 +578,9 @@ if $SUDO docker container inspect "$CONTAINER_NAME" &>/dev/null; then
 fi
 
 if [ "$EXISTING_CONTAINER" = "true" ]; then
+  say "Ensuring updater daemon is installed ..."
+  install_update_daemon
+
   RAW_EXISTING_MODE=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
   EXISTING_MODE=$(normalize_mode "$RAW_EXISTING_MODE")
   EXISTING_TRUST_PROXY=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^TRUST_PROXY=' | cut -d= -f2- || true)

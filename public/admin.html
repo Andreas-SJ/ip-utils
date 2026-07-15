@@ -497,6 +497,7 @@ function confirmDialog(title, msg, label) {
 let currentUser = null;
 let latestUpdateVersion = null;
 let updateStatusPoll = null;
+let updatesAutoCheckTimer = null;
 
 function parseSemver(v) {
   const m = String(v || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/i);
@@ -784,6 +785,24 @@ async function loadUpdates() {
   }
 }
 
+async function triggerUpdateCheck({ showToastOnSuccess = false, showToastOnFailure = false } = {}) {
+  const r = await fetch('/api/admin/updates/check', { method: 'POST' });
+  if (!r.ok) {
+    if (showToastOnFailure) showToast('update check failed');
+    return false;
+  }
+  await loadUpdates();
+  if (showToastOnSuccess) showToast('update check complete');
+  return true;
+}
+
+function ensureUpdatesAutoCheckSchedule() {
+  if (updatesAutoCheckTimer) return;
+  updatesAutoCheckTimer = setInterval(() => {
+    triggerUpdateCheck().catch(() => {});
+  }, 60 * 60 * 1000);
+}
+
 document.getElementById('upd-proxy-mode').addEventListener('change', e => {
   const wrap = document.getElementById('upd-proxy-ip-wrap');
   wrap.style.display = e.target.value === 'set' ? '' : 'none';
@@ -852,13 +871,7 @@ document.getElementById('check-updates').addEventListener('click', async e => {
   btn.disabled = true;
   btn.textContent = 'checking...';
   try {
-    const r = await fetch('/api/admin/updates/check', { method: 'POST' });
-    if (!r.ok) {
-      showToast('update check failed');
-      return;
-    }
-    await loadUpdates();
-    showToast('update check complete');
+    await triggerUpdateCheck({ showToastOnSuccess: true, showToastOnFailure: true });
   } catch {
     showToast('update check failed');
   } finally {
@@ -875,7 +888,9 @@ document.getElementById('dismiss-updates').addEventListener('click', async () =>
 
 (async function init() {
   await loadMe();
-  await Promise.all([loadUsers(), loadUpdates(), loadInstalledVersion()]);
+  await Promise.all([loadUsers(), loadInstalledVersion()]);
+  await triggerUpdateCheck();
+  ensureUpdatesAutoCheckSchedule();
   ensureUpdateStatusPolling();
   await refreshUpdateJobStatus();
 })();

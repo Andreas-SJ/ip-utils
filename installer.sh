@@ -168,7 +168,7 @@ read_kv() {
 }
 
 write_status() {
-  local id="\$1" status="\$2" started_at="\$3" ended_at="\$4" exit_code="\$5" branch="\$6" error="\$7"
+  local id="\$1" status="\$2" started_at="\$3" ended_at="\$4" exit_code="\$5" branch="\$6" error="\$7" public_token="\$8"
   {
     echo "id=\$id"
     echo "status=\$status"
@@ -177,6 +177,7 @@ write_status() {
     echo "exit_code=\$exit_code"
     echo "branch=\$branch"
     echo "error=\$error"
+    echo "public_token=\$public_token"
     echo "output_file=\$OUTPUT_FILE"
   } > "\$STATUS_FILE"
 }
@@ -209,6 +210,7 @@ while true; do
     branch="\$(read_kv branch "\$REQUEST_FILE")"
     proxy_mode="\$(read_kv proxy_mode "\$REQUEST_FILE")"
     proxy_ip="\$(read_kv proxy_ip "\$REQUEST_FILE")"
+    public_token="\$(read_kv public_token "\$REQUEST_FILE")"
 
     [ -n "\$branch" ] || branch="main"
     [ -n "\$proxy_mode" ] || proxy_mode="keep"
@@ -218,7 +220,7 @@ while true; do
 
     if [ -n "\$req_id" ] && [ "\$req_id" != "\$last_id" ]; then
       started_at="\$(date -Iseconds)"
-      write_status "\$req_id" "running" "\$started_at" "" "" "\$branch" ""
+      write_status "\$req_id" "running" "\$started_at" "" "" "\$branch" "" "\$public_token"
 
       : > "\$OUTPUT_FILE"
       cmd=(env IP_UTILS_SKIP_STDIN_BOOTSTRAP=1 IP_UTILS_SKIP_DAEMON_SETUP=1 bash "\$INSTALLER" --branch "\$branch" --update-now --proxy-mode "\$proxy_mode")
@@ -237,7 +239,7 @@ while true; do
       fi
 
       ended_at="\$(date -Iseconds)"
-      write_status "\$req_id" "\$status" "\$started_at" "\$ended_at" "\$exit_code" "\$branch" "\$error"
+      write_status "\$req_id" "\$status" "\$started_at" "\$ended_at" "\$exit_code" "\$branch" "\$error" "\$public_token"
       echo "\$req_id" > "\$LAST_ID_FILE"
 
       if [ "\$status" = "succeeded" ]; then

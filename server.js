@@ -358,6 +358,21 @@ function sanitizeJob(job) {
   };
 }
 
+function sanitizePublicJob(job) {
+  return {
+    id: job.id,
+    status: job.status,
+    startedAt: job.startedAt,
+    endedAt: job.endedAt,
+    exitCode: job.exitCode,
+    branch: job.branch,
+    error: job.error,
+    daemonAlive: !!job.daemonAlive,
+    daemonLastSeenAt: job.daemonLastSeenAt,
+    daemonStaleSeconds: job.daemonStaleSeconds,
+  };
+}
+
 function readDaemonHeartbeat() {
   try {
     const stat = fs.statSync(UPDATE_HEARTBEAT_FILE);
@@ -409,11 +424,11 @@ function readLogTail(filePath, maxBytes = 50000) {
   }
 }
 
-function readUpdateJobStatus() {
+function readUpdateJobStatusRaw() {
   const heartbeat = readDaemonHeartbeat();
   const raw = parseEnvFile(UPDATE_STATUS_FILE);
   if (!raw) {
-    return sanitizeJob({
+    return {
       id: null,
       status: 'idle',
       startedAt: null,
@@ -422,11 +437,12 @@ function readUpdateJobStatus() {
       branch: null,
       error: null,
       output: '',
+      publicToken: null,
       ...heartbeat,
-    });
+    };
   }
 
-  return sanitizeJob({
+  return {
     id: raw.id || null,
     status: raw.status || 'idle',
     startedAt: raw.started_at || null,
@@ -435,17 +451,23 @@ function readUpdateJobStatus() {
     branch: raw.branch || null,
     error: raw.error || null,
     output: readLogTail(raw.output_file || UPDATE_STATUS_LOG),
+    publicToken: raw.public_token || null,
     ...heartbeat,
-  });
+  };
+}
+
+function readUpdateJobStatus() {
+  return sanitizeJob(readUpdateJobStatusRaw());
 }
 
 function queueUpdateJobRequest(options) {
-  const { id, branch, proxyMode, proxyIp } = options;
+  const { id, branch, proxyMode, proxyIp, statusToken } = options;
   writeEnvFile(UPDATE_REQUEST_FILE, {
     id,
     branch,
     proxy_mode: proxyMode,
     proxy_ip: proxyMode === 'set' ? proxyIp : '',
+    public_token: statusToken,
     requested_at: new Date().toISOString(),
   });
 
@@ -457,6 +479,7 @@ function queueUpdateJobRequest(options) {
     exit_code: '',
     branch,
     error: '',
+    public_token: statusToken,
     output_file: UPDATE_STATUS_LOG,
   });
 }
@@ -616,6 +639,14 @@ app.get('/api/admin/update/status', requireAdmin, (req, res) => {
   res.json(readUpdateJobStatus());
 });
 
+app.get('/api/update-status/:id/:token', (req, res) => {
+  const job = readUpdateJobStatusRaw();
+  if (!job.id || job.id !== req.params.id || !job.publicToken || job.publicToken !== req.params.token) {
+    return res.status(404).json({ error: 'Update status not found.' });
+  }
+  res.json(sanitizePublicJob(job));
+});
+
 app.post('/api/admin/update/start', requireAdmin, async (req, res) => {
   const currentJob = readUpdateJobStatus();
   if (currentJob.status === 'running' || currentJob.status === 'queued') {
@@ -655,8 +686,9 @@ app.post('/api/admin/update/start', requireAdmin, async (req, res) => {
   if (!ok) return res.status(401).json({ error: 'Invalid admin password.' });
 
   const id = crypto.randomBytes(8).toString('hex');
-  queueUpdateJobRequest({ id, branch, proxyMode, proxyIp });
-  return res.json({ ok: true, id, job: readUpdateJobStatus() });
+  const statusToken = crypto.randomBytes(16).toString('hex');
+  queueUpdateJobRequest({ id, branch, proxyMode, proxyIp, statusToken });
+  return res.json({ ok: true, id, statusToken, job: readUpdateJobStatus() });
 });
 
 app.post('/api/admin/updates/check', requireAdmin, async (req, res) => {

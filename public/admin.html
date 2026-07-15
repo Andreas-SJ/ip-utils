@@ -630,6 +630,7 @@ let updatesAutoCheckTimer = null;
 let updateRefreshTimer = null;
 let updateOverlayActive = false;
 let activeUpdateJobId = null;
+let activeUpdateStatusToken = null;
 
 function parseSemver(v) {
   const m = String(v || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/i);
@@ -655,8 +656,16 @@ function setUpdateJobStatus(text, statusClass) {
 
 async function refreshUpdateJobStatus() {
   try {
-    const r = await fetch('/api/admin/update/status');
-    if (!r.ok) return;
+    const statusUrl = updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken
+      ? `/api/update-status/${encodeURIComponent(activeUpdateJobId)}/${encodeURIComponent(activeUpdateStatusToken)}`
+      : '/api/admin/update/status';
+    const r = await fetch(statusUrl);
+    if (!r.ok) {
+      if (updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken) {
+        hideUpdateOverlay('lost update confirmation channel');
+      }
+      return;
+    }
     const job = await r.json();
     if (!job || !job.status || job.status === 'idle') {
       setUpdateJobStatus('');
@@ -732,6 +741,7 @@ function showUpdateSuccessOverlay(branch) {
   }, 3000);
   updateOverlayActive = false;
   activeUpdateJobId = null;
+  activeUpdateStatusToken = null;
 }
 
 function hideUpdateOverlay(reasonText) {
@@ -743,6 +753,7 @@ function hideUpdateOverlay(reasonText) {
   updateRefreshTimer = null;
   updateOverlayActive = false;
   activeUpdateJobId = null;
+  activeUpdateStatusToken = null;
   showToast(reasonText || 'update failed');
 }
 
@@ -1050,6 +1061,7 @@ document.getElementById('upd-submit').addEventListener('click', async e => {
     }
 
     activeUpdateJobId = d.id || null;
+    activeUpdateStatusToken = d.statusToken || null;
     closeUpdateModal();
     showUpdateProgressOverlay();
     showToast('update started');

@@ -196,9 +196,10 @@ upgrade_mode_to_both() {
 }
 
 do_reset_password() {
-  local existing_mode current_admins current_admin_user new_admin_user new_admin_pass new_admin_pass2 was_running
+  local raw_existing_mode existing_mode current_admins current_admin_user new_admin_user new_admin_pass new_admin_pass2 was_running
 
-  existing_mode=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
+  raw_existing_mode=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
+  existing_mode=$(normalize_mode "$raw_existing_mode")
   if [ -z "$existing_mode" ]; then existing_mode="both"; fi
 
   if [ "$existing_mode" != "planner" ] && [ "$existing_mode" != "both" ]; then

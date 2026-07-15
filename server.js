@@ -89,8 +89,13 @@ app.get('/', (req, res) => {
 });
 
 function sendToolNotInstalled(res, toolLabel) {
-  res.status(404).sendFile(path.join(__dirname, 'public', 'tool-not-installed.html'));
+  const encodedTool = encodeURIComponent(toolLabel || 'unknown');
+  return res.redirect(302, `/tool-not-installed?tool=${encodedTool}`);
 }
+
+app.get('/tool-not-installed', (req, res) => {
+  res.status(404).sendFile(path.join(__dirname, 'public', 'tool-not-installed.html'));
+});
 
 app.get('/login', (req, res) => {
   if (req.session.user) return res.redirect('/');

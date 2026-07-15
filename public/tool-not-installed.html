@@ -144,6 +144,7 @@
   <div class="tag">ip-utils</div>
   <h1>Tool not installed</h1>
   <p>This endpoint is not available in the current installation mode.</p>
+  <div class="req" id="tool">missing tool: unknown</div>
   <div class="req" id="requested">requested path: ...</div>
   <div class="links" id="links">
     <a class="btn primary" href="/">go to home</a>
@@ -153,7 +154,11 @@
 
 <script>
 (function init() {
+  var tool = document.getElementById('tool');
   var requested = document.getElementById('requested');
+  var params = new URLSearchParams(window.location.search);
+  var missingTool = params.get('tool') || 'unknown';
+  tool.textContent = 'missing tool: ' + missingTool;
   requested.textContent = 'requested path: ' + (window.location.pathname || '/');
 
   fetch('/api/config').then(function(res) {

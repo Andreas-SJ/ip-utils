@@ -20,6 +20,24 @@ const MODE = VALID_MODES.has(process.env.MODE) ? process.env.MODE : 'both';
 const HAS_PLANNER = MODE === 'both' || MODE === 'planner';
 const HAS_NETPLAN = MODE === 'both' || MODE === 'netplan';
 
+function getInstalledVersion() {
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, 'version.json'), 'utf8'));
+    if (manifest && typeof manifest.current === 'string' && manifest.current.trim()) {
+      return manifest.current.trim();
+    }
+  } catch {}
+
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+    if (pkg && typeof pkg.version === 'string' && pkg.version.trim()) {
+      return `v${pkg.version.trim()}`;
+    }
+  } catch {}
+
+  return null;
+}
+
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(PLANS_DIR)) fs.mkdirSync(PLANS_DIR, { recursive: true });
 if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, '{}');
@@ -423,6 +441,19 @@ async function checkForUpdates() {
 
 app.get('/api/admin/updates', requireAdmin, (req, res) => {
   res.json(loadUpdates().pending || []);
+});
+
+app.get('/api/admin/version', requireAdmin, (req, res) => {
+  res.json({ version: getInstalledVersion() });
+});
+
+app.post('/api/admin/updates/check', requireAdmin, async (req, res) => {
+  try {
+    await checkForUpdates();
+    res.json({ ok: true, pending: loadUpdates().pending || [] });
+  } catch {
+    res.status(500).json({ error: 'Failed to check for updates.' });
+  }
 });
 
 app.post('/api/admin/updates/dismiss', requireAdmin, (req, res) => {

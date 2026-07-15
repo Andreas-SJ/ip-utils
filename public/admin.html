@@ -221,6 +221,21 @@
     font-family: var(--mono); font-size: 10px; text-transform: uppercase;
     letter-spacing: 0.1em; color: var(--ink-faint);
   }
+  .update-banner-head-left {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .check-updates-btn {
+    padding: 3px 8px; font-size: 10px;
+  }
+  .update-current {
+    padding: 10px 14px;
+    border-left: 3px solid var(--ok);
+    background: rgba(127,176,105,0.12);
+    color: var(--ok);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.03em;
+  }
   .update-entry {
     display: flex; align-items: center; gap: 12px;
     padding: 10px 14px; border-bottom: 1px solid var(--line);
@@ -247,6 +262,11 @@
   footer {
     border-top: 1px solid var(--line); padding: 20px 0 28px;
     color: var(--ink-faint); font-family: var(--mono); font-size: 11px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .footer-version {
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
   }
 
   ::selection { background: var(--accent); color: var(--bg); }
@@ -273,9 +293,12 @@
     </div>
   </header>
 
-  <div id="update-banner" class="update-banner" style="display:none">
+  <div id="update-banner" class="update-banner">
     <div class="update-banner-header">
-      <span>version updates available</span>
+      <div class="update-banner-head-left">
+        <span>version updates</span>
+        <button class="ghost check-updates-btn" id="check-updates" title="Check for updates now">check now</button>
+      </div>
       <button class="ghost" id="dismiss-updates" style="padding:3px 8px;font-size:10px">dismiss all</button>
     </div>
     <div id="update-list"></div>
@@ -337,7 +360,10 @@
 
   </main>
 
-  <footer>ip-utils admin panel</footer>
+  <footer>
+    <span>ip-utils admin panel</span>
+    <span class="footer-version" id="installed-version">version: loading...</span>
+  </footer>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -472,6 +498,21 @@ async function loadMe() {
   document.getElementById('admin-name').textContent = currentUser.username;
 }
 
+async function loadInstalledVersion() {
+  const el = document.getElementById('installed-version');
+  try {
+    const r = await fetch('/api/admin/version');
+    if (!r.ok) {
+      el.textContent = 'version: unknown';
+      return;
+    }
+    const d = await r.json();
+    el.textContent = 'version: ' + (d.version || 'unknown');
+  } catch {
+    el.textContent = 'version: unknown';
+  }
+}
+
 async function loadUsers() {
   const r = await fetch('/api/admin/users');
   if (!r.ok) return;
@@ -583,9 +624,8 @@ async function loadUpdates() {
   const r = await fetch('/api/admin/updates');
   if (!r.ok) return;
   const updates = await r.json();
-  const banner = document.getElementById('update-banner');
   const list = document.getElementById('update-list');
-  if (!updates.length) { banner.style.display = 'none'; return; }
+  const dismissBtn = document.getElementById('dismiss-updates');
 
   const typeClass = t => t.replace(/ /g, '-');
   const dateLabel = iso => {
@@ -593,23 +633,52 @@ async function loadUpdates() {
     catch { return ''; }
   };
 
+  if (!updates.length) {
+    list.innerHTML = '<div class="update-current">You are on the most recent version.</div>';
+    dismissBtn.style.visibility = 'hidden';
+    return;
+  }
+
+  dismissBtn.style.visibility = 'visible';
   list.innerHTML = updates.map(u => `
     <div class="update-entry type-${esc(typeClass(u.type))}">
       <span class="update-tag type-${esc(typeClass(u.type))}">${esc(u.version || u.type)}</span>
       <span class="update-msg" title="${esc(u.message)}">${esc(u.message)}</span>
       <span class="update-date">${esc(dateLabel(u.date))}</span>
     </div>`).join('');
-  banner.style.display = '';
 }
+
+document.getElementById('check-updates').addEventListener('click', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('check-updates');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'checking...';
+  try {
+    const r = await fetch('/api/admin/updates/check', { method: 'POST' });
+    if (!r.ok) {
+      showToast('update check failed');
+      return;
+    }
+    await loadUpdates();
+    showToast('update check complete');
+  } catch {
+    showToast('update check failed');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+});
 
 document.getElementById('dismiss-updates').addEventListener('click', async () => {
   await fetch('/api/admin/updates/dismiss', { method: 'POST' });
-  document.getElementById('update-banner').style.display = 'none';
+  await loadUpdates();
+  showToast('updates dismissed');
 });
 
 (async function init() {
   await loadMe();
-  await Promise.all([loadUsers(), loadUpdates()]);
+  await Promise.all([loadUsers(), loadUpdates(), loadInstalledVersion()]);
 })();
 </script>
 

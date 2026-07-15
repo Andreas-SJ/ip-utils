@@ -126,6 +126,11 @@ sync_repo_source() {
 }
 
 install_update_daemon() {
+  if [ -n "$IP_UTILS_SKIP_DAEMON_SETUP" ]; then
+    say "Update daemon: skipping daemon setup in daemon-managed update context."
+    return 0
+  fi
+
   if ! command -v systemctl >/dev/null 2>&1; then
     say "Update daemon: systemd not found; skipping daemon setup on this OS."
     return 0
@@ -184,7 +189,7 @@ while true; do
       write_status "\$req_id" "running" "\$started_at" "" "" "\$branch" ""
 
       : > "\$OUTPUT_FILE"
-      cmd=(env IP_UTILS_SKIP_STDIN_BOOTSTRAP=1 bash "\$INSTALLER" --branch "\$branch" --update-now --proxy-mode "\$proxy_mode")
+      cmd=(env IP_UTILS_SKIP_STDIN_BOOTSTRAP=1 IP_UTILS_SKIP_DAEMON_SETUP=1 bash "\$INSTALLER" --branch "\$branch" --update-now --proxy-mode "\$proxy_mode")
       if [ "\$proxy_mode" = "set" ] && [ -n "\$proxy_ip" ]; then
         cmd+=(--proxy-ip "\$proxy_ip")
       fi

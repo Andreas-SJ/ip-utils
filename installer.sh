@@ -126,6 +126,11 @@ sync_repo_source() {
 }
 
 install_update_daemon() {
+  if [ "$AUTO_UPDATE_NOW" = "true" ]; then
+    say "Update daemon: skipping daemon setup during --update-now run."
+    return 0
+  fi
+
   if [ -n "$IP_UTILS_SKIP_DAEMON_SETUP" ]; then
     say "Update daemon: skipping daemon setup in daemon-managed update context."
     return 0
@@ -588,8 +593,10 @@ if $SUDO docker container inspect "$CONTAINER_NAME" &>/dev/null; then
 fi
 
 if [ "$EXISTING_CONTAINER" = "true" ]; then
-  say "Ensuring updater daemon is installed ..."
-  install_update_daemon
+  if [ "$AUTO_UPDATE_NOW" != "true" ]; then
+    say "Ensuring updater daemon is installed ..."
+    install_update_daemon
+  fi
 
   RAW_EXISTING_MODE=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
   EXISTING_MODE=$(normalize_mode "$RAW_EXISTING_MODE")

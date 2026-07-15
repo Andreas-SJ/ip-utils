@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 5,
-  "patch": 8,
-  "current": "v1.5.8",
+  "patch": 9,
+  "current": "v1.5.9",
   "history": [
     {
       "version": "v1.1.0",
@@ -195,6 +195,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T18:22:59+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/ef11c74dafbe2962f2e4000a099373fd9f614060"
+    },
+    {
+      "version": "v1.5.9",
+      "type": "bug",
+      "security": false,
+      "summary": "anti-deamon ending-itelf logic",
+      "description": null,
+      "hash": "56a84978d393beb450ed34cc6f55385799608c93",
+      "shortHash": "56a8497",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T18:32:01+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/56a84978d393beb450ed34cc6f55385799608c93"
     }
   ]
 }

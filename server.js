@@ -308,83 +308,86 @@ app.post('/api/arp/scan', requireAuth, async (req, res) => {
 });
 
 const UPDATES_FILE = path.join(DATA_DIR, 'update_notifications.json');
-const GITHUB_REPO = 'Andreas-SJ/ip-utils';
-const DEPLOYED_SHA = (() => {
-  try { return fs.readFileSync(path.join(__dirname, 'version.txt'), 'utf8').trim() || null; } catch { return null; }
-})();
-const UPDATE_TAGS = [
-  { tag: '[security fix]', type: 'security fix' },
-  { tag: '[bug fix]',      type: 'bug fix' },
-  { tag: '[new feature]',  type: 'new feature' },
-];
+const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/Andreas-SJ/ip-utils/refs/heads/main/version.json';
 
 function loadUpdates() {
   try { return JSON.parse(fs.readFileSync(UPDATES_FILE, 'utf8')); }
-  catch { return { lastCheckedSha: null, pending: [] }; }
+  catch { return { lastSeenVersion: null, pending: [] }; }
 }
 
 function saveUpdates(state) {
   fs.writeFileSync(UPDATES_FILE, JSON.stringify(state, null, 2));
 }
 
-function fetchGithubCommits() {
+function fetchVersionManifest() {
   return new Promise(resolve => {
-    const req = https.get({
-      hostname: 'api.github.com',
-      path: `/repos/${GITHUB_REPO}/commits?per_page=30`,
+    const req = https.get(VERSION_MANIFEST_URL, {
       headers: { 'User-Agent': 'ip-utils-update-checker' },
     }, res => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
-        if (res.statusCode !== 200) { resolve([]); return; }
-        try { resolve(JSON.parse(data)); } catch { resolve([]); }
+        if (res.statusCode !== 200) { resolve(null); return; }
+        try { resolve(JSON.parse(data)); } catch { resolve(null); }
       });
     });
-    req.on('error', () => resolve([]));
+    req.on('error', () => resolve(null));
     req.end();
   });
 }
 
+function versionToComparableParts(version) {
+  const match = String(version || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/i);
+  if (!match) return null;
+  return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+}
+
+function compareVersions(a, b) {
+  const left = versionToComparableParts(a);
+  const right = versionToComparableParts(b);
+  if (!left || !right) return 0;
+  for (let i = 0; i < 3; i += 1) {
+    if (left[i] !== right[i]) return left[i] > right[i] ? 1 : -1;
+  }
+  return 0;
+}
+
+function toNotification(entry) {
+  return {
+    version: entry.version,
+    type: entry.security ? 'security fix' : (entry.type === 'feature' ? 'new feature' : 'bug fix'),
+    message: entry.summary || entry.version,
+    date: entry.date || new Date().toISOString(),
+  };
+}
+
 async function checkForUpdates() {
   const state = loadUpdates();
-  const commits = await fetchGithubCommits();
-  if (!Array.isArray(commits) || !commits.length) return;
+  const manifest = await fetchVersionManifest();
+  if (!manifest || !Array.isArray(manifest.history) || !manifest.current) return;
 
-  const latestSha = commits[0].sha;
-
-  if (DEPLOYED_SHA && state.lastCheckedSha !== DEPLOYED_SHA) {
-    state.lastCheckedSha = DEPLOYED_SHA;
-    saveUpdates(state);
-  }
-
-  if (!state.lastCheckedSha) {
-    state.lastCheckedSha = latestSha;
+  if (!state.lastSeenVersion) {
+    state.lastSeenVersion = manifest.current;
     saveUpdates(state);
     return;
   }
 
-  if (latestSha === state.lastCheckedSha) return;
+  if (compareVersions(manifest.current, state.lastSeenVersion) <= 0) return;
 
-  const newNotifications = [];
-  for (const commit of commits) {
-    if (commit.sha === state.lastCheckedSha) break;
-    const msg = (commit.commit?.message || '').trim();
-    const lower = msg.toLowerCase();
-    for (const { tag, type } of UPDATE_TAGS) {
-      if (lower.includes(tag)) {
-        newNotifications.push({
-          sha: commit.sha,
-          type,
-          message: msg.split('\n')[0],
-          date: commit.commit?.author?.date || new Date().toISOString(),
-        });
-        break;
-      }
-    }
+  const history = manifest.history;
+  const lastSeenIndex = history.findIndex(entry => entry.version === state.lastSeenVersion);
+  if (lastSeenIndex < 0) {
+    state.lastSeenVersion = manifest.current;
+    saveUpdates(state);
+    return;
   }
 
-  state.lastCheckedSha = latestSha;
+  const newNotifications = history
+    .slice(lastSeenIndex + 1)
+    .map(toNotification)
+    .filter(entry => entry.version);
+
+  state.lastSeenVersion = manifest.current;
   if (newNotifications.length) state.pending = [...(state.pending || []), ...newNotifications];
   saveUpdates(state);
 }

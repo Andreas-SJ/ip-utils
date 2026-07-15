@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 5,
-  "patch": 1,
-  "current": "v1.5.1",
+  "patch": 2,
+  "current": "v1.5.2",
   "history": [
     {
       "version": "v1.1.0",
@@ -111,6 +111,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T16:57:55+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/f1744e4ab726bf2c71062c5b6e0001af5ca721dc"
+    },
+    {
+      "version": "v1.5.2",
+      "type": "bug",
+      "security": false,
+      "summary": "re-worked daemon to support updating trough UI",
+      "description": null,
+      "hash": "bfed4097c73db5935fad19a6e4e9a62fe2cc8860",
+      "shortHash": "bfed409",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T17:10:19+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/bfed4097c73db5935fad19a6e4e9a62fe2cc8860"
     }
   ]
 }

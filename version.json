@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 8,
-  "patch": 2,
-  "current": "v1.8.2",
+  "patch": 3,
+  "current": "v1.8.3",
   "history": [
     {
       "version": "v1.1.0",
@@ -291,6 +291,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T19:26:11+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/72672eacec3a258c8452ca9be8a30270da4151e1"
+    },
+    {
+      "version": "v1.8.3",
+      "type": "bug",
+      "security": false,
+      "summary": "Fixed updater confirmation never completing",
+      "description": null,
+      "hash": "7e6ba56ceaab6adc7aea21aed95cf61cc02aeef7",
+      "shortHash": "7e6ba56",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T19:37:14+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/7e6ba56ceaab6adc7aea21aed95cf61cc02aeef7"
     }
   ]
 }

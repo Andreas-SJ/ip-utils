@@ -425,6 +425,15 @@ app.get('/api/admin/updates', requireAdmin, (req, res) => {
   res.json(loadUpdates().pending || []);
 });
 
+app.post('/api/admin/updates/check', requireAdmin, async (req, res) => {
+  try {
+    await checkForUpdates();
+    res.json({ ok: true, pending: loadUpdates().pending || [] });
+  } catch {
+    res.status(500).json({ error: 'Failed to check for updates.' });
+  }
+});
+
 app.post('/api/admin/updates/dismiss', requireAdmin, (req, res) => {
   const state = loadUpdates();
   state.pending = [];

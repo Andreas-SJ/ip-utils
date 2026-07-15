@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 8,
-  "patch": 6,
-  "current": "v1.8.6",
+  "patch": 7,
+  "current": "v1.8.7",
   "history": [
     {
       "version": "v1.1.0",
@@ -339,6 +339,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T19:56:35+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/c45f0a91f9465908a9aa9301c690f61d34aee6ac"
+    },
+    {
+      "version": "v1.8.7",
+      "type": "bug",
+      "security": false,
+      "summary": "Added a longer grace period before automatically refreshing",
+      "description": null,
+      "hash": "c9a2b722885f6dd0a50c624caa326e49e2c210aa",
+      "shortHash": "c9a2b72",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T20:02:37+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/c9a2b722885f6dd0a50c624caa326e49e2c210aa"
     }
   ]
 }

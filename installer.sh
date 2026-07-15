@@ -199,10 +199,10 @@ schedule_daemon_refresh() {
 }
 
 touch "\$OUTPUT_FILE"
-date +%s > "$HEARTBEAT_FILE"
+date +%s > "\$HEARTBEAT_FILE"
 
 while true; do
-  date +%s > "$HEARTBEAT_FILE"
+  date +%s > "\$HEARTBEAT_FILE"
 
   if [ -f "\$REQUEST_FILE" ]; then
     req_id="\$(read_kv id "\$REQUEST_FILE")"

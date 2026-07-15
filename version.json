@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 7,
-  "patch": 0,
-  "current": "v1.7.0",
+  "patch": 1,
+  "current": "v1.7.1",
   "history": [
     {
       "version": "v1.1.0",
@@ -231,6 +231,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T18:54:44+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/79a72d119a1be14271f8a6ddb61f68b51c6a1055"
+    },
+    {
+      "version": "v1.7.1",
+      "type": "bug",
+      "security": false,
+      "summary": "added self-healing to the heartbeat-file",
+      "description": null,
+      "hash": "86597d6607f6d3869366df28e72c4274a1aaf2a2",
+      "shortHash": "86597d6",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T19:03:12+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/86597d6607f6d3869366df28e72c4274a1aaf2a2"
     }
   ]
 }

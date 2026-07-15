@@ -765,7 +765,7 @@ function showUpdateSuccessOverlay(branch) {
   overlay.setAttribute('aria-hidden', 'false');
   title.innerHTML = '<i>update</i> <b>succeeded</b>';
   sub.textContent = `Branch ${branch} is now live`;
-  refreshMsg.textContent = 'refreshing in 3 seconds';
+  refreshMsg.textContent = 'refreshing in 10 seconds';
 
   try {
     sessionStorage.setItem(UPDATE_SUCCESS_STORAGE_KEY, JSON.stringify({
@@ -777,7 +777,7 @@ function showUpdateSuccessOverlay(branch) {
   if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
   updateRefreshTimer = setTimeout(() => {
     window.location.reload();
-  }, 3000);
+  }, 10000);
   updateOverlayActive = false;
   activeUpdateJobId = null;
   activeUpdateStatusToken = null;

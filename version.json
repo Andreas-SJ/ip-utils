@@ -1,8 +1,8 @@
 {
   "major": 1,
-  "minor": 2,
-  "patch": 2,
-  "current": "v1.2.2",
+  "minor": 4,
+  "patch": 0,
+  "current": "v1.4.0",
   "history": [
     {
       "version": "v1.1.0",
@@ -51,6 +51,30 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T14:24:17+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/8b18062bb9a01350708f0a2da1db8ae01ce05b34"
+    },
+    {
+      "version": "v1.3.0",
+      "type": "feature",
+      "security": false,
+      "summary": "added manual update checking",
+      "description": null,
+      "hash": "7890fa34fed951945c41aaa5f4826f4085797193",
+      "shortHash": "7890fa3",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T15:24:04+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/7890fa34fed951945c41aaa5f4826f4085797193"
+    },
+    {
+      "version": "v1.4.0",
+      "type": "feature",
+      "security": false,
+      "summary": "Added display of info version",
+      "description": null,
+      "hash": "41fe309d19fd1319e167758a2aa8edf38444884a",
+      "shortHash": "41fe309",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T15:33:51+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/41fe309d19fd1319e167758a2aa8edf38444884a"
     }
   ]
 }

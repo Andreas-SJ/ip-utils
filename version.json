@@ -1,8 +1,8 @@
 {
   "major": 1,
-  "minor": 6,
+  "minor": 7,
   "patch": 0,
-  "current": "v1.6.0",
+  "current": "v1.7.0",
   "history": [
     {
       "version": "v1.1.0",
@@ -219,6 +219,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T18:45:03+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/06c6b7bd1caa93e16e5eb680f6689cffa597c191"
+    },
+    {
+      "version": "v1.7.0",
+      "type": "feature",
+      "security": false,
+      "summary": "two phase system to update daemon even trough ui update",
+      "description": null,
+      "hash": "79a72d119a1be14271f8a6ddb61f68b51c6a1055",
+      "shortHash": "79a72d1",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T18:54:44+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/79a72d119a1be14271f8a6ddb61f68b51c6a1055"
     }
   ]
 }

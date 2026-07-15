@@ -343,12 +343,23 @@ function saveUpdates(state) {
 
 function normalizeUpdatesState(state) {
   const pending = Array.isArray(state?.pending) ? state.pending : [];
+  const installedVersion = getInstalledVersion();
   const seen = new Set();
   const normalizedPending = [];
 
   for (const entry of pending) {
     const version = String(entry?.version || '').trim();
     if (!version || seen.has(version)) continue;
+
+    if (
+      installedVersion &&
+      versionToComparableParts(version) &&
+      versionToComparableParts(installedVersion) &&
+      compareVersions(version, installedVersion) <= 0
+    ) {
+      continue;
+    }
+
     seen.add(version);
     normalizedPending.push({
       version,
@@ -411,6 +422,15 @@ async function checkForUpdates() {
   const manifest = await fetchVersionManifest();
   if (!manifest || !Array.isArray(manifest.history) || !manifest.current) return;
 
+  const installedVersion = getInstalledVersion();
+  if (
+    installedVersion &&
+    versionToComparableParts(installedVersion) &&
+    (!state.lastSeenVersion || compareVersions(installedVersion, state.lastSeenVersion) > 0)
+  ) {
+    state.lastSeenVersion = installedVersion;
+  }
+
   if (!state.lastSeenVersion) {
     state.lastSeenVersion = manifest.current;
     saveUpdates(state);
@@ -429,10 +449,22 @@ async function checkForUpdates() {
 
   const existingVersions = new Set((state.pending || []).map(entry => String(entry.version || '').trim()).filter(Boolean));
 
+  const baselineVersion = state.lastSeenVersion;
   const newNotifications = history
     .slice(lastSeenIndex + 1)
     .map(toNotification)
-    .filter(entry => entry.version && !existingVersions.has(entry.version));
+    .filter(entry => {
+      if (!entry.version || existingVersions.has(entry.version)) return false;
+      if (
+        baselineVersion &&
+        versionToComparableParts(entry.version) &&
+        versionToComparableParts(baselineVersion) &&
+        compareVersions(entry.version, baselineVersion) <= 0
+      ) {
+        return false;
+      }
+      return true;
+    });
 
   state.lastSeenVersion = manifest.current;
   if (newNotifications.length) state.pending = [...(state.pending || []), ...newNotifications];

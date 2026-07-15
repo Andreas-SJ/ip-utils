@@ -1,8 +1,8 @@
 {
   "major": 1,
-  "minor": 4,
+  "minor": 5,
   "patch": 0,
-  "current": "v1.4.0",
+  "current": "v1.5.0",
   "history": [
     {
       "version": "v1.1.0",
@@ -75,6 +75,30 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-15T15:33:51+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/41fe309d19fd1319e167758a2aa8edf38444884a"
+    },
+    {
+      "version": "v1.4.1",
+      "type": "bug",
+      "security": false,
+      "summary": "better update queue validation",
+      "description": null,
+      "hash": "a99ba87a03027771e6ea72d04c09ac2f8a403d67",
+      "shortHash": "a99ba87",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T15:44:59+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/a99ba87a03027771e6ea72d04c09ac2f8a403d67"
+    },
+    {
+      "version": "v1.5.0",
+      "type": "feature",
+      "security": false,
+      "summary": "Update trough UI",
+      "description": null,
+      "hash": "9a4fdd5aac9ad209ab168d1fbd1273c1f81e1761",
+      "shortHash": "9a4fdd5",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-15T16:51:13+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/9a4fdd5aac9ad209ab168d1fbd1273c1f81e1761"
     }
   ]
 }

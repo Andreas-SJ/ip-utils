@@ -509,6 +509,10 @@
   .left-tab:hover { border: none; border-bottom: 2px solid transparent; color: var(--ink); }
   .left-tab.active { border: none; border-bottom: 2px solid var(--accent); color: var(--accent); }
 
+  #plan-region {
+    flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
+  }
+
   .org-head {
     font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
     padding-bottom: 10px; margin-bottom: 12px;

@@ -483,12 +483,17 @@
   .addr-dropdown-sub { padding-left: 26px; font-size: 11px; color: var(--ink-mute); }
   .hv-sub-list { border-top: 1px solid var(--line-strong); max-height: 220px; overflow-y: auto; }
 
-  .addr-row.guest-row { border-left: 2px solid var(--line-strong); background: rgba(255,255,255,0.008); }
-  .addr-row.reg.guest-row { margin-left: 20px; }
-  .addr-row.hv-row { border-left: 2px solid rgba(201,138,217,0.35); }
+  .addr-row.iface-row { border-left: 2px solid rgba(168,214,125,0.35); background: rgba(255,255,255,0.008); }
+  .addr-row.reg.iface-row { margin-left: 20px; }
+  .addr-row.router-row { border-left: 2px solid rgba(127,184,217,0.35); }
+
+  .org-row.org-iface { margin-left: 20px; border-left: 2px solid rgba(168,214,125,0.35); background: rgba(255,255,255,0.009); }
+  .org-row.org-router { border-left: 2px solid rgba(127,184,217,0.35); }
 
   .t.hv-badge { color: var(--net); border-color: rgba(201,138,217,0.45); }
   .t.guest-badge { color: var(--accent); border-color: var(--accent-dim); }
+  .t.router-badge { color: #7fb8d9; border-color: rgba(127,184,217,0.45); }
+  .t.iface-badge { color: #a8d67d; border-color: rgba(168,214,125,0.45); }
 
   .left-tabs {
     display: flex; margin-bottom: 18px;
@@ -749,7 +754,7 @@ function parseCidr(input) {
 
 const MAX_ENUM = 65536;
 
-const state = { subnets: [], selectedId: null, hypervisors: {}, guests: {} };
+const state = { subnets: [], selectedId: null, hypervisors: {}, guests: {}, routers: {}, routerInterfaces: {} };
 let nextId = 1;
 let renamingId = null;
 const arpState = {};
@@ -790,7 +795,7 @@ async function saveState() {
       await fetch(planApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId, hypervisors: state.hypervisors, guests: state.guests })
+        body: JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId, hypervisors: state.hypervisors, guests: state.guests, routers: state.routers, routerInterfaces: state.routerInterfaces })
       });
     }
   } catch (e) {}
@@ -804,6 +809,8 @@ async function loadState() {
       state.subnets = d.subnets;
       state.hypervisors = d.hypervisors || {};
       state.guests = d.guests || {};
+      state.routers = d.routers || {};
+      state.routerInterfaces = d.routerInterfaces || {};
       state.selectedId = null;
       nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
       return true;
@@ -1134,18 +1141,42 @@ function assignGuest(guestIp, hvIp) {
 function removeGuest(ip) {
   delete state.guests[ip];
 }
+function enableRouter(ip) {
+  delete state.routerInterfaces[ip];
+  state.routers[ip] = true;
+}
+function disableRouter(ip) {
+  delete state.routers[ip];
+  for (const intf of Object.keys(state.routerInterfaces)) {
+    if (state.routerInterfaces[intf] === ip) delete state.routerInterfaces[intf];
+  }
+}
+function assignInterface(ifaceIp, routerIp) {
+  state.routerInterfaces[ifaceIp] = routerIp;
+}
+function removeInterface(ip) {
+  delete state.routerInterfaces[ip];
+}
 
 function buildDisplayRows(ipList) {
   const hvIps = state.hypervisors;
   const guestOf = state.guests;
+  const routerIps = state.routers;
+  const ifaceOf = state.routerInterfaces;
   const guestSet = new Set(Object.keys(guestOf));
+  const ifaceSet = new Set(Object.keys(ifaceOf));
   const guestsByHv = {};
+  const ifacesByRouter = {};
   const mainIps = [];
   for (const ip of ipList) {
     if (guestSet.has(ip)) {
       const hv = guestOf[ip];
       if (!guestsByHv[hv]) guestsByHv[hv] = [];
       guestsByHv[hv].push(ip);
+    } else if (ifaceSet.has(ip)) {
+      const rtr = ifaceOf[ip];
+      if (!ifacesByRouter[rtr]) ifacesByRouter[rtr] = [];
+      ifacesByRouter[rtr].push(ip);
     } else {
       mainIps.push(ip);
     }
@@ -1153,14 +1184,23 @@ function buildDisplayRows(ipList) {
   const rows = [];
   for (const ip of mainIps) {
     const isHv = !!hvIps[ip];
-    rows.push({ ip, isGuest: false, isHypervisor: isHv });
+    const isRtr = !!routerIps[ip];
+    rows.push({ ip, isGuest: false, isHypervisor: isHv, isInterface: false, isRouter: isRtr });
     if (isHv && guestsByHv[ip]) {
-      for (const g of guestsByHv[ip]) rows.push({ ip: g, isGuest: true, isHypervisor: false, hvIp: ip });
+      for (const g of guestsByHv[ip]) rows.push({ ip: g, isGuest: true, isHypervisor: false, isInterface: false, isRouter: false, hvIp: ip });
+    }
+    if (isRtr && ifacesByRouter[ip]) {
+      for (const intf of ifacesByRouter[ip]) rows.push({ ip: intf, isGuest: false, isHypervisor: false, isInterface: true, isRouter: false, routerIp: ip });
     }
   }
   for (const [hvIp, guests] of Object.entries(guestsByHv)) {
     if (!mainIps.includes(hvIp)) {
-      for (const g of guests) rows.push({ ip: g, isGuest: true, isHypervisor: false, hvIp });
+      for (const g of guests) rows.push({ ip: g, isGuest: true, isHypervisor: false, isInterface: false, isRouter: false, hvIp });
+    }
+  }
+  for (const [rtrIp, intfs] of Object.entries(ifacesByRouter)) {
+    if (!mainIps.includes(rtrIp)) {
+      for (const intf of intfs) rows.push({ ip: intf, isGuest: false, isHypervisor: false, isInterface: true, isRouter: false, routerIp: rtrIp });
     }
   }
   return rows;
@@ -1178,8 +1218,12 @@ function showAddrMenu(ip, x, y) {
   closeAddrDropdown();
   const hvIps = state.hypervisors;
   const guestOf = state.guests;
+  const routerIps = state.routers;
+  const ifaceOf = state.routerInterfaces;
   const isHv = !!hvIps[ip];
   const isGst = !!guestOf[ip];
+  const isRtr = !!routerIps[ip];
+  const isIface = !!ifaceOf[ip];
 
   const dropdown = document.createElement('div');
   dropdown.className = 'addr-dropdown';
@@ -1206,12 +1250,30 @@ function showAddrMenu(ip, x, y) {
     addItem('Enable hypervisor', '', () => {
       removeGuest(ip); enableHypervisor(ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave();
     });
+  } else if (isRtr) {
+    addItem('Disable router', 'item-danger', () => {
+      disableRouter(ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave();
+    });
+    addItem('Add interface ▸', '', () => showSubList(dropdown, ip, 'add-interface'));
+  } else if (isIface) {
+    addItem('Remove from router — ' + ifaceOf[ip], 'item-danger', () => {
+      removeInterface(ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave();
+    });
+    addItem('Enable router', '', () => {
+      removeInterface(ip); enableRouter(ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave();
+    });
   } else {
     addItem('Enable hypervisor', '', () => {
       enableHypervisor(ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave();
     });
     if (Object.keys(hvIps).length) {
       addItem('Assign to hypervisor ▸', '', () => showSubList(dropdown, ip, 'assign-to-hv'));
+    }
+    addItem('Enable router', '', () => {
+      enableRouter(ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave();
+    });
+    if (Object.keys(routerIps).length) {
+      addItem('Assign to router ▸', '', () => showSubList(dropdown, ip, 'assign-to-router'));
     }
   }
 
@@ -1228,6 +1290,8 @@ function showSubList(dropdown, ip, mode) {
   dropdown.querySelector('.hv-sub-list')?.remove();
   const hvIps = state.hypervisors;
   const guestOf = state.guests;
+  const routerIps = state.routers;
+  const ifaceOf = state.routerInterfaces;
   function commentForIp(ip2) {
     for (const s of state.subnets) { if ((s.comments[ip2] || '').trim()) return s.comments[ip2]; }
     return '';
@@ -1238,18 +1302,36 @@ function showSubList(dropdown, ip, mode) {
       label: h + (commentForIp(h) ? '  — ' + commentForIp(h).slice(0, 24) : ''),
       action: () => { assignGuest(ip, h); closeAddrDropdown(); renderOrganizedView(); scheduleSave(); }
     }));
-  } else {
+  } else if (mode === 'add-guest') {
     const pool = [];
     for (const subnet of state.subnets) {
       for (const [ip2, comment] of Object.entries(subnet.comments)) {
         if (!comment || !comment.trim()) continue;
-        if (ip2 === ip || hvIps[ip2] || guestOf[ip2]) continue;
+        if (ip2 === ip || hvIps[ip2] || guestOf[ip2] || routerIps[ip2] || ifaceOf[ip2]) continue;
         pool.push({ ip: ip2, comment });
       }
     }
     items = pool.slice(0, 60).map(({ ip: ip2, comment }) => ({
       label: ip2 + (comment ? '  — ' + comment.slice(0, 24) : ''),
       action: () => { assignGuest(ip2, ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave(); }
+    }));
+  } else if (mode === 'assign-to-router') {
+    items = Object.keys(routerIps).map(r => ({
+      label: r + (commentForIp(r) ? '  — ' + commentForIp(r).slice(0, 24) : ''),
+      action: () => { assignInterface(ip, r); closeAddrDropdown(); renderOrganizedView(); scheduleSave(); }
+    }));
+  } else if (mode === 'add-interface') {
+    const pool = [];
+    for (const subnet of state.subnets) {
+      for (const [ip2, comment] of Object.entries(subnet.comments)) {
+        if (!comment || !comment.trim()) continue;
+        if (ip2 === ip || hvIps[ip2] || guestOf[ip2] || routerIps[ip2] || ifaceOf[ip2]) continue;
+        pool.push({ ip: ip2, comment });
+      }
+    }
+    items = pool.slice(0, 60).map(({ ip: ip2, comment }) => ({
+      label: ip2 + (comment ? '  — ' + comment.slice(0, 24) : ''),
+      action: () => { assignInterface(ip2, ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave(); }
     }));
   }
   const sub = document.createElement('div');
@@ -1918,11 +2000,15 @@ function renderOrganizedView() {
     const entryComment = entry.comment;
 
     const row = document.createElement('div');
-    row.className = 'org-row' + (dr.isGuest ? ' org-guest' : dr.isHypervisor ? ' org-hv' : '');
+    row.className = 'org-row' + 
+      (dr.isGuest ? ' org-guest' : dr.isHypervisor ? ' org-hv' : '') +
+      (dr.isInterface ? ' org-iface' : dr.isRouter ? ' org-router' : '');
     row.dataset.ip = entryIp;
 
     const badgesHtml = (dr.isHypervisor ? '<span class="t hv-badge">H</span>' : '') +
-                       (dr.isGuest    ? '<span class="t guest-badge">G</span>' : '');
+                       (dr.isGuest    ? '<span class="t guest-badge">G</span>' : '') +
+                       (dr.isRouter   ? '<span class="t router-badge">R</span>' : '') +
+                       (dr.isInterface ? '<span class="t iface-badge">I</span>' : '');
 
     row.innerHTML = `
       <div class="org-badges">${badgesHtml}</div>

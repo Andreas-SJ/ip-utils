@@ -534,7 +534,7 @@
     font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
     color: var(--ink-faint); border: 1px solid var(--line-strong);
     padding: 1px 5px; border-radius: 2px; white-space: nowrap; flex-shrink: 0;
-    max-width: 100px; overflow: hidden; text-overflow: ellipsis;
+    width: 90px; overflow: hidden; text-overflow: ellipsis;
   }
   .org-ip {
     font-family: var(--mono); font-size: 12px; color: var(--accent);
@@ -826,6 +826,10 @@ const elAddErr = document.getElementById('add-err');
 function addSubnet() {
   const parsed = parseCidr(elCidr.value);
   if (parsed.error) { elAddErr.textContent = parsed.error; return; }
+  if (parsed.cidr === '0.0.0.0/0') {
+    showToast('Okay nice try');
+    return;
+  }
   if (state.subnets.some(s => s.cidr === parsed.cidr)) {
     elAddErr.textContent = 'Subnet ' + parsed.cidr + ' is already in the plan.';
     return;

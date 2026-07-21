@@ -827,7 +827,7 @@ function addSubnet() {
   const parsed = parseCidr(elCidr.value);
   if (parsed.error) { elAddErr.textContent = parsed.error; return; }
   if (parsed.cidr === '0.0.0.0/0') {
-    showToast('Okay nice try');
+    showToast('nice try ;)');
     return;
   }
   if (state.subnets.some(s => s.cidr === parsed.cidr)) {

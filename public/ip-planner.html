@@ -491,6 +491,56 @@
   .t.hv-badge { color: var(--net); border-color: rgba(201,138,217,0.45); }
   .t.guest-badge { color: var(--accent); border-color: var(--accent-dim); }
 
+  .left-tabs {
+    display: flex; margin-bottom: 18px;
+    border-bottom: 1px solid var(--line-strong); flex-shrink: 0;
+  }
+  .left-tab {
+    font-size: 11px; letter-spacing: 0.08em; padding: 7px 16px;
+    border: none; border-bottom: 2px solid transparent;
+    background: transparent; color: var(--ink-faint); cursor: pointer;
+    border-radius: 0; gap: 0; margin-bottom: -1px;
+    transition: color .15s, border-color .15s;
+  }
+  .left-tab:hover { border: none; border-bottom: 2px solid transparent; color: var(--ink); }
+  .left-tab.active { border: none; border-bottom: 2px solid var(--accent); color: var(--accent); }
+
+  .org-head {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    padding-bottom: 10px; margin-bottom: 12px;
+    border-bottom: 1px dashed var(--line-strong);
+    letter-spacing: 0.04em;
+  }
+  .org-list { display: flex; flex-direction: column; gap: 3px; }
+  .org-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 2px;
+    border: 1px solid var(--line); background: var(--bg-elev);
+    cursor: pointer; transition: border-color .15s;
+  }
+  .org-row:hover { border-color: var(--ink-faint); }
+  .org-row.org-hv { border-left: 2px solid rgba(201,138,217,0.45); }
+  .org-row.org-guest {
+    margin-left: 20px;
+    border-left: 2px solid var(--line-strong);
+    background: rgba(255,255,255,0.009);
+  }
+  .org-badges { display: flex; gap: 4px; flex-shrink: 0; min-width: 40px; }
+  .org-subnet-tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
+    color: var(--ink-faint); border: 1px solid var(--line-strong);
+    padding: 1px 5px; border-radius: 2px; white-space: nowrap; flex-shrink: 0;
+    max-width: 100px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .org-ip {
+    font-family: var(--mono); font-size: 12px; color: var(--accent);
+    flex-shrink: 0; min-width: 108px;
+  }
+  .org-comment {
+    flex: 1; font-size: 13px; color: var(--ink-mute);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
   ::selection { background: var(--accent); color: var(--bg); }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: var(--bg-sunk); }
@@ -533,7 +583,12 @@
           <span class="section-desc">add as many as you need</span>
         </div>
 
-        <div class="add-form">
+        <div class="left-tabs">
+          <button id="tab-subnets" class="left-tab active">Subnets</button>
+          <button id="tab-organized" class="left-tab">Organised view</button>
+        </div>
+
+        <div id="add-form-section" class="add-form">
           <div class="add-grid">
             <div>
               <span class="lbl">CIDR <span style="color:var(--accent)">*</span></span>
@@ -551,6 +606,7 @@
 
         <div id="subnet-list" class="subnet-list"></div>
         <div id="subnet-empty" class="empty">no subnets yet &mdash; add one above to begin</div>
+        <div id="organized-panel" style="display:none"></div>
       </div>
 
       <div id="other-plans-section" class="other-plans-section" style="display:none">
@@ -694,7 +750,7 @@ function parseCidr(input) {
 
 const MAX_ENUM = 65536;
 
-const state = { subnets: [], selectedId: null };
+const state = { subnets: [], selectedId: null, hypervisors: {}, guests: {} };
 let nextId = 1;
 let renamingId = null;
 const arpState = {};
@@ -735,7 +791,7 @@ async function saveState() {
       await fetch(planApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId })
+        body: JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId, hypervisors: state.hypervisors, guests: state.guests })
       });
     }
   } catch (e) {}
@@ -747,6 +803,8 @@ async function loadState() {
     const d = await r.json();
     if (d && Array.isArray(d.subnets)) {
       state.subnets = d.subnets;
+      state.hypervisors = d.hypervisors || {};
+      state.guests = d.guests || {};
       state.selectedId = null;
       nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
       return true;
@@ -802,7 +860,7 @@ function annoCount(sn) { return Object.values(sn.comments).filter(v => v && v.tr
 
 function renderSubnetList() {
   listEl.innerHTML = '';
-  listEmptyEl.style.display = state.subnets.length ? 'none' : 'block';
+  listEmptyEl.style.display = (state.subnets.length || currentLeftTab !== 'subnets') ? 'none' : 'block';
 
   state.subnets.forEach(sn => {
     const card = document.createElement('div');
@@ -1061,32 +1119,26 @@ function setComment(sn, ip, val) {
   else delete sn.comments[ip];
 }
 
-function enableHypervisor(sn, ip) {
-  if (!sn.hypervisors) sn.hypervisors = {};
-  if (!sn.guests) sn.guests = {};
-  delete sn.guests[ip];
-  sn.hypervisors[ip] = true;
+function enableHypervisor(ip) {
+  delete state.guests[ip];
+  state.hypervisors[ip] = true;
 }
-function disableHypervisor(sn, ip) {
-  if (!sn.hypervisors) return;
-  delete sn.hypervisors[ip];
-  if (sn.guests) {
-    for (const g of Object.keys(sn.guests)) {
-      if (sn.guests[g] === ip) delete sn.guests[g];
-    }
+function disableHypervisor(ip) {
+  delete state.hypervisors[ip];
+  for (const g of Object.keys(state.guests)) {
+    if (state.guests[g] === ip) delete state.guests[g];
   }
 }
-function assignGuest(sn, guestIp, hvIp) {
-  if (!sn.guests) sn.guests = {};
-  sn.guests[guestIp] = hvIp;
+function assignGuest(guestIp, hvIp) {
+  state.guests[guestIp] = hvIp;
 }
-function removeGuest(sn, ip) {
-  if (sn.guests) delete sn.guests[ip];
+function removeGuest(ip) {
+  delete state.guests[ip];
 }
 
-function buildDisplayRows(sn, ipList) {
-  const hvIps = sn.hypervisors || {};
-  const guestOf = sn.guests || {};
+function buildDisplayRows(ipList) {
+  const hvIps = state.hypervisors;
+  const guestOf = state.guests;
   const guestSet = new Set(Object.keys(guestOf));
   const guestsByHv = {};
   const mainIps = [];
@@ -1123,10 +1175,10 @@ document.addEventListener('mousedown', e => {
   if (activeDropdown && !e.target.closest('.addr-dropdown')) closeAddrDropdown();
 });
 
-function showAddrMenu(sn, ip, x, y) {
+function showAddrMenu(ip, x, y) {
   closeAddrDropdown();
-  const hvIps = sn.hypervisors || {};
-  const guestOf = sn.guests || {};
+  const hvIps = state.hypervisors;
+  const guestOf = state.guests;
   const isHv = !!hvIps[ip];
   const isGst = !!guestOf[ip];
 
@@ -1173,33 +1225,32 @@ function showAddrMenu(sn, ip, x, y) {
   });
 }
 
-function showSubList(dropdown, sn, ip, mode) {
+function showSubList(dropdown, ip, mode) {
   dropdown.querySelector('.hv-sub-list')?.remove();
-  const hvIps = sn.hypervisors || {};
-  const guestOf = sn.guests || {};
+  const hvIps = state.hypervisors;
+  const guestOf = state.guests;
+  function commentForIp(ip2) {
+    for (const s of state.subnets) { if ((s.comments[ip2] || '').trim()) return s.comments[ip2]; }
+    return '';
+  }
   let items = [];
   if (mode === 'assign-to-hv') {
     items = Object.keys(hvIps).map(h => ({
-      label: h + (sn.comments[h] ? '  — ' + sn.comments[h].slice(0, 24) : ''),
-      action: () => { assignGuest(sn, ip, h); closeAddrDropdown(); renderPlan(); scheduleSave(); }
+      label: h + (commentForIp(h) ? '  — ' + commentForIp(h).slice(0, 24) : ''),
+      action: () => { assignGuest(ip, h); closeAddrDropdown(); renderOrganizedView(); scheduleSave(); }
     }));
   } else {
-    const pool = enumerable(sn)
-      ? (() => {
-          const res = [];
-          for (let i2 = 0; i2 < sn.total; i2++) {
-            const int2 = (sn.networkInt + i2) >>> 0;
-            if (roleOf(sn, int2) !== 'host') continue;
-            const ip2 = intToIpv4(int2);
-            if (ip2 === ip || hvIps[ip2] || guestOf[ip2]) continue;
-            res.push(ip2);
-          }
-          return res;
-        })()
-      : Object.keys(sn.comments).filter(ip2 => ip2 !== ip && !hvIps[ip2] && !guestOf[ip2]);
-    items = pool.slice(0, 60).map(ip2 => ({
-      label: ip2 + (sn.comments[ip2] ? '  — ' + sn.comments[ip2].slice(0, 24) : ''),
-      action: () => { assignGuest(sn, ip2, ip); closeAddrDropdown(); renderPlan(); scheduleSave(); }
+    const pool = [];
+    for (const subnet of state.subnets) {
+      for (const [ip2, comment] of Object.entries(subnet.comments)) {
+        if (!comment || !comment.trim()) continue;
+        if (ip2 === ip || hvIps[ip2] || guestOf[ip2]) continue;
+        pool.push({ ip: ip2, comment });
+      }
+    }
+    items = pool.slice(0, 60).map(({ ip: ip2, comment }) => ({
+      label: ip2 + (comment ? '  — ' + comment.slice(0, 24) : ''),
+      action: () => { assignGuest(ip2, ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave(); }
     }));
   }
   const sub = document.createElement('div');
@@ -1244,20 +1295,18 @@ function renderEnumPlan(sn, readOnly) {
   wrap.appendChild(filter);
 
   const q = planFilter.text.trim().toLowerCase();
-  const hasHvData = Object.keys(sn.hypervisors || {}).length > 0 || Object.keys(sn.guests || {}).length > 0;
-  let displayRows = null;
-  if (q || planFilter.onlyAnno || hasHvData) {
-    const filteredIps = [];
+  let indices = null;
+  if (q || planFilter.onlyAnno) {
+    indices = [];
     for (let i = 0; i < sn.total; i++) {
       const ip = intToIpv4((sn.networkInt + i) >>> 0);
       const note = sn.comments[ip] || '';
       if (planFilter.onlyAnno && !note.trim()) continue;
       if (q && !(ip.includes(q) || note.toLowerCase().includes(q))) continue;
-      filteredIps.push(ip);
+      indices.push(i);
     }
-    displayRows = buildDisplayRows(sn, filteredIps);
   }
-  const count = displayRows ? displayRows.length : sn.total;
+  const count = indices ? indices.length : sn.total;
 
   if (count === 0) {
     const head = thead();
@@ -1301,7 +1350,7 @@ function renderEnumPlan(sn, readOnly) {
       e.stopPropagation();
       const mip = menuBtn.dataset.menuIp;
       const rect = menuBtn.getBoundingClientRect();
-      showAddrMenu(sn, mip, rect.left, rect.bottom + 4);
+      showAddrMenu(mip, rect.left, rect.bottom + 4);
       return;
     }
     const tag = e.target.closest('.t.host, .t.arp-up, .t.arp-down, .t.arp-pending, .t.arp-up-manual, .t.arp-down-manual');
@@ -1323,29 +1372,18 @@ function renderEnumPlan(sn, readOnly) {
 
     let html = '';
     for (let r = start; r < end; r++) {
-      let ip, isGuest = false, isHypervisor = false;
-      if (displayRows) {
-        const dr = displayRows[r];
-        ip = dr.ip; isGuest = dr.isGuest; isHypervisor = dr.isHypervisor;
-      } else {
-        const int2 = (sn.networkInt + r) >>> 0;
-        ip = intToIpv4(int2);
-      }
-      const int = ipv4ToInt(ip);
+      const i = indices ? indices[r] : r;
+      const int = (sn.networkInt + i) >>> 0;
+      const ip = intToIpv4(int);
       const role = roleOf(sn, int);
       const note = sn.comments[ip] || '';
       const dim = (role === 'net' || role === 'bcast') ? ' dim' : '';
-      const rowClass = 'addr-row' + (isGuest ? ' guest-row' : isHypervisor ? ' hv-row' : '');
-      const leftStyle = isGuest ? 'left:20px;' : '';
-      const hvBadge = isHypervisor ? '<span class="t hv-badge">H</span>' : '';
-      const gBadge = isGuest ? '<span class="t guest-badge">G</span>' : '';
       html += `
-        <div class="${rowClass}" style="top:${r * rowH}px;${leftStyle}" data-ip="${ip}">
-          <div class="a-tag"><span class="t role-tag ${tagClass(role, ip)}">${roleLabel(role)}</span>${hvBadge}${gBadge}</div>
+        <div class="addr-row" style="top:${r * rowH}px" data-ip="${ip}">
+          <div class="a-tag"><span class="t role-tag ${tagClass(role, ip)}">${roleLabel(role)}</span></div>
           <div class="a-ip${dim}">${ip}</div>
           <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${ip}"
                  value="${esc(note)}" placeholder="add a note…"${readOnly ? ' readonly' : ''} />
-          ${!readOnly ? `<button class="addr-menu-btn" data-menu-ip="${ip}" title="Address options">⋮</button>` : ''}
         </div>`;
     }
     sizer.innerHTML = html;
@@ -1362,22 +1400,18 @@ function renderEnumPlan(sn, readOnly) {
   scroll.addEventListener('scroll', () => requestAnimationFrame(() => draw(false)));
 
   if (pendingScrollIp) {
-    let r = -1;
-    if (displayRows) {
-      r = displayRows.findIndex(dr => dr.ip === pendingScrollIp);
-    } else {
-      const tInt = ipv4ToInt(pendingScrollIp);
-      if (tInt !== null && tInt >= sn.networkInt && tInt <= sn.broadcastInt) r = tInt - sn.networkInt;
-    }
-    if (r >= 0) {
-      requestAnimationFrame(() => {
-        scroll.scrollTop = Math.max(0, r * rowH - (scroll.clientHeight / 2) + rowH);
-        draw(true);
-      });
-    } else {
-      pendingScrollIp = null;
-      draw(true);
-    }
+    const tInt = ipv4ToInt(pendingScrollIp);
+    if (tInt !== null && tInt >= sn.networkInt && tInt <= sn.broadcastInt) {
+      let r;
+      if (indices) { r = indices.indexOf(tInt - sn.networkInt); }
+      else { r = tInt - sn.networkInt; }
+      if (r >= 0) {
+        requestAnimationFrame(() => {
+          scroll.scrollTop = Math.max(0, r * rowH - (scroll.clientHeight / 2) + rowH);
+          draw(true);
+        });
+      } else { draw(true); }
+    } else { pendingScrollIp = null; draw(true); }
   } else {
     draw(true);
   }
@@ -1429,21 +1463,15 @@ function renderRegistryPlan(sn, readOnly) {
     return true;
   });
 
-  const regRows = buildDisplayRows(sn, filtered);
   let rows = '';
-  regRows.forEach(dr => {
-    const ip = dr.ip;
+  filtered.forEach(ip => {
     const note = sn.comments[ip] || '';
-    const rowClass = 'addr-row reg' + (dr.isGuest ? ' guest-row' : dr.isHypervisor ? ' hv-row' : '');
-    const hvBadge = dr.isHypervisor ? '<span class="t hv-badge">H</span>' : '';
-    const gBadge = dr.isGuest ? '<span class="t guest-badge">G</span>' : '';
     rows += `
-      <div class="${rowClass}" data-ip="${esc(ip)}">
-        <div class="a-tag"><span class="t role-tag ${tagClass('host', ip)}">host</span>${hvBadge}${gBadge}</div>
+      <div class="addr-row reg" data-ip="${esc(ip)}">
+        <div class="a-tag"><span class="t role-tag ${tagClass('host', ip)}">host</span></div>
         <div class="a-ip">${esc(ip)}</div>
         <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…"${readOnly ? ' readonly' : ''} />
         ${!readOnly ? `<button class="danger a-del" data-del="${esc(ip)}">&times;</button>` : ''}
-        ${!readOnly ? `<button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">⋮</button>` : ''}
       </div>`;
   });
   if (!filtered.length) {
@@ -1470,14 +1498,6 @@ function renderRegistryPlan(sn, readOnly) {
     }
   });
   scroll.addEventListener('click', e => {
-    const menuBtn = e.target.closest('.addr-menu-btn');
-    if (!readOnly && menuBtn) {
-      e.stopPropagation();
-      const mip = menuBtn.dataset.menuIp;
-      const rect = menuBtn.getBoundingClientRect();
-      showAddrMenu(sn, mip, rect.left, rect.bottom + 4);
-      return;
-    }
     if (!readOnly && e.target.dataset.del) {
       delete sn.comments[e.target.dataset.del];
       renderPlan(); renderSubnetList(); scheduleSave(); rebuildSearchIndex();
@@ -1831,6 +1851,107 @@ function confirmDialog(title, message, confirmLabel) {
     ok.focus();
   });
 }
+
+// ── Left panel tab system ────────────────────────────────────────────────────
+let currentLeftTab = 'subnets';
+
+function switchLeftTab(tab) {
+  currentLeftTab = tab;
+  document.getElementById('tab-subnets').classList.toggle('active', tab === 'subnets');
+  document.getElementById('tab-organized').classList.toggle('active', tab === 'organized');
+  const addForm = document.getElementById('add-form-section');
+  const subnetList = document.getElementById('subnet-list');
+  const subnetEmpty = document.getElementById('subnet-empty');
+  const orgPanel = document.getElementById('organized-panel');
+  if (addForm) addForm.style.display = tab === 'subnets' ? '' : 'none';
+  subnetList.style.display = tab === 'subnets' ? '' : 'none';
+  subnetEmpty.style.display = (tab === 'subnets' && !state.subnets.length) ? 'block' : 'none';
+  orgPanel.style.display = tab === 'organized' ? '' : 'none';
+  if (tab === 'organized') renderOrganizedView();
+}
+
+document.getElementById('tab-subnets').addEventListener('click', () => switchLeftTab('subnets'));
+document.getElementById('tab-organized').addEventListener('click', () => switchLeftTab('organized'));
+
+function renderOrganizedView() {
+  const panel = document.getElementById('organized-panel');
+  if (!panel || panel.style.display === 'none') return;
+
+  // Collect all annotated IPs across all subnets
+  const allAnnotated = [];
+  for (const sn of state.subnets) {
+    for (const [ip, comment] of Object.entries(sn.comments)) {
+      if (comment && comment.trim()) allAnnotated.push({ ip, sn, comment });
+    }
+  }
+
+  if (!allAnnotated.length) {
+    panel.innerHTML = '<div class="empty" style="margin-top:8px">No annotated addresses yet &mdash; add notes to addresses in the subnet view to see them here.</div>';
+    return;
+  }
+
+  // Sort by subnet order, then by IP
+  allAnnotated.sort((a, b) => {
+    const si = state.subnets.indexOf(a.sn);
+    const sj = state.subnets.indexOf(b.sn);
+    if (si !== sj) return si - sj;
+    if (a.sn.version === 4) return ipv4ToInt(a.ip) - ipv4ToInt(b.ip);
+    return a.ip.localeCompare(b.ip);
+  });
+
+  const ipList = allAnnotated.map(e => e.ip);
+  const dispRows = buildDisplayRows(ipList);
+
+  panel.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'org-head';
+  head.textContent = allAnnotated.length + ' address' + (allAnnotated.length !== 1 ? 'es' : '') +
+    ' across ' + state.subnets.length + ' subnet' + (state.subnets.length !== 1 ? 's' : '');
+  panel.appendChild(head);
+
+  const list = document.createElement('div');
+  list.className = 'org-list';
+
+  for (const dr of dispRows) {
+    const entry = allAnnotated.find(e => e.ip === dr.ip);
+    if (!entry) continue;
+    const { ip, sn, comment } = entry;
+
+    const row = document.createElement('div');
+    row.className = 'org-row' + (dr.isGuest ? ' org-guest' : dr.isHypervisor ? ' org-hv' : '');
+    row.dataset.ip = ip;
+
+    const badgesHtml = (dr.isHypervisor ? '<span class="t hv-badge">H</span>' : '') +
+                       (dr.isGuest    ? '<span class="t guest-badge">G</span>' : '');
+
+    row.innerHTML = `
+      <div class="org-badges">${badgesHtml}</div>
+      <span class="org-subnet-tag" title="${esc(sn.cidr)}">${esc(sn.label)}</span>
+      <span class="org-ip">${esc(ip)}</span>
+      <span class="org-comment">${esc(comment)}</span>
+      <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>`;
+
+    row.addEventListener('click', e => {
+      const btn = e.target.closest('.addr-menu-btn');
+      if (btn) {
+        e.stopPropagation();
+        const rect = btn.getBoundingClientRect();
+        showAddrMenu(ip, rect.left, rect.bottom + 4);
+        return;
+      }
+      // Jump to address in the plan view
+      switchLeftTab('subnets');
+      jumpTo(sn.id, ip);
+    });
+
+    list.appendChild(row);
+  }
+
+  panel.appendChild(list);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 Promise.all([
   fetch('/api/config').then(r => r.ok ? r.json() : { hasPlanner: true, hasNetplan: true }).catch(() => ({ hasPlanner: true, hasNetplan: true })),

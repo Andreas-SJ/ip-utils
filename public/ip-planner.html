@@ -459,10 +459,9 @@
     font-size: 17px; color: var(--ink-faint); line-height: 1;
     background: transparent; border: none; border-radius: 2px;
     cursor: pointer; padding: 0; margin-left: 2px;
-    opacity: 0; transition: color .15s, background .15s, opacity .15s;
+    transition: color .15s, background .15s;
   }
-  .addr-row:hover .addr-menu-btn { opacity: 1; }
-  .addr-menu-btn:hover { color: var(--ink); background: rgba(255,255,255,0.07); opacity: 1; }
+  .addr-menu-btn:hover { color: var(--ink); background: rgba(255,255,255,0.07); }
 
   .addr-dropdown {
     position: fixed; z-index: 500;
@@ -1197,22 +1196,22 @@ function showAddrMenu(ip, x, y) {
 
   if (isHv) {
     addItem('Disable hypervisor', 'item-danger', () => {
-      disableHypervisor(sn, ip); closeAddrDropdown(); renderPlan(); scheduleSave();
+      disableHypervisor(ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave();
     });
-    addItem('Add guest ▸', '', () => showSubList(dropdown, sn, ip, 'add-guest'));
+    addItem('Add guest ▸', '', () => showSubList(dropdown, ip, 'add-guest'));
   } else if (isGst) {
     addItem('Remove from hypervisor — ' + guestOf[ip], 'item-danger', () => {
-      removeGuest(sn, ip); closeAddrDropdown(); renderPlan(); scheduleSave();
+      removeGuest(ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave();
     });
     addItem('Enable hypervisor', '', () => {
-      removeGuest(sn, ip); enableHypervisor(sn, ip); closeAddrDropdown(); renderPlan(); scheduleSave();
+      removeGuest(ip); enableHypervisor(ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave();
     });
   } else {
     addItem('Enable hypervisor', '', () => {
-      enableHypervisor(sn, ip); closeAddrDropdown(); renderPlan(); scheduleSave();
+      enableHypervisor(ip); closeAddrDropdown(); renderOrganizedView(); scheduleSave();
     });
     if (Object.keys(hvIps).length) {
-      addItem('Assign to hypervisor ▸', '', () => showSubList(dropdown, sn, ip, 'assign-to-hv'));
+      addItem('Assign to hypervisor ▸', '', () => showSubList(dropdown, ip, 'assign-to-hv'));
     }
   }
 
@@ -1859,23 +1858,23 @@ function switchLeftTab(tab) {
   currentLeftTab = tab;
   document.getElementById('tab-subnets').classList.toggle('active', tab === 'subnets');
   document.getElementById('tab-organized').classList.toggle('active', tab === 'organized');
-  const addForm = document.getElementById('add-form-section');
-  const subnetList = document.getElementById('subnet-list');
-  const subnetEmpty = document.getElementById('subnet-empty');
-  const orgPanel = document.getElementById('organized-panel');
-  if (addForm) addForm.style.display = tab === 'subnets' ? '' : 'none';
-  subnetList.style.display = tab === 'subnets' ? '' : 'none';
-  subnetEmpty.style.display = (tab === 'subnets' && !state.subnets.length) ? 'block' : 'none';
-  orgPanel.style.display = tab === 'organized' ? '' : 'none';
-  if (tab === 'organized') renderOrganizedView();
+  if (tab === 'organized') {
+    planFacts.style.display = 'none';
+    planCidr.textContent = '\u00b7 Organised view';
+    renderOrganizedView();
+  } else {
+    planFacts.style.display = '';
+    planCidr.textContent = '';
+    renderPlan();
+  }
 }
 
 document.getElementById('tab-subnets').addEventListener('click', () => switchLeftTab('subnets'));
 document.getElementById('tab-organized').addEventListener('click', () => switchLeftTab('organized'));
 
 function renderOrganizedView() {
-  const panel = document.getElementById('organized-panel');
-  if (!panel || panel.style.display === 'none') return;
+  if (currentLeftTab !== 'organized') return;
+  planRegion.innerHTML = '';
 
   // Collect all annotated IPs across all subnets
   const allAnnotated = [];
@@ -1886,7 +1885,7 @@ function renderOrganizedView() {
   }
 
   if (!allAnnotated.length) {
-    panel.innerHTML = '<div class="empty" style="margin-top:8px">No annotated addresses yet &mdash; add notes to addresses in the subnet view to see them here.</div>';
+    planRegion.innerHTML = '<div class="plan-empty">&larr; Add notes to addresses in the subnet view to see them here.<br><span style="font-size:11px;color:var(--ink-faint)">Annotated addresses across all subnets will appear here.</span></div>';
     return;
   }
 
@@ -1902,13 +1901,11 @@ function renderOrganizedView() {
   const ipList = allAnnotated.map(e => e.ip);
   const dispRows = buildDisplayRows(ipList);
 
-  panel.innerHTML = '';
-
   const head = document.createElement('div');
   head.className = 'org-head';
   head.textContent = allAnnotated.length + ' address' + (allAnnotated.length !== 1 ? 'es' : '') +
     ' across ' + state.subnets.length + ' subnet' + (state.subnets.length !== 1 ? 's' : '');
-  panel.appendChild(head);
+  planRegion.appendChild(head);
 
   const list = document.createElement('div');
   list.className = 'org-list';
@@ -1916,39 +1913,45 @@ function renderOrganizedView() {
   for (const dr of dispRows) {
     const entry = allAnnotated.find(e => e.ip === dr.ip);
     if (!entry) continue;
-    const { ip, sn, comment } = entry;
+    const entryIp = entry.ip;
+    const entrySn = entry.sn;
+    const entryComment = entry.comment;
 
     const row = document.createElement('div');
     row.className = 'org-row' + (dr.isGuest ? ' org-guest' : dr.isHypervisor ? ' org-hv' : '');
-    row.dataset.ip = ip;
+    row.dataset.ip = entryIp;
 
     const badgesHtml = (dr.isHypervisor ? '<span class="t hv-badge">H</span>' : '') +
                        (dr.isGuest    ? '<span class="t guest-badge">G</span>' : '');
 
     row.innerHTML = `
       <div class="org-badges">${badgesHtml}</div>
-      <span class="org-subnet-tag" title="${esc(sn.cidr)}">${esc(sn.label)}</span>
-      <span class="org-ip">${esc(ip)}</span>
-      <span class="org-comment">${esc(comment)}</span>
-      <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>`;
+      <span class="org-subnet-tag" title="${esc(entrySn.cidr)}">${esc(entrySn.label)}</span>
+      <span class="org-ip">${esc(entryIp)}</span>
+      <span class="org-comment">${esc(entryComment)}</span>
+      <button class="addr-menu-btn" data-menu-ip="${esc(entryIp)}" title="Address options">&#8942;</button>`;
 
     row.addEventListener('click', e => {
       const btn = e.target.closest('.addr-menu-btn');
       if (btn) {
         e.stopPropagation();
         const rect = btn.getBoundingClientRect();
-        showAddrMenu(ip, rect.left, rect.bottom + 4);
+        showAddrMenu(entryIp, rect.left, rect.bottom + 4);
         return;
       }
-      // Jump to address in the plan view
+      // Click on row: jump to address in subnet plan
+      state.selectedId = entrySn.id;
+      planFilter = { text: '', onlyAnno: false };
+      pendingScrollIp = entryIp;
       switchLeftTab('subnets');
-      jumpTo(sn.id, ip);
+      renderSubnetList();
+      document.querySelector('.subnet.selected')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
 
     list.appendChild(row);
   }
 
-  panel.appendChild(list);
+  planRegion.appendChild(list);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

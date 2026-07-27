@@ -33,13 +33,23 @@
 
   type UpdateJob = {
     id: string | null;
-    status: 'idle' | 'running' | 'succeeded' | 'failed';
+    status: 'idle' | 'queued' | 'running' | 'succeeded' | 'failed';
     startedAt: string | null;
     endedAt: string | null;
     exitCode: number | null;
     branch: string | null;
     error: string | null;
     output: string;
+    daemonAlive?: boolean;
+    daemonLastSeenAt?: string | null;
+    daemonStaleSeconds?: number | null;
+  };
+
+  type UpdateStartResult = {
+    ok: boolean;
+    id: string;
+    statusToken?: string;
+    job?: UpdateJob;
   };
 
   let currentUser: { username: string; isAdmin: boolean } | null = null;
@@ -53,6 +63,12 @@
   let updateJobStatusText = '';
   let updateJobStatusClass = '';
   let checkingUpdates = false;
+  let updateOverlayOpen = false;
+  let updateOverlaySuccess = false;
+  let updateOverlayLead = 'applying';
+  let updateOverlayStrong = 'update';
+  let updateOverlaySub = 'Please wait while ip-utils restarts';
+  let updateOverlayRefreshMsg = 'waiting for updater confirmation...';
 
   let newUsername = '';
   let newPassword = '';
@@ -85,6 +101,13 @@
   let updSubmitting = false;
 
   let updateStatusPoll: ReturnType<typeof setInterval> | null = null;
+  let updateRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  let updateOverlayActive = false;
+  let activeUpdateJobId: string | null = null;
+  let activeUpdateStatusToken: string | null = null;
+  let updateChannelDeadlineAt = 0;
+
+  const UPDATE_SUCCESS_STORAGE_KEY = 'ipUtilsUpdateSuccess';
 
   function showToast(msg: string) {
     toastMessage = msg;
@@ -163,28 +186,139 @@
     }
   }
 
+  function setUpdateOverlayRefreshMessage(text: string) {
+    updateOverlayRefreshMsg = text;
+  }
+
+  function handleUpdateChannelInterruption() {
+    if (!updateOverlayActive || !activeUpdateJobId || !activeUpdateStatusToken) return;
+
+    if (!updateChannelDeadlineAt) {
+      updateChannelDeadlineAt = Date.now() + 180000;
+    }
+
+    if (Date.now() < updateChannelDeadlineAt) {
+      setUpdateOverlayRefreshMessage('connection interrupted, waiting for app to come back...');
+      return;
+    }
+
+    hideUpdateOverlay('update confirmation timed out');
+  }
+
+  function showUpdateProgressOverlay() {
+    updateOverlayOpen = true;
+    updateOverlaySuccess = false;
+    updateOverlayLead = 'applying';
+    updateOverlayStrong = 'update';
+    updateOverlaySub = 'Please wait while ip-utils restarts';
+    setUpdateOverlayRefreshMessage('waiting for updater confirmation...');
+    updateOverlayActive = true;
+    updateChannelDeadlineAt = Date.now() + 180000;
+    if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
+    updateRefreshTimer = null;
+  }
+
+  function showUpdateSuccessOverlay(branch: string) {
+    updateOverlayOpen = true;
+    updateOverlaySuccess = true;
+    updateOverlayLead = 'update';
+    updateOverlayStrong = 'succeeded';
+    updateOverlaySub = `Branch ${branch} is now live`;
+    setUpdateOverlayRefreshMessage('refreshing in 10 seconds');
+
+    try {
+      sessionStorage.setItem(UPDATE_SUCCESS_STORAGE_KEY, JSON.stringify({
+        branch,
+        at: new Date().toISOString()
+      }));
+    } catch {
+      // ignore storage failures
+    }
+
+    if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
+    updateRefreshTimer = setTimeout(() => {
+      window.location.reload();
+    }, 10000);
+    updateOverlayActive = false;
+    activeUpdateJobId = null;
+    activeUpdateStatusToken = null;
+    updateChannelDeadlineAt = 0;
+  }
+
+  function hideUpdateOverlay(reasonText?: string) {
+    updateOverlayOpen = false;
+    updateOverlaySuccess = false;
+    if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
+    updateRefreshTimer = null;
+    updateOverlayActive = false;
+    activeUpdateJobId = null;
+    activeUpdateStatusToken = null;
+    updateChannelDeadlineAt = 0;
+    showToast(reasonText || 'update failed');
+  }
+
   async function refreshUpdateJobStatus() {
     try {
-      const job = await fetchJson<UpdateJob>('/api/admin/update/status');
+      const statusUrl = updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken
+        ? `/api/update-status/${encodeURIComponent(activeUpdateJobId)}/${encodeURIComponent(activeUpdateStatusToken)}`
+        : '/api/admin/update/status';
+      const r = await fetch(statusUrl, { credentials: 'include' });
+      if (!r.ok) {
+        if (updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken) {
+          handleUpdateChannelInterruption();
+        }
+        return;
+      }
+
+      const job = await r.json() as UpdateJob;
+
+      if (updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken) {
+        updateChannelDeadlineAt = 0;
+        if (job.status === 'queued' || job.status === 'running') {
+          setUpdateOverlayRefreshMessage('waiting for updater confirmation...');
+        }
+      }
+
       if (!job || !job.status || job.status === 'idle') {
         updateJobStatusText = '';
         updateJobStatusClass = '';
         return;
       }
 
-      if (job.status === 'running') {
+      if (job.status === 'queued') {
+        updateJobStatusText = `Update queued on branch ${job.branch || 'main'}...`;
+        updateJobStatusClass = 'queued';
+      } else if (job.status === 'running') {
         updateJobStatusText = `Update running on branch ${job.branch || 'main'}...`;
         updateJobStatusClass = 'running';
       } else if (job.status === 'succeeded') {
         updateJobStatusText = `Last update succeeded (${job.branch || 'main'})`;
         updateJobStatusClass = 'succeeded';
+        if (updateOverlayActive && activeUpdateJobId && job.id === activeUpdateJobId) {
+          showUpdateSuccessOverlay(job.branch || 'main');
+        }
         await Promise.all([loadUpdates(), loadInstalledVersion()]);
-      } else {
+      } else if (job.status === 'failed') {
         updateJobStatusText = `Last update failed (${job.branch || 'main'})`;
         updateJobStatusClass = 'failed';
+        if (updateOverlayActive && activeUpdateJobId && job.id === activeUpdateJobId) {
+          hideUpdateOverlay('update failed');
+        }
+      }
+
+      if (
+        updateOverlayActive &&
+        activeUpdateJobId &&
+        job.id === activeUpdateJobId &&
+        (job.status === 'queued' || job.status === 'running') &&
+        job.daemonAlive === false
+      ) {
+        updateJobStatusText = 'Updater daemon offline. Update stopped.';
+        updateJobStatusClass = 'failed';
+        hideUpdateOverlay('updater daemon offline');
       }
     } catch {
-      // ignore polling errors
+      handleUpdateChannelInterruption();
     }
   }
 
@@ -286,7 +420,7 @@
 
     updSubmitting = true;
     try {
-      await fetchJson('/api/admin/update/start', {
+      const started = await fetchJson<UpdateStartResult>('/api/admin/update/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -296,10 +430,20 @@
           adminPassword: updAdminPass
         })
       });
+
+      activeUpdateJobId = started.id || null;
+      activeUpdateStatusToken = started.statusToken || null;
       updModalOpen = false;
       showToast('update started');
-      updateJobStatusText = `Update running on branch ${updBranch.trim() || 'main'}...`;
-      updateJobStatusClass = 'running';
+      showUpdateProgressOverlay();
+      const reported = started.job?.status;
+      if (reported === 'queued') {
+        updateJobStatusText = `Update queued on branch ${updBranch.trim() || 'main'}...`;
+        updateJobStatusClass = 'queued';
+      } else {
+        updateJobStatusText = `Update running on branch ${updBranch.trim() || 'main'}...`;
+        updateJobStatusClass = 'running';
+      }
       ensureUpdateStatusPolling();
       await refreshUpdateJobStatus();
     } catch (err) {
@@ -462,6 +606,7 @@
     return () => {
       if (updateStatusPoll) clearInterval(updateStatusPoll);
       if (toastTimer) clearTimeout(toastTimer);
+      if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
     };
   });
 </script>
@@ -635,6 +780,20 @@
 <div id="toast" class={`toast ${toastVisible ? 'show' : ''}`}>{toastMessage}</div>
 
 <div
+  id="update-progress-overlay"
+  class={`update-overlay ${updateOverlayOpen ? 'show' : ''} ${updateOverlaySuccess ? 'success' : ''}`}
+  aria-live="polite"
+  aria-hidden={!updateOverlayOpen}
+>
+  <div class="update-overlay-panel">
+    <div class="update-throbber" aria-hidden="true"></div>
+    <h2 class="update-overlay-title" id="update-overlay-title"><i>{updateOverlayLead}</i> <b>{updateOverlayStrong}</b></h2>
+    <p class="update-overlay-sub" id="update-overlay-sub">{updateOverlaySub}</p>
+    <p class="update-overlay-refresh-msg" id="update-overlay-refresh-msg">{updateOverlayRefreshMsg}</p>
+  </div>
+</div>
+
+<div
   id="modal-back"
   class={`modal-back ${confirmOpen ? 'show' : ''}`}
   role="button"
@@ -731,5 +890,137 @@
     font: inherit;
     color: inherit;
     cursor: pointer;
+  }
+
+  .update-job-status.queued {
+    color: var(--accent);
+  }
+
+  .update-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    background: rgba(0, 0, 0, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .update-overlay.show {
+    display: flex;
+  }
+
+  .update-overlay-panel {
+    position: relative;
+    width: min(560px, 96vw);
+    min-height: 260px;
+    border-radius: 16px;
+    border: 1px solid var(--line-strong);
+    background: color-mix(in srgb, var(--bg-card) 92%, black 8%);
+    box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 34px 28px 64px;
+  }
+
+  .update-overlay-title {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: clamp(26px, 4.2vw, 42px);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  .update-overlay-title b {
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  .update-overlay-sub {
+    margin: 10px 0 0;
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .update-throbber {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    border: 3px solid rgba(138, 101, 53, 0.5);
+    border-top-color: var(--accent);
+    border-right-color: var(--accent);
+    margin-bottom: 26px;
+    animation: update-spin 1s linear infinite;
+    position: relative;
+    transition: transform .45s ease, border-color .45s ease, background .45s ease;
+  }
+
+  .update-throbber::before {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 34px;
+    border-right: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    left: 31px;
+    top: 18px;
+    transform: rotate(45deg) scale(0.65);
+    opacity: 0;
+    transition: transform .38s ease, opacity .3s ease, border-color .3s ease;
+  }
+
+  .update-throbber::after {
+    content: '';
+    position: absolute;
+    inset: 12px;
+    border-radius: 50%;
+    border: 2px dashed rgba(232, 168, 92, 0.35);
+    animation: update-spin 2.2s linear infinite reverse;
+  }
+
+  @keyframes update-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .update-overlay.success .update-throbber {
+    animation: none;
+    transform: scale(1.04);
+    border-color: rgba(127, 176, 105, 0.5);
+    background: rgba(127, 176, 105, 0.14);
+  }
+
+  .update-overlay.success .update-throbber::after {
+    animation: none;
+    border-color: rgba(127, 176, 105, 0.35);
+  }
+
+  .update-overlay.success .update-throbber::before {
+    border-right-color: var(--ok);
+    border-bottom-color: var(--ok);
+    transform: rotate(45deg) scale(1);
+    opacity: 1;
+  }
+
+  .update-overlay-refresh-msg {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 24px;
+    padding: 0 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 </style>

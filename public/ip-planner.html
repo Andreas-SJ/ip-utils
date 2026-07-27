@@ -472,6 +472,17 @@
     transition: color .15s, background .15s;
   }
   .addr-key-btn:hover { color: var(--ink); background: rgba(232,168,92,0.16); }
+  .icon-svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+    pointer-events: none;
+    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%) drop-shadow(0 0 1px rgba(0,0,0,0.85));
+  }
+  .addr-key-btn:hover .icon-svg,
+  .pw-eye:hover .icon-svg {
+    filter: invert(76%) sepia(28%) saturate(560%) hue-rotate(348deg) brightness(102%) contrast(94%) drop-shadow(0 0 1px rgba(0,0,0,0.9));
+  }
 
   .addr-actions {
     flex-shrink: 0;
@@ -560,9 +571,11 @@
     border-radius: 2px;
     padding: 0;
     line-height: 1;
-    font-size: 12px;
     cursor: pointer;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .pw-eye:hover {
     color: var(--accent);
@@ -1365,7 +1378,7 @@ function openPasswordMenu(ip, x, y) {
           <div class="pw-desc" title="${esc(e.description || '')}">${esc(e.description || '')}</div>
           <div class="pw-meta-row">
             <div class="pw-meta">${esc(e.username || '(no username)')}</div>
-            <button class="pw-eye" data-pw-eye="${esc(e.id)}" title="Show password" aria-label="Show password">&#128065;</button>
+            <button class="pw-eye" data-pw-eye="${esc(e.id)}" title="Show password" aria-label="Show password"><img class="icon-svg" src="/icons/eye-icon.svg" alt="" /></button>
           </div>
           <div class="pw-secret" data-pw-secret="${esc(e.id)}">${maskPassword(e.password)}</div>
         </div>
@@ -1409,11 +1422,15 @@ function openPasswordMenu(ip, x, y) {
       if (isRevealed) {
         secretEl.textContent = maskPassword(plain);
         secretEl.classList.remove('revealed');
+        const icon = eyeBtn.querySelector('img');
+        if (icon) icon.src = '/icons/eye-icon.svg';
         eyeBtn.title = 'Show password';
         eyeBtn.setAttribute('aria-label', 'Show password');
       } else {
         secretEl.textContent = plain || '(empty password)';
         secretEl.classList.add('revealed');
+        const icon = eyeBtn.querySelector('img');
+        if (icon) icon.src = '/icons/eye-blind-icon.svg';
         eyeBtn.title = 'Hide password';
         eyeBtn.setAttribute('aria-label', 'Hide password');
       }
@@ -1826,7 +1843,7 @@ function renderEnumPlan(sn, readOnly) {
       const isHost = role === 'host';
       const actionButtons = isHost ? `
           <div class="addr-actions">
-            ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager">&#128273;</button>` : ''}
+            ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
             <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>
           </div>` : '';
       html += `
@@ -1924,7 +1941,7 @@ function renderRegistryPlan(sn, readOnly) {
         <div class="a-ip">${esc(ip)}</div>
         <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…"${readOnly ? ' readonly' : ''} />
         <div class="addr-actions">
-          ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager">&#128273;</button>` : ''}
+          ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
           <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>
         </div>
         ${!readOnly ? `<button class="danger a-del" data-del="${esc(ip)}">&times;</button>` : ''}
@@ -2469,7 +2486,7 @@ function renderOrganizedView() {
       <span class="org-subnet-tag" title="${esc(entrySn.cidr)}">${esc(entrySn.label)}</span>
       <span class="org-ip">${esc(entryIp)}</span>
       <span class="org-comment">${esc(entryComment)}</span>
-      ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(entryIp)}" title="Password manager">&#128273;</button>` : ''}
+      ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(entryIp)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
       <button class="addr-menu-btn" data-menu-ip="${esc(entryIp)}" title="Address options">&#8942;</button>`;
 
     row.addEventListener('click', e => {

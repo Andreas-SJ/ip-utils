@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 5,
-  "patch": 11,
-  "current": "v1.5.11",
+  "patch": 12,
+  "current": "v1.5.12",
   "history": [
     {
       "version": "v1.1.0",
@@ -219,6 +219,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-27T15:28:54+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/68b42d3c9f6892a26b19dbf9508d922b640c4656"
+    },
+    {
+      "version": "v1.5.12",
+      "type": "bug",
+      "security": false,
+      "summary": "i forgot to add a tag, therefore no version increment...",
+      "description": null,
+      "hash": "9a2bb39c5e9292ed2dd3a5375e318bee133bcaa8",
+      "shortHash": "9a2bb39",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-27T15:32:07+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/9a2bb39c5e9292ed2dd3a5375e318bee133bcaa8"
     }
   ]
 }

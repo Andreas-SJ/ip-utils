@@ -46,6 +46,57 @@
     background-position: -1px -1px;
   }
 
+  body.skin-futuristic.mode-light {
+    --bg: #f3f5f8;
+    --bg-elev: #ffffff;
+    --bg-sunk: #e9edf2;
+    --line: #d3dae5;
+    --line-strong: #c1cada;
+    --ink: #1c2735;
+    --ink-mute: #445265;
+    --ink-faint: #6b788c;
+    --accent: #a56022;
+    --accent-dim: #c08753;
+    --danger: #bf4a3a;
+    --ok: #4e8a3b;
+  }
+
+  body.skin-enterprise.mode-dark {
+    --bg: #1f232c;
+    --bg-elev: #2b3240;
+    --bg-sunk: #1a1f28;
+    --line: #3a4356;
+    --line-strong: #4a5670;
+    --ink: #e9edf5;
+    --ink-mute: #b7c2d7;
+    --ink-faint: #8894ab;
+    --accent: #f08232;
+    --accent-dim: #bc6930;
+    --danger: #de6252;
+    --ok: #7ebf67;
+  }
+
+  body.skin-enterprise.mode-light {
+    --bg: #eef2f7;
+    --bg-elev: #ffffff;
+    --bg-sunk: #e4e9f2;
+    --line: #cdd6e6;
+    --line-strong: #b6c2d9;
+    --ink: #253247;
+    --ink-mute: #4f5f79;
+    --ink-faint: #76839a;
+    --accent: #dc6e21;
+    --accent-dim: #b36330;
+    --danger: #c95141;
+    --ok: #578f42;
+  }
+
+  body.mode-light {
+    background-image:
+      linear-gradient(rgba(12,18,26,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(12,18,26,0.045) 1px, transparent 1px);
+  }
+
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
@@ -76,6 +127,29 @@
   }
   .header-nav a { color: var(--accent); }
 
+  .theme-toggle {
+    width: 28px;
+    height: 24px;
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent-dim); }
+  .theme-icon {
+    width: 14px;
+    height: 14px;
+    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%);
+    pointer-events: none;
+  }
+  body.mode-light .theme-icon {
+    filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
+  }
+
   main { padding: 36px 0 80px; }
 
   .section { margin-bottom: 44px; }
@@ -91,13 +165,13 @@
     text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
   }
 
-  input[type="text"], input[type="password"] {
+  input[type="text"], input[type="password"], select {
     width: 100%; background: var(--bg-sunk); color: var(--ink);
     border: 1px solid var(--line-strong); border-radius: 2px; padding: 9px 11px;
     font-family: var(--mono); font-size: 13px;
     transition: border-color .15s, background .15s;
   }
-  input:focus { outline: none; border-color: var(--accent); background: #0b0e12; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); background: #0b0e12; }
   input::placeholder { color: var(--ink-faint); }
 
   .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto auto; gap: 10px; align-items: end; }
@@ -331,6 +405,10 @@
       &nbsp;&middot;&nbsp;
       <span id="admin-name"></span>
       &nbsp;&middot;&nbsp;
+      <button id="btn-theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode">
+        <img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" />
+      </button>
+      &nbsp;&middot;&nbsp;
       <a href="#" id="logout-link">logout</a>
     </div>
   </header>
@@ -406,10 +484,17 @@
           <span class="box"></span>
           <span class="lbl-text">Enable password manager (global)</span>
         </label>
+        <div style="margin-top:10px;max-width:260px">
+          <span class="lbl">Skin</span>
+          <select id="global-skin">
+            <option value="futuristic">futuristic</option>
+            <option value="enterprise">enterprise</option>
+          </select>
+        </div>
         <div style="margin-top:8px">
           <button id="btn-save-global-options" class="primary" style="font-size:11px;padding:6px 10px">save global options</button>
         </div>
-        <div class="option-help">Applies to all users. Shows a key icon next to host actions in the IP planner.</div>
+        <div class="option-help">Applies to all users. Skin controls dark/light style family for user theme toggle and overall visuals.</div>
       </div>
 
       <div class="form-err" id="create-err"></div>
@@ -531,6 +616,44 @@ function confirmDialog(title, msg, label) {
 let currentUser = null;
 let latestUpdateVersion = null;
 let updateStatusPoll = null;
+const uiTheme = { skin: 'futuristic', mode: 'dark' };
+
+function sanitizeSkin(v) {
+  return (v === 'enterprise' || v === 'futuristic') ? v : 'futuristic';
+}
+
+function sanitizeMode(v) {
+  return (v === 'light' || v === 'dark') ? v : 'dark';
+}
+
+function modeStorageKey(skin) {
+  return 'iputils-theme-mode-' + sanitizeSkin(skin);
+}
+
+function preferredModeForSkin(skin) {
+  try {
+    return sanitizeMode(localStorage.getItem(modeStorageKey(skin)) || 'dark');
+  } catch {
+    return 'dark';
+  }
+}
+
+function setThemeIcon() {
+  const icon = document.getElementById('theme-toggle-icon');
+  if (!icon) return;
+  icon.src = uiTheme.mode === 'dark' ? '/icons/day-sunny-icon.svg' : '/icons/moon-line-icon.svg';
+}
+
+function applyTheme(skin, mode) {
+  const body = document.body;
+  uiTheme.skin = sanitizeSkin(skin);
+  uiTheme.mode = sanitizeMode(mode);
+  body.classList.remove('skin-futuristic', 'skin-enterprise', 'mode-dark', 'mode-light');
+  body.classList.add('skin-' + uiTheme.skin, 'mode-' + uiTheme.mode);
+  setThemeIcon();
+}
+
+applyTheme('futuristic', preferredModeForSkin('futuristic'));
 
 function parseSemver(v) {
   const m = String(v || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/i);
@@ -674,6 +797,10 @@ async function loadGlobalOptions() {
     if (!r.ok) return;
     const d = await r.json();
     document.getElementById('global-password-manager-enabled').checked = !!d.passwordManagerEnabled;
+    const skin = sanitizeSkin(d.skin || 'futuristic');
+    const skinSelect = document.getElementById('global-skin');
+    skinSelect.value = skin;
+    applyTheme(skin, preferredModeForSkin(skin));
   } catch {}
 }
 
@@ -781,17 +908,32 @@ document.getElementById('btn-create').addEventListener('click', async () => {
 
 document.getElementById('btn-save-global-options').addEventListener('click', async () => {
   const enabled = document.getElementById('global-password-manager-enabled').checked;
+  const skin = sanitizeSkin(document.getElementById('global-skin').value);
   const r = await fetch('/api/admin/options', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ passwordManagerEnabled: enabled })
+    body: JSON.stringify({ passwordManagerEnabled: enabled, skin })
   });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) {
     showToast(d.error || 'Failed to save options');
     return;
   }
+  applyTheme(skin, preferredModeForSkin(skin));
   showToast('Global options saved');
+});
+
+document.getElementById('global-skin').addEventListener('change', e => {
+  const nextSkin = sanitizeSkin(e.target.value);
+  applyTheme(nextSkin, preferredModeForSkin(nextSkin));
+});
+
+document.getElementById('btn-theme-toggle').addEventListener('click', () => {
+  const nextMode = uiTheme.mode === 'dark' ? 'light' : 'dark';
+  applyTheme(uiTheme.skin, nextMode);
+  try {
+    localStorage.setItem(modeStorageKey(uiTheme.skin), nextMode);
+  } catch {}
 });
 
 document.getElementById('logout-link').addEventListener('click', async e => {

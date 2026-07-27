@@ -27,6 +27,8 @@
     --serif: 'IBM Plex Serif', Georgia, serif;
     --sans: 'IBM Plex Sans', system-ui, sans-serif;
     --row-h: 36px;
+    --icon-filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%) drop-shadow(0 0 1px rgba(0,0,0,0.85));
+    --icon-filter-hover: invert(76%) sepia(28%) saturate(560%) hue-rotate(348deg) brightness(102%) contrast(94%) drop-shadow(0 0 1px rgba(0,0,0,0.9));
   }
 
   * { box-sizing: border-box; }
@@ -48,6 +50,66 @@
       linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
     background-size: 40px 40px;
     background-position: -1px -1px;
+  }
+
+  body.skin-futuristic.mode-light {
+    --bg: #f2f5f9;
+    --bg-elev: #ffffff;
+    --bg-sunk: #e8edf4;
+    --line: #ccd6e4;
+    --line-strong: #b8c6d9;
+    --ink: #1f2b3a;
+    --ink-mute: #45566d;
+    --ink-faint: #6d7b90;
+    --accent: #9d5f27;
+    --accent-dim: #bb8453;
+    --danger: #be4d3d;
+    --ok: #4b8d3a;
+    --net: #8a6fd3;
+    --icon-filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
+    --icon-filter-hover: invert(33%) sepia(63%) saturate(1022%) hue-rotate(7deg) brightness(96%) contrast(92%);
+  }
+
+  body.skin-enterprise.mode-dark {
+    --bg: #1e242e;
+    --bg-elev: #2a3343;
+    --bg-sunk: #171d27;
+    --line: #394659;
+    --line-strong: #4a5971;
+    --ink: #eaf0fb;
+    --ink-mute: #bbc7dc;
+    --ink-faint: #8794ad;
+    --accent: #f18431;
+    --accent-dim: #b86a34;
+    --danger: #dd6554;
+    --ok: #7fbf69;
+    --net: #7fb8d9;
+    --icon-filter: invert(92%) sepia(7%) saturate(184%) hue-rotate(189deg) brightness(98%) contrast(90%) drop-shadow(0 0 1px rgba(0,0,0,0.85));
+    --icon-filter-hover: invert(71%) sepia(69%) saturate(1918%) hue-rotate(344deg) brightness(99%) contrast(92%) drop-shadow(0 0 1px rgba(0,0,0,0.9));
+  }
+
+  body.skin-enterprise.mode-light {
+    --bg: #eef2f7;
+    --bg-elev: #ffffff;
+    --bg-sunk: #e3e9f2;
+    --line: #c9d3e4;
+    --line-strong: #b4c2d8;
+    --ink: #243248;
+    --ink-mute: #4e5f79;
+    --ink-faint: #75839b;
+    --accent: #dd6f22;
+    --accent-dim: #b26030;
+    --danger: #ca5342;
+    --ok: #5a9444;
+    --net: #4d7ec4;
+    --icon-filter: invert(16%) sepia(21%) saturate(480%) hue-rotate(180deg) brightness(90%) contrast(90%);
+    --icon-filter-hover: invert(33%) sepia(63%) saturate(1022%) hue-rotate(7deg) brightness(96%) contrast(92%);
+  }
+
+  body.mode-light {
+    background-image:
+      linear-gradient(rgba(12,18,26,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(12,18,26,0.045) 1px, transparent 1px);
   }
 
   a { color: var(--accent); text-decoration: none; }
@@ -99,6 +161,28 @@
   .user-nav a.nav-disabled:hover {
     text-decoration: none;
     color: var(--ink-faint);
+  }
+  .theme-toggle {
+    width: 28px;
+    height: 24px;
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent-dim); }
+  .theme-icon {
+    width: 14px;
+    height: 14px;
+    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%);
+    pointer-events: none;
+  }
+  body.mode-light .theme-icon {
+    filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
   }
   .admin-banner {
     flex-basis: 100%; background: rgba(232,168,92,0.08); border: 1px solid var(--accent-dim);
@@ -477,11 +561,11 @@
     height: 14px;
     display: block;
     pointer-events: none;
-    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%) drop-shadow(0 0 1px rgba(0,0,0,0.85));
+    filter: var(--icon-filter);
   }
   .addr-key-btn:hover .icon-svg,
   .pw-eye:hover .icon-svg {
-    filter: invert(76%) sepia(28%) saturate(560%) hue-rotate(348deg) brightness(102%) contrast(94%) drop-shadow(0 0 1px rgba(0,0,0,0.9));
+    filter: var(--icon-filter-hover);
   }
 
   .addr-actions {
@@ -940,6 +1024,44 @@ const state = {
   passwordManager: {}
 };
 const userCapabilities = { passwordManagerEnabled: false };
+const uiTheme = { skin: 'futuristic', mode: 'dark' };
+
+function sanitizeSkin(v) {
+  return (v === 'enterprise' || v === 'futuristic') ? v : 'futuristic';
+}
+
+function sanitizeMode(v) {
+  return (v === 'light' || v === 'dark') ? v : 'dark';
+}
+
+function modeStorageKey(skin) {
+  return 'iputils-theme-mode-' + sanitizeSkin(skin);
+}
+
+function preferredModeForSkin(skin) {
+  try {
+    return sanitizeMode(localStorage.getItem(modeStorageKey(skin)) || 'dark');
+  } catch {
+    return 'dark';
+  }
+}
+
+function setThemeIcon() {
+  const icon = document.getElementById('theme-toggle-icon');
+  if (!icon) return;
+  icon.src = uiTheme.mode === 'dark' ? '/icons/day-sunny-icon.svg' : '/icons/moon-line-icon.svg';
+}
+
+function applyTheme(skin, mode) {
+  uiTheme.skin = sanitizeSkin(skin);
+  uiTheme.mode = sanitizeMode(mode);
+  const body = document.body;
+  body.classList.remove('skin-futuristic', 'skin-enterprise', 'mode-dark', 'mode-light');
+  body.classList.add('skin-' + uiTheme.skin, 'mode-' + uiTheme.mode);
+  setThemeIcon();
+}
+
+applyTheme('futuristic', preferredModeForSkin('futuristic'));
 let nextId = 1;
 let renamingId = null;
 const arpState = {};
@@ -2522,13 +2644,15 @@ function renderOrganizedView() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 Promise.all([
-  fetch('/api/config').then(r => r.ok ? r.json() : { hasPlanner: true, hasNetplan: true }).catch(() => ({ hasPlanner: true, hasNetplan: true })),
+  fetch('/api/config').then(r => r.ok ? r.json() : { hasPlanner: true, hasNetplan: true, skin: 'futuristic' }).catch(() => ({ hasPlanner: true, hasNetplan: true, skin: 'futuristic' })),
   fetch('/api/me').then(r => {
     if (!r.ok) { window.location.href = '/login'; return null; }
     return r.json();
   })
 ]).then(([cfg, data]) => {
   if (!data) return;
+  const skin = sanitizeSkin(cfg.skin || 'futuristic');
+  applyTheme(skin, preferredModeForSkin(skin));
   userCapabilities.passwordManagerEnabled = !!data.passwordManagerEnabled;
   const nav = document.getElementById('user-nav');
   let html = '<span class="u-name">' + esc(data.username) + '</span>' +
@@ -2541,8 +2665,21 @@ Promise.all([
     html += ' &nbsp;&middot;&nbsp; <a href="#" id="btn-netplan-missing" class="nav-disabled" aria-disabled="true">netplan-gen</a>';
   }
 
+  html += ' &nbsp;&middot;&nbsp; <button id="btn-theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode"><img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" /></button>';
   html += ' &nbsp;&middot;&nbsp; <a href="#" id="btn-logout">logout</a>';
   nav.innerHTML = html;
+  setThemeIcon();
+
+  const themeBtn = document.getElementById('btn-theme-toggle');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
+      const nextMode = uiTheme.mode === 'dark' ? 'light' : 'dark';
+      applyTheme(uiTheme.skin, nextMode);
+      try {
+        localStorage.setItem(modeStorageKey(uiTheme.skin), nextMode);
+      } catch {}
+    });
+  }
 
   document.getElementById('btn-logout').addEventListener('click', async e => {
     e.preventDefault();

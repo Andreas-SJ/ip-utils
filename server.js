@@ -17,6 +17,7 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 const VALID_MODES = new Set(['both', 'planner', 'netplan']);
+const VALID_SKINS = new Set(['futuristic', 'enterprise']);
 const MODE = VALID_MODES.has(process.env.MODE) ? process.env.MODE : 'both';
 const HAS_PLANNER = MODE === 'both' || MODE === 'planner';
 const HAS_NETPLAN = MODE === 'both' || MODE === 'netplan';
@@ -42,7 +43,7 @@ function getInstalledVersion() {
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(PLANS_DIR)) fs.mkdirSync(PLANS_DIR, { recursive: true });
 if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, '{}');
-if (!fs.existsSync(SETTINGS_FILE)) fs.writeFileSync(SETTINGS_FILE, JSON.stringify({ passwordManagerEnabled: false }, null, 2));
+if (!fs.existsSync(SETTINGS_FILE)) fs.writeFileSync(SETTINGS_FILE, JSON.stringify({ passwordManagerEnabled: false, skin: 'futuristic' }, null, 2));
 
 const secretFile = path.join(DATA_DIR, 'session_secret.txt');
 let sessionSecret;
@@ -151,17 +152,21 @@ function saveUsers(users) {
 function loadSettings() {
   try {
     const raw = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+    const skin = VALID_SKINS.has(String(raw?.skin || '').trim()) ? String(raw.skin).trim() : 'futuristic';
     return {
       passwordManagerEnabled: !!raw?.passwordManagerEnabled,
+      skin,
     };
   } catch {
-    return { passwordManagerEnabled: false };
+    return { passwordManagerEnabled: false, skin: 'futuristic' };
   }
 }
 
 function saveSettings(settings) {
+  const skinRaw = String(settings?.skin || '').trim();
   const out = {
     passwordManagerEnabled: !!settings?.passwordManagerEnabled,
+    skin: VALID_SKINS.has(skinRaw) ? skinRaw : 'futuristic',
   };
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(out, null, 2));
 }
@@ -276,9 +281,11 @@ app.get('/admin', requireAdmin, (req, res) => {
 });
 
 app.get('/api/config', (req, res) => {
+  const settings = loadSettings();
   res.json({
     hasPlanner: HAS_PLANNER,
-    hasNetplan: HAS_NETPLAN
+    hasNetplan: HAS_NETPLAN,
+    skin: settings.skin
   });
 });
 
@@ -442,17 +449,29 @@ app.post('/api/admin/plans/:username', requireAdmin, async (req, res) => {
 
 app.get('/api/admin/options', requireAdmin, (req, res) => {
   const settings = loadSettings();
-  res.json({ passwordManagerEnabled: !!settings.passwordManagerEnabled });
+  res.json({
+    passwordManagerEnabled: !!settings.passwordManagerEnabled,
+    skin: settings.skin
+  });
 });
 
 app.put('/api/admin/options', requireAdmin, (req, res) => {
   if (!Object.prototype.hasOwnProperty.call(req.body || {}, 'passwordManagerEnabled')) {
     return res.status(400).json({ error: 'passwordManagerEnabled is required.' });
   }
+  const rawSkin = String(req.body?.skin || '').trim() || 'futuristic';
+  if (!VALID_SKINS.has(rawSkin)) {
+    return res.status(400).json({ error: 'skin must be one of: futuristic, enterprise.' });
+  }
   const settings = loadSettings();
   settings.passwordManagerEnabled = !!req.body.passwordManagerEnabled;
+  settings.skin = rawSkin;
   saveSettings(settings);
-  res.json({ ok: true, passwordManagerEnabled: !!settings.passwordManagerEnabled });
+  res.json({
+    ok: true,
+    passwordManagerEnabled: !!settings.passwordManagerEnabled,
+    skin: settings.skin
+  });
 });
 
 app.delete('/api/admin/plans/:username', requireAdmin, (req, res) => {

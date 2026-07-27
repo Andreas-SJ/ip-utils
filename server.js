@@ -14,6 +14,7 @@ if (TRUST_PROXY) app.set('trust proxy', TRUST_PROXY);
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PLANS_DIR = path.join(DATA_DIR, 'plans');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 const VALID_MODES = new Set(['both', 'planner', 'netplan']);
 const MODE = VALID_MODES.has(process.env.MODE) ? process.env.MODE : 'both';
@@ -41,6 +42,7 @@ function getInstalledVersion() {
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(PLANS_DIR)) fs.mkdirSync(PLANS_DIR, { recursive: true });
 if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, '{}');
+if (!fs.existsSync(SETTINGS_FILE)) fs.writeFileSync(SETTINGS_FILE, JSON.stringify({ passwordManagerEnabled: false }, null, 2));
 
 const secretFile = path.join(DATA_DIR, 'session_secret.txt');
 let sessionSecret;
@@ -144,6 +146,40 @@ function loadUsers() {
 
 function saveUsers(users) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+}
+
+function loadSettings() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+    return {
+      passwordManagerEnabled: !!raw?.passwordManagerEnabled,
+    };
+  } catch {
+    return { passwordManagerEnabled: false };
+  }
+}
+
+function saveSettings(settings) {
+  const out = {
+    passwordManagerEnabled: !!settings?.passwordManagerEnabled,
+  };
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(out, null, 2));
+}
+
+function isPasswordManagerEnabledGlobal() {
+  return !!loadSettings().passwordManagerEnabled;
+}
+
+function readStoredEncryptedPasswordManager(file) {
+  if (!fs.existsSync(file)) return null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!raw || typeof raw !== 'object' || !raw.passwordManager || typeof raw.passwordManager !== 'object') return null;
+    const enc = normalizePasswordManager(raw.passwordManager, 'encrypt');
+    return Object.keys(enc).length ? enc : null;
+  } catch {
+    return null;
+  }
 }
 
 function normalizePlanPayload(raw, options = {}) {
@@ -261,7 +297,7 @@ app.post('/api/login', async (req, res) => {
   res.json({
     username: user.username,
     isAdmin: !!user.isAdmin,
-    passwordManagerEnabled: !!user.passwordManagerEnabled,
+    passwordManagerEnabled: isPasswordManagerEnabledGlobal(),
     returnTo
   });
 });
@@ -279,14 +315,12 @@ app.get('/api/me', (req, res) => {
   res.json({
     username: req.session.user.username,
     isAdmin: req.session.user.isAdmin,
-    passwordManagerEnabled: !!user.passwordManagerEnabled
+    passwordManagerEnabled: isPasswordManagerEnabledGlobal()
   });
 });
 
 app.get('/api/plan', requireAuth, (req, res) => {
-  const users = loadUsers();
-  const user = users[req.session.user.username];
-  const allowPasswordManager = !!user?.passwordManagerEnabled;
+  const allowPasswordManager = isPasswordManagerEnabledGlobal();
   const file = path.join(PLANS_DIR, req.session.user.username + '.json');
   if (!fs.existsSync(file)) return res.json(null);
   try {
@@ -298,12 +332,14 @@ app.get('/api/plan', requireAuth, (req, res) => {
 });
 
 app.post('/api/plan', requireAuth, (req, res) => {
-  const users = loadUsers();
-  const user = users[req.session.user.username];
-  const allowPasswordManager = !!user?.passwordManagerEnabled;
+  const allowPasswordManager = isPasswordManagerEnabledGlobal();
   const file = path.join(PLANS_DIR, req.session.user.username + '.json');
   try {
     const payload = normalizePlanPayload(req.body, { allowPasswordManager, passwordMode: 'encrypt' });
+    if (!allowPasswordManager) {
+      const preserved = readStoredEncryptedPasswordManager(file);
+      if (preserved) payload.passwordManager = preserved;
+    }
     fs.writeFileSync(file, JSON.stringify(payload, null, 2));
     res.json({ ok: true });
   } catch {
@@ -316,14 +352,13 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
   const result = Object.values(users).map(u => ({
     username: u.username,
     isAdmin: !!u.isAdmin,
-    passwordManagerEnabled: !!u.passwordManagerEnabled,
     hasPlan: fs.existsSync(path.join(PLANS_DIR, u.username + '.json'))
   }));
   res.json(result);
 });
 
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
-  const { username, password, isAdmin, passwordManagerEnabled } = req.body;
+  const { username, password, isAdmin } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password required.' });
   }
@@ -339,8 +374,7 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
   users[username] = {
     username,
     passwordHash: hash,
-    isAdmin: !!isAdmin,
-    passwordManagerEnabled: !!passwordManagerEnabled
+    isAdmin: !!isAdmin
   };
   saveUsers(users);
   res.json({ ok: true });
@@ -378,7 +412,7 @@ app.get('/api/admin/plans/:username', requireAdmin, (req, res) => {
   const { username } = req.params;
   const users = loadUsers();
   if (!users[username]) return res.status(404).json({ error: 'User not found.' });
-  const allowPasswordManager = !!users[username].passwordManagerEnabled;
+  const allowPasswordManager = isPasswordManagerEnabledGlobal();
   const file = path.join(PLANS_DIR, username + '.json');
   if (!fs.existsSync(file)) return res.json(null);
   try {
@@ -392,13 +426,32 @@ app.post('/api/admin/plans/:username', requireAdmin, async (req, res) => {
   const { username } = req.params;
   const users = loadUsers();
   if (!users[username]) return res.status(404).json({ error: 'User not found.' });
-  const allowPasswordManager = !!users[username].passwordManagerEnabled;
+  const allowPasswordManager = isPasswordManagerEnabledGlobal();
   const file = path.join(PLANS_DIR, username + '.json');
   try {
     const payload = normalizePlanPayload(req.body, { allowPasswordManager, passwordMode: 'encrypt' });
+    if (!allowPasswordManager) {
+      const preserved = readStoredEncryptedPasswordManager(file);
+      if (preserved) payload.passwordManager = preserved;
+    }
     fs.writeFileSync(file, JSON.stringify(payload, null, 2));
     res.json({ ok: true });
   } catch { res.status(500).json({ error: 'Failed to save plan.' }); }
+});
+
+app.get('/api/admin/options', requireAdmin, (req, res) => {
+  const settings = loadSettings();
+  res.json({ passwordManagerEnabled: !!settings.passwordManagerEnabled });
+});
+
+app.put('/api/admin/options', requireAdmin, (req, res) => {
+  if (!Object.prototype.hasOwnProperty.call(req.body || {}, 'passwordManagerEnabled')) {
+    return res.status(400).json({ error: 'passwordManagerEnabled is required.' });
+  }
+  const settings = loadSettings();
+  settings.passwordManagerEnabled = !!req.body.passwordManagerEnabled;
+  saveSettings(settings);
+  res.json({ ok: true, passwordManagerEnabled: !!settings.passwordManagerEnabled });
 });
 
 app.delete('/api/admin/plans/:username', requireAdmin, (req, res) => {
@@ -765,8 +818,7 @@ async function bootstrap() {
       users[ADMIN_USER] = {
         username: ADMIN_USER,
         passwordHash: hash,
-        isAdmin: true,
-        passwordManagerEnabled: false
+        isAdmin: true
       };
       saveUsers(users);
       console.log('Admin user created: ' + ADMIN_USER);

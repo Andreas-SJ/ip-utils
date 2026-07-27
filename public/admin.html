@@ -402,11 +402,14 @@
       <div class="additional-options">
         <div class="additional-options-title">Additional Options</div>
         <label class="check">
-          <input type="checkbox" id="new-password-manager-enabled" />
+          <input type="checkbox" id="global-password-manager-enabled" />
           <span class="box"></span>
-          <span class="lbl-text">Enable password manager</span>
+          <span class="lbl-text">Enable password manager (global)</span>
         </label>
-        <div class="option-help">Shows a key icon next to host actions in the IP planner.</div>
+        <div style="margin-top:8px">
+          <button id="btn-save-global-options" class="primary" style="font-size:11px;padding:6px 10px">save global options</button>
+        </div>
+        <div class="option-help">Applies to all users. Shows a key icon next to host actions in the IP planner.</div>
       </div>
 
       <div class="form-err" id="create-err"></div>
@@ -665,6 +668,15 @@ async function loadInstalledVersion() {
   }
 }
 
+async function loadGlobalOptions() {
+  try {
+    const r = await fetch('/api/admin/options');
+    if (!r.ok) return;
+    const d = await r.json();
+    document.getElementById('global-password-manager-enabled').checked = !!d.passwordManagerEnabled;
+  } catch {}
+}
+
 async function loadUsers() {
   const r = await fetch('/api/admin/users');
   if (!r.ok) return;
@@ -683,7 +695,6 @@ async function loadUsers() {
       <td>${u.hasPlan
         ? '<span class="badge badge-plan">has plan</span>'
         : '<span class="badge badge-no-plan">no plan</span>'}
-        ${u.passwordManagerEnabled ? '<span class="badge" style="margin-left:6px;color:var(--accent);border-color:var(--accent-dim)">pw manager</span>' : ''}
       </td>
       <td>
         <div class="action-cell">
@@ -742,7 +753,6 @@ document.getElementById('btn-create').addEventListener('click', async () => {
   const username = document.getElementById('new-username').value.trim();
   const password = document.getElementById('new-password').value;
   const isAdmin = document.getElementById('new-is-admin').checked;
-  const passwordManagerEnabled = document.getElementById('new-password-manager-enabled').checked;
   const errEl = document.getElementById('create-err');
   errEl.textContent = '';
 
@@ -754,7 +764,7 @@ document.getElementById('btn-create').addEventListener('click', async () => {
   const r = await fetch('/api/admin/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, isAdmin, passwordManagerEnabled })
+    body: JSON.stringify({ username, password, isAdmin })
   });
   const d = await r.json();
   if (!r.ok) {
@@ -765,9 +775,23 @@ document.getElementById('btn-create').addEventListener('click', async () => {
   document.getElementById('new-username').value = '';
   document.getElementById('new-password').value = '';
   document.getElementById('new-is-admin').checked = false;
-  document.getElementById('new-password-manager-enabled').checked = false;
   showToast('User created');
   loadUsers();
+});
+
+document.getElementById('btn-save-global-options').addEventListener('click', async () => {
+  const enabled = document.getElementById('global-password-manager-enabled').checked;
+  const r = await fetch('/api/admin/options', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ passwordManagerEnabled: enabled })
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    showToast(d.error || 'Failed to save options');
+    return;
+  }
+  showToast('Global options saved');
 });
 
 document.getElementById('logout-link').addEventListener('click', async e => {
@@ -908,7 +932,7 @@ document.getElementById('dismiss-updates').addEventListener('click', async () =>
 
 (async function init() {
   await loadMe();
-  await Promise.all([loadUsers(), loadUpdates(), loadInstalledVersion()]);
+  await Promise.all([loadUsers(), loadGlobalOptions(), loadUpdates(), loadInstalledVersion()]);
   ensureUpdateStatusPolling();
   await refreshUpdateJobStatus();
 })();

@@ -16,6 +16,7 @@
   --icon-filter-hover: invert(76%) sepia(28%) saturate(560%) hue-rotate(348deg) brightness(102%) contrast(94%) drop-shadow(0 0 1px rgba(0,0,0,0.9));
 }
 
+html.skin-futuristic.mode-light,
 body.skin-futuristic.mode-light {
   --bg: #f3f5f8;
   --bg-elev: #ffffff;
@@ -34,6 +35,7 @@ body.skin-futuristic.mode-light {
   --icon-filter-hover: invert(33%) sepia(63%) saturate(1022%) hue-rotate(7deg) brightness(96%) contrast(92%);
 }
 
+html.skin-futuristic.mode-dark,
 body.skin-futuristic.mode-dark {
   background-image:
     linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
@@ -42,6 +44,7 @@ body.skin-futuristic.mode-dark {
   background-position: -1px -1px;
 }
 
+html.skin-futuristic.mode-light,
 body.skin-futuristic.mode-light {
   background-image:
     linear-gradient(rgba(12,18,26,0.045) 1px, transparent 1px),

@@ -6,4 +6,4 @@ RUN apk add --no-cache iputils iproute2
 COPY . .
 RUN mkdir -p data/plans
 EXPOSE 80
-CMD ["node", "server.js"]
+CMD ["node", "server.cjs"]

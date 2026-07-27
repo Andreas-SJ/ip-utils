@@ -318,7 +318,7 @@
     color: var(--ink-faint);
   }
 
-  body.mode-light {
+  body.skin-futuristic.mode-light {
     background-image:
       linear-gradient(rgba(12,18,26,0.045) 1px, transparent 1px),
       linear-gradient(90deg, rgba(12,18,26,0.045) 1px, transparent 1px);
@@ -412,28 +412,19 @@
   .theme-icon {
     width: 14px;
     height: 14px;
-    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%);
+    filter: var(--icon-filter);
     pointer-events: none;
-  }
-  body.mode-light .theme-icon {
-    filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
   }
 
   .action-icon {
     width: 12px;
     height: 12px;
     display: block;
-    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%);
+    filter: var(--icon-filter);
     pointer-events: none;
   }
-  body.mode-light .action-icon {
-    filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
-  }
   button:hover .action-icon {
-    filter: invert(76%) sepia(28%) saturate(560%) hue-rotate(348deg) brightness(102%) contrast(94%);
-  }
-  body.mode-light button:hover .action-icon {
-    filter: invert(33%) sepia(63%) saturate(1022%) hue-rotate(7deg) brightness(96%) contrast(92%);
+    filter: var(--icon-filter-hover);
   }
   .icon-only {
     min-width: 28px;

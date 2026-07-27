@@ -1,9 +1,11 @@
+html.skin-enterprise,
 body.skin-enterprise {
   --sans: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, Verdana, sans-serif;
   --serif: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, Verdana, sans-serif;
   --mono: 'Consolas', 'Liberation Mono', Menlo, monospace;
 }
 
+html.skin-enterprise.mode-dark,
 body.skin-enterprise.mode-dark {
   --bg: #1a2029;
   --bg-elev: #232c39;
@@ -22,6 +24,7 @@ body.skin-enterprise.mode-dark {
   --icon-filter-hover: invert(71%) sepia(69%) saturate(1918%) hue-rotate(344deg) brightness(99%) contrast(92%) drop-shadow(0 0 1px rgba(0,0,0,0.9));
 }
 
+html.skin-enterprise.mode-light,
 body.skin-enterprise.mode-light {
   --bg: #f5f5f5;
   --bg-elev: #ffffff;
@@ -40,6 +43,8 @@ body.skin-enterprise.mode-light {
   --icon-filter-hover: invert(44%) sepia(53%) saturate(911%) hue-rotate(168deg) brightness(92%) contrast(88%);
 }
 
+html.skin-enterprise.mode-light,
+html.skin-enterprise.mode-dark,
 body.skin-enterprise.mode-light,
 body.skin-enterprise.mode-dark {
   background-image: none;

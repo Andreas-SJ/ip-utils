@@ -60,8 +60,22 @@
   }
 
   function setBodyTheme(skin, mode) {
+    var html = document.documentElement;
     var body = document.body;
-    if (!body) return;
+    if (!html || !body) return;
+
+    html.classList.remove(
+      'skin-futuristic',
+      'skin-enterprise',
+      'mode-dark',
+      'mode-light',
+      'pre-skin-futuristic',
+      'pre-skin-enterprise',
+      'pre-mode-dark',
+      'pre-mode-light'
+    );
+    html.classList.add('skin-' + skin, 'mode-' + mode);
+
     body.classList.remove('skin-futuristic', 'skin-enterprise', 'mode-dark', 'mode-light');
     body.classList.add('skin-' + skin, 'mode-' + mode);
     body.classList.remove('skin-loading');

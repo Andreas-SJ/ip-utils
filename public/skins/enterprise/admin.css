@@ -220,11 +220,8 @@
   .theme-icon {
     width: 14px;
     height: 14px;
-    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%);
+    filter: var(--icon-filter);
     pointer-events: none;
-  }
-  body.mode-light .theme-icon {
-    filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
   }
 
   main { padding: 36px 0 80px; flex: 1; }

@@ -1,0 +1,45 @@
+:root {
+  --bg: #0d1014;
+  --bg-elev: #141921;
+  --bg-sunk: #090c10;
+  --line: #5c687c;
+  --line-strong: #7988a0;
+  --ink: #f3f6ff;
+  --ink-mute: #d0d9ea;
+  --ink-faint: #aeb9cf;
+  --accent: #e8a85c;
+  --accent-dim: #8a6535;
+  --danger: #d96856;
+  --ok: #7fb069;
+}
+
+body.skin-futuristic.mode-light {
+  --bg: #f3f5f8;
+  --bg-elev: #ffffff;
+  --bg-sunk: #e9edf2;
+  --line: #8a98ad;
+  --line-strong: #6c7b93;
+  --ink: #1c2735;
+  --ink-mute: #2f3e53;
+  --ink-faint: #4b5b73;
+  --accent: #a56022;
+  --accent-dim: #c08753;
+  --danger: #bf4a3a;
+  --ok: #4e8a3b;
+}
+
+body.skin-futuristic.mode-dark {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+}
+
+body.skin-futuristic.mode-light {
+  background-image:
+    linear-gradient(rgba(12,18,26,0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(12,18,26,0.045) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+}

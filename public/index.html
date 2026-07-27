@@ -47,6 +47,9 @@
     flex-direction: column;
   }
 
+  body.skin-loading { visibility: hidden; }
+  body.skin-ready { visibility: visible; }
+
   body.skin-futuristic.mode-light {
     --bg: #f3f5f8;
     --bg-elev: #ffffff;
@@ -325,7 +328,7 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
 </style>
 </head>
-<body>
+<body class="skin-loading">
 
 <div class="shell">
   <header>
@@ -345,6 +348,7 @@
   </footer>
 </div>
 
+<script src="/skins/skin-loader.js"></script>
 <script>
 const uiTheme = { skin: 'futuristic', mode: 'dark' };
 
@@ -379,6 +383,12 @@ function setThemeIcon() {
 function applyTheme(skin, mode) {
   uiTheme.skin = sanitizeSkin(skin);
   uiTheme.mode = sanitizeMode(mode);
+  if (window.IpUtilsSkinLoader) {
+    const applied = window.IpUtilsSkinLoader.applySkinAndMode(uiTheme.skin, uiTheme.mode);
+    uiTheme.skin = applied.skin;
+    uiTheme.mode = applied.mode;
+    return;
+  }
   const body = document.body;
   body.classList.remove('skin-futuristic', 'skin-enterprise', 'mode-dark', 'mode-light');
   body.classList.add('skin-' + uiTheme.skin, 'mode-' + uiTheme.mode);

@@ -308,10 +308,8 @@ function renderPlan() {
     ro.className = 'notice';
     ro.style.cssText = 'margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:16px';
     const linkStyle = 'font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em';
-    const passwordStats = getPasswordStatsForSubnet(sn);
-    const statsText = 'password-debug: ' + passwordStats.hostCount + ' host' + (passwordStats.hostCount === 1 ? '' : 's') + ', ' + passwordStats.entryCount + ' entr' + (passwordStats.entryCount === 1 ? 'y' : 'ies') + (passwordStats.sampleIps.length ? ' · ' + passwordStats.sampleIps.join(', ') : '');
     if (readOnly) {
-      ro.innerHTML = '<span>Viewing ' + esc(otherUserView.username) + '&apos;s plan &mdash; read-only<br><span style="font-size:10px;color:var(--ink-faint)">' + esc(statsText) + '</span></span>';
+      ro.innerHTML = '<span>Viewing ' + esc(otherUserView.username) + '&apos;s plan &mdash; read-only</span>';
       const editBtn = document.createElement('a');
       editBtn.href = '#';
       editBtn.style.cssText = linkStyle;
@@ -319,7 +317,7 @@ function renderPlan() {
       editBtn.addEventListener('click', e => { e.preventDefault(); otherUserView.readOnly = false; renderPlan(); });
       ro.appendChild(editBtn);
     } else {
-      ro.innerHTML = '<span>Editing plan for <b>' + esc(otherUserView.username) + '</b><br><span style="font-size:10px;color:var(--ink-faint)">' + esc(statsText) + '</span></span>';
+      ro.innerHTML = '<span>Editing plan for <b>' + esc(otherUserView.username) + '</b></span>';
       const backBtn = document.createElement('a');
       backBtn.href = '#';
       backBtn.style.cssText = linkStyle;
@@ -1353,22 +1351,6 @@ function getTrackedIpsForSubnet(sn) {
   }
 
   return Array.from(tracked);
-}
-
-function getPasswordStatsForSubnet(sn) {
-  const store = activePasswordManagerStore();
-  let hostCount = 0;
-  let entryCount = 0;
-  const sampleIps = [];
-
-  for (const [ip, entries] of Object.entries(store || {})) {
-    if (!ipBelongsToSubnet(ip, sn) || !Array.isArray(entries) || !entries.length) continue;
-    hostCount += 1;
-    entryCount += entries.length;
-    if (sampleIps.length < 5) sampleIps.push(ip);
-  }
-
-  return { hostCount, entryCount, sampleIps };
 }
 
 function rebuildSearchIndex() {

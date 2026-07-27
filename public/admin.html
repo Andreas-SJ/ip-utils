@@ -17,17 +17,27 @@
     const raw = localStorage.getItem(modeKey) || fallback;
     const mode = raw === 'light' ? 'light' : 'dark';
     document.documentElement.classList.add('pre-skin-' + skin, 'pre-mode-' + mode);
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = '/skins/' + skin + '/' + page + '.css';
-    link.id = 'skin-stylesheet';
-    document.head.appendChild(link);
+    const baseLink = document.createElement('link');
+    baseLink.rel = 'stylesheet';
+    baseLink.href = '/skins/' + skin + '.css';
+    baseLink.id = 'skin-base-stylesheet';
+    document.head.appendChild(baseLink);
+    const pageLink = document.createElement('link');
+    pageLink.rel = 'stylesheet';
+    pageLink.href = '/skins/' + skin + '/' + page + '.css';
+    pageLink.id = 'skin-page-stylesheet';
+    document.head.appendChild(pageLink);
   } catch {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = '/skins/futuristic/' + page + '.css';
-    link.id = 'skin-stylesheet';
-    document.head.appendChild(link);
+    const baseLink = document.createElement('link');
+    baseLink.rel = 'stylesheet';
+    baseLink.href = '/skins/futuristic.css';
+    baseLink.id = 'skin-base-stylesheet';
+    document.head.appendChild(baseLink);
+    const pageLink = document.createElement('link');
+    pageLink.rel = 'stylesheet';
+    pageLink.href = '/skins/futuristic/' + page + '.css';
+    pageLink.id = 'skin-page-stylesheet';
+    document.head.appendChild(pageLink);
   }
 })();
 </script>

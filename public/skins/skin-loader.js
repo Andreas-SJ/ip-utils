@@ -30,18 +30,32 @@
     return 'index';
   }
 
-  function ensureSkinStylesheet(skin) {
-    var id = 'skin-stylesheet';
-    var link = document.getElementById(id);
-    if (!link) {
-      link = document.createElement('link');
-      link.id = id;
-      link.rel = 'stylesheet';
-      document.head.appendChild(link);
+  function ensureSkinStylesheets(skin) {
+    var baseId = 'skin-base-stylesheet';
+    var pageId = 'skin-page-stylesheet';
+
+    var baseLink = document.getElementById(baseId);
+    if (!baseLink) {
+      baseLink = document.createElement('link');
+      baseLink.id = baseId;
+      baseLink.rel = 'stylesheet';
+      document.head.appendChild(baseLink);
     }
-    var href = '/skins/' + skin + '/' + currentPageName() + '.css';
-    if (link.getAttribute('href') !== href) {
-      link.setAttribute('href', href);
+    var baseHref = '/skins/' + skin + '.css';
+    if (baseLink.getAttribute('href') !== baseHref) {
+      baseLink.setAttribute('href', baseHref);
+    }
+
+    var pageLink = document.getElementById(pageId);
+    if (!pageLink) {
+      pageLink = document.createElement('link');
+      pageLink.id = pageId;
+      pageLink.rel = 'stylesheet';
+      document.head.appendChild(pageLink);
+    }
+    var pageHref = '/skins/' + skin + '/' + currentPageName() + '.css';
+    if (pageLink.getAttribute('href') !== pageHref) {
+      pageLink.setAttribute('href', pageHref);
     }
   }
 
@@ -67,7 +81,7 @@
     try {
       localStorage.setItem('iputils-global-skin', safeSkin);
     } catch (_err) {}
-    ensureSkinStylesheet(safeSkin);
+    ensureSkinStylesheets(safeSkin);
     setBodyTheme(safeSkin, safeMode);
     setThemeIcon(safeMode, iconId);
     return { skin: safeSkin, mode: safeMode };
@@ -103,7 +117,7 @@
     sanitizeMode: sanitizeMode,
     preferredModeForSkin: preferredModeForSkin,
     modeStorageKey: modeStorageKey,
-    ensureSkinStylesheet: ensureSkinStylesheet,
+    ensureSkinStylesheets: ensureSkinStylesheets,
     setThemeIcon: setThemeIcon,
     applySkinAndMode: applySkinAndMode,
     init: init,

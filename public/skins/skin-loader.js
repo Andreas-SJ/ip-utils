@@ -54,6 +54,9 @@
   function applySkinAndMode(skin, mode, iconId) {
     var safeSkin = sanitizeSkin(skin);
     var safeMode = sanitizeMode(mode);
+    try {
+      localStorage.setItem('iputils-global-skin', safeSkin);
+    } catch (_err) {}
     ensureSkinStylesheet(safeSkin);
     setBodyTheme(safeSkin, safeMode);
     setThemeIcon(safeMode, iconId);

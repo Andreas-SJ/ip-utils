@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="text-scale" content="scale" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+		<script>
+			(() => {
+				try {
+					const skin = localStorage.getItem('iputils-global-skin') === 'enterprise' ? 'enterprise' : 'futuristic';
+					const modeKey = 'iputils-theme-mode-' + skin;
+					const fallback = skin === 'enterprise' ? 'light' : 'dark';
+					const raw = localStorage.getItem(modeKey) || fallback;
+					const mode = raw === 'light' ? 'light' : 'dark';
+					document.documentElement.classList.add('pre-skin-' + skin, 'pre-mode-' + mode);
+
+					const path = window.location.pathname || '/';
+					const page = path === '/' || path === ''
+						? 'index'
+						: path.startsWith('/admin')
+							? 'admin'
+							: path.startsWith('/ip-planner')
+								? 'ip-planner'
+								: path.startsWith('/login')
+									? 'login'
+									: path.startsWith('/netplan-gen')
+										? 'netplan-gen'
+										: 'index';
+
+					const baseLink = document.createElement('link');
+					baseLink.rel = 'stylesheet';
+					baseLink.href = '/skins/' + skin + '.css';
+					baseLink.id = 'skin-base-stylesheet';
+					document.head.appendChild(baseLink);
+
+					const pageLink = document.createElement('link');
+					pageLink.rel = 'stylesheet';
+					pageLink.href = '/skins/' + skin + '/' + page + '.css';
+					pageLink.id = 'skin-page-stylesheet';
+					document.head.appendChild(pageLink);
+				} catch {
+					document.documentElement.classList.add('pre-skin-futuristic', 'pre-mode-dark');
+					const baseLink = document.createElement('link');
+					baseLink.rel = 'stylesheet';
+					baseLink.href = '/skins/futuristic.css';
+					baseLink.id = 'skin-base-stylesheet';
+					document.head.appendChild(baseLink);
+					const pageLink = document.createElement('link');
+					pageLink.rel = 'stylesheet';
+					pageLink.href = '/skins/futuristic/index.css';
+					pageLink.id = 'skin-page-stylesheet';
+					document.head.appendChild(pageLink);
+				}
+			})();
+		</script>
+		<script src="/skins/skin-loader.js" defer></script>
+		<style>
+			html.pre-skin-futuristic.pre-mode-dark { background: #0d1014; }
+			html.pre-skin-futuristic.pre-mode-light { background: #f3f5f8; }
+			html.pre-skin-enterprise.pre-mode-dark { background: #1a2029; }
+			html.pre-skin-enterprise.pre-mode-light { background: #f5f5f5; }
+			body.skin-loading { opacity: 0; }
+			body.skin-ready { opacity: 1; }
+		</style>
+		%sveltekit.head%
+	</head>
+	<body class="skin-loading" data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

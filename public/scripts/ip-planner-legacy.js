@@ -1,165 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>subnet/plan &mdash; IP address planner</title>
-<meta name="description" content="Add subnets, enumerate their addresses, annotate each one, and search across everything." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
-<script>
-(() => {
-  const page = 'ip-planner';
-  try {
-    const skin = localStorage.getItem('iputils-global-skin') === 'enterprise' ? 'enterprise' : 'futuristic';
-    const modeKey = 'iputils-theme-mode-' + skin;
-    const fallback = skin === 'enterprise' ? 'light' : 'dark';
-    const raw = localStorage.getItem(modeKey) || fallback;
-    const mode = raw === 'light' ? 'light' : 'dark';
-    document.documentElement.classList.add('pre-skin-' + skin, 'pre-mode-' + mode);
-    const baseLink = document.createElement('link');
-    baseLink.rel = 'stylesheet';
-    baseLink.href = '/skins/' + skin + '.css';
-    baseLink.id = 'skin-base-stylesheet';
-    document.head.appendChild(baseLink);
-    const pageLink = document.createElement('link');
-    pageLink.rel = 'stylesheet';
-    pageLink.href = '/skins/' + skin + '/' + page + '.css';
-    pageLink.id = 'skin-page-stylesheet';
-    document.head.appendChild(pageLink);
-  } catch {
-    const baseLink = document.createElement('link');
-    baseLink.rel = 'stylesheet';
-    baseLink.href = '/skins/futuristic.css';
-    baseLink.id = 'skin-base-stylesheet';
-    document.head.appendChild(baseLink);
-    const pageLink = document.createElement('link');
-    pageLink.rel = 'stylesheet';
-    pageLink.href = '/skins/futuristic/' + page + '.css';
-    pageLink.id = 'skin-page-stylesheet';
-    document.head.appendChild(pageLink);
-  }
-})();
-</script>
-<style>
-  html.pre-skin-futuristic.pre-mode-dark { background: #0d1014; }
-  html.pre-skin-futuristic.pre-mode-light { background: #f3f5f8; }
-  html.pre-skin-enterprise.pre-mode-dark { background: #1a2029; }
-  html.pre-skin-enterprise.pre-mode-light { background: #f5f5f5; }
-  body.skin-loading { opacity: 0; }
-  body.skin-ready { opacity: 1; }
-</style>
-</head>
-<body class="skin-loading">
-
-<div class="shell">
-
-  <header>
-    <div class="brand">
-      <span class="brand-mark">subnet/plan</span>
-      <h1><i>an</i> <b>IP address planner</b></h1>
-    </div>
-    <div class="meta">
-      <a href="https://asjhosting.com" target="_blank" rel="noopener" class="byline">Andreas Skarmark-Jakobsen</a> &nbsp;&middot;&nbsp; <span>IPv4 + IPv6</span> &nbsp;&middot;&nbsp; per-address notes
-    </div>
-    <div class="user-nav" id="user-nav"></div>
-    <div class="admin-banner" id="admin-banner" style="display:none"></div>
-  </header>
-
-  <div class="searchbar">
-    <div class="search-wrap">
-      <span class="search-glyph"><img class="search-icon-svg" src="/icons/search-icon.svg" alt="" /></span>
-      <input id="search" type="text" autocomplete="off" spellcheck="false"
-              placeholder="search any address, note, or login description across all subnets&hellip;  (e.g. 10.0.1.5, gateway, printer, vpn account)" />
-      <span class="search-stat" id="search-stat"></span>
-      <div id="results" class="results"></div>
-    </div>
-  </div>
-
-  <main>
-    <section class="col-left">
-      <div class="section">
-        <div class="section-head">
-          <span class="section-num">§ 01</span>
-          <h2 class="section-title">Subnets</h2>
-          <span class="section-desc">add as many as you need</span>
-        </div>
-
-        <div class="left-tabs">
-          <button id="tab-subnets" class="left-tab active">Subnets</button>
-          <button id="tab-organized" class="left-tab">Organised view</button>
-        </div>
-
-        <div id="add-form-section" class="add-form">
-          <div class="add-grid">
-            <div>
-              <span class="lbl">CIDR <span style="color:var(--accent)">*</span></span>
-              <input id="in-cidr" type="text" placeholder="192.168.1.0/24  &middot;  10.0.0.0/16  &middot;  2001:db8::/64" />
-            </div>
-            <div>
-              <span class="lbl">Label</span>
-              <input id="in-label" type="text" placeholder="e.g. Office LAN" />
-            </div>
-          </div>
-          <p class="add-err" id="add-err"></p>
-          <button id="btn-add" class="primary">+ add subnet</button>
-          <span class="hint" style="display:inline-block;margin-left:12px;margin-top:0">enter accepts &middot; network address is auto-normalised</span>
-        </div>
-
-        <div id="subnet-list" class="subnet-list"></div>
-        <div id="subnet-empty" class="empty">no subnets yet &mdash; add one above to begin</div>
-        <div id="organized-panel" style="display:none"></div>
-      </div>
-
-      <div id="other-plans-section" class="other-plans-section" style="display:none">
-        <div class="other-plans-hd" id="other-plans-head">
-          <span class="section-num">§ 02</span>
-          <h2 class="section-title">Other IP plans</h2>
-          <span class="other-plans-toggle" id="other-plans-toggle">&#9660;</span>
-        </div>
-        <div id="other-plans-body"></div>
-      </div>
-    </section>
-
-    <section class="col-right">
-      <div class="plan-head">
-        <h2 class="plan-title" id="plan-title">IP plan <small id="plan-cidr"></small></h2>
-        <div class="plan-actions">
-          <button id="btn-export">&#8595; Export</button>
-          <button id="btn-import">&#8593; Import</button>
-          <button id="btn-reset" class="ghost">&#8635; Reset</button>
-          <input id="file-import" type="file" accept="application/json,.json" style="display:none" />
-        </div>
-      </div>
-
-      <div id="plan-facts" class="plan-facts"></div>
-      <div id="plan-region"></div>
-    </section>
-  </main>
-
-  <footer>
-    <div>plan it &middot; annotate it &middot; <span style="color:var(--ink-mute)">export the JSON to keep it</span></div>
-    <div><span style="color:var(--ink-mute)">plans saved to server &middot; per-user storage</span></div>
-  </footer>
-
-</div>
-
-<div id="toast" class="toast"></div>
-
-<div id="modal-back" class="modal-back">
-  <div class="modal">
-    <h3 id="modal-title">Confirm</h3>
-    <p id="modal-msg"></p>
-    <div class="modal-actions">
-      <button id="modal-cancel" class="ghost" style="padding:8px 14px">Cancel</button>
-      <button id="modal-ok">Delete</button>
-    </div>
-  </div>
-</div>
-
-<script src="/skins/skin-loader.js"></script>
-<script>
 function ipv4ToInt(ip) {
   const p = ip.split('.');
   if (p.length !== 4) return null;
@@ -263,7 +101,7 @@ const state = {
   routerInterfaces: {},
   passwordManager: {}
 };
-const userCapabilities = { passwordManagerEnabled: false, isAdmin: false };
+const userCapabilities = { passwordManagerEnabled: false };
 const uiTheme = { skin: 'futuristic', mode: 'dark' };
 
 function sanitizeSkin(v) {
@@ -706,56 +544,25 @@ function setComment(sn, ip, val) {
 }
 
 function canUsePasswordManager() {
-  return !!userCapabilities.passwordManagerEnabled;
-}
-
-function canInspectOtherUserPasswords() {
-  return !!userCapabilities.isAdmin && !!otherUserView;
-}
-
-function hasPasswordEntries(ip) {
-  return getPasswordEntries(ip).length > 0;
-}
-
-function canViewPasswordEntries(ip) {
-  return canUsePasswordManager() || canInspectOtherUserPasswords() || hasPasswordEntries(ip);
-}
-
-function canEditPasswordEntries() {
-  return (canUsePasswordManager() || canInspectOtherUserPasswords()) && !isPasswordManagerReadOnly();
-}
-
-function isPasswordManagerReadOnly() {
-  return !!(otherUserView && otherUserView.readOnly);
-}
-
-function activePasswordManagerStore() {
-  if (otherUserView) {
-    if (!otherUserView.passwordManager || typeof otherUserView.passwordManager !== 'object') {
-      otherUserView.passwordManager = {};
-    }
-    return otherUserView.passwordManager;
-  }
-  return state.passwordManager;
+  return !!userCapabilities.passwordManagerEnabled && !otherUserView;
 }
 
 function getPasswordEntries(ip) {
-  const list = activePasswordManagerStore()[ip];
+  const list = state.passwordManager[ip];
   return Array.isArray(list) ? list : [];
 }
 
 function upsertPasswordEntry(ip, entry) {
   const cur = getPasswordEntries(ip);
   const next = [...cur, entry];
-  activePasswordManagerStore()[ip] = next;
+  state.passwordManager[ip] = next;
 }
 
 function removePasswordEntry(ip, id) {
   const cur = getPasswordEntries(ip);
   const next = cur.filter(e => e.id !== id);
-  const store = activePasswordManagerStore();
-  if (next.length) store[ip] = next;
-  else delete store[ip];
+  if (next.length) state.passwordManager[ip] = next;
+  else delete state.passwordManager[ip];
 }
 
 function removePasswordEntriesForSubnet(sn) {
@@ -765,10 +572,8 @@ function removePasswordEntriesForSubnet(sn) {
 }
 
 function openPasswordMenu(ip, x, y) {
-  if (!canViewPasswordEntries(ip)) return;
+  if (!canUsePasswordManager()) return;
   closeAddrDropdown();
-
-  const readOnly = !canEditPasswordEntries();
 
   const dropdown = document.createElement('div');
   dropdown.className = 'addr-dropdown pw-dropdown';
@@ -792,14 +597,14 @@ function openPasswordMenu(ip, x, y) {
           </div>
           <div class="pw-secret" data-pw-secret="${esc(e.id)}">${maskPassword(e.password)}</div>
         </div>
-        ${readOnly ? '' : `<button class="pw-del" data-pw-del="${esc(e.id)}">delete</button>`}
+        <button class="pw-del" data-pw-del="${esc(e.id)}">delete</button>
       </div>`).join('')
     : '<div class="pw-none">No documented logins for this host yet.</div>';
 
   dropdown.innerHTML = `
     <div class="pw-head">Password manager · ${esc(ip)}</div>
     <div class="pw-list">${entriesHtml}</div>
-    ${readOnly ? '<div class="pw-none" style="padding-top:10px">Viewing stored logins in read-only mode.</div>' : `<div class="pw-form">
+    <div class="pw-form">
       <div class="pw-form-grid">
         <div>
           <span class="lbl">Username</span>
@@ -818,7 +623,7 @@ function openPasswordMenu(ip, x, y) {
       <div class="pw-form-actions">
         <button class="primary" id="pw-save-btn">save login</button>
       </div>
-    </div>`}`;
+    </div>`;
 
   dropdown.addEventListener('click', e => {
     const eyeBtn = e.target.closest('[data-pw-eye]');
@@ -850,7 +655,6 @@ function openPasswordMenu(ip, x, y) {
     const delId = e.target.dataset.pwDel;
     if (!delId) return;
     e.preventDefault();
-    if (readOnly) return;
     removePasswordEntry(ip, delId);
     scheduleSave();
     rebuildSearchIndex();
@@ -864,7 +668,6 @@ function openPasswordMenu(ip, x, y) {
   const errEl = dropdown.querySelector('#pw-form-err');
 
   function submitPwEntry() {
-    if (readOnly) return;
     const username = userEl.value.trim();
     const password = passEl.value;
     const description = descEl.value.trim();
@@ -888,12 +691,12 @@ function openPasswordMenu(ip, x, y) {
     openPasswordMenu(ip, x, y);
   }
 
-  if (saveBtn) saveBtn.addEventListener('click', e => {
+  saveBtn.addEventListener('click', e => {
     e.preventDefault();
     submitPwEntry();
   });
   dropdown.addEventListener('keydown', e => {
-    if (!readOnly && e.key === 'Enter' && (e.target.id === 'pw-user' || e.target.id === 'pw-pass' || e.target.id === 'pw-desc')) {
+    if (e.key === 'Enter' && (e.target.id === 'pw-user' || e.target.id === 'pw-pass' || e.target.id === 'pw-desc')) {
       e.preventDefault();
       submitPwEntry();
     }
@@ -905,7 +708,7 @@ function openPasswordMenu(ip, x, y) {
     const rect = dropdown.getBoundingClientRect();
     if (rect.right > window.innerWidth - 8) dropdown.style.left = Math.max(8, x - rect.width) + 'px';
     if (rect.bottom > window.innerHeight - 8) dropdown.style.top = Math.max(8, y - rect.height - 8) + 'px';
-    if (!readOnly) dropdown.querySelector('#pw-user')?.focus();
+    dropdown.querySelector('#pw-user')?.focus();
   });
 }
 
@@ -996,22 +799,6 @@ function closeAddrDropdown() {
 }
 document.addEventListener('mousedown', e => {
   if (activeDropdown && !e.target.closest('.addr-dropdown')) closeAddrDropdown();
-});
-
-function isHostContextRow(row) {
-  if (!row) return false;
-  if (row.classList.contains('org-row')) return true;
-  return !!row.querySelector('.t.host, .t.arp-up, .t.arp-down, .t.arp-pending, .t.arp-up-manual, .t.arp-down-manual');
-}
-
-document.addEventListener('contextmenu', e => {
-  e.preventDefault();
-  const row = e.target.closest('.addr-row[data-ip], .org-row[data-ip]');
-  if (!isHostContextRow(row)) return;
-  const ip = row.dataset.ip;
-  if (!ip) return;
-  closeAddrDropdown();
-  showAddrMenu(ip, e.clientX, e.clientY);
 });
 
 function showAddrMenu(ip, x, y) {
@@ -1271,7 +1058,7 @@ function renderEnumPlan(sn, readOnly) {
       const isHost = role === 'host';
       const actionButtons = isHost ? `
           <div class="addr-actions">
-            ${canViewPasswordEntries(ip) ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
+            ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
             <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>
           </div>` : '';
       html += `
@@ -1351,7 +1138,7 @@ function renderRegistryPlan(sn, readOnly) {
 
   const scroll = document.createElement('div');
   scroll.className = 'plan-scroll';
-  const ips = getTrackedIpsForSubnet(sn).sort(sortIps(sn.version));
+  const ips = Object.keys(sn.comments).sort(sortIps(sn.version));
 
   const q = planFilter.text.trim().toLowerCase();
   const filtered = ips.filter(ip => {
@@ -1369,7 +1156,7 @@ function renderRegistryPlan(sn, readOnly) {
         <div class="a-ip">${esc(ip)}</div>
         <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…"${readOnly ? ' readonly' : ''} />
         <div class="addr-actions">
-          ${canViewPasswordEntries(ip) ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
+          ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
           <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>
         </div>
         ${!readOnly ? `<button class="danger a-del" data-del="${esc(ip)}">&times;</button>` : ''}
@@ -1589,17 +1376,6 @@ function ipBelongsToSubnet(ip, sn) {
 
 function findSubnetForIp(ip) {
   return state.subnets.find(sn => ipBelongsToSubnet(ip, sn)) || null;
-}
-
-function getTrackedIpsForSubnet(sn) {
-  const tracked = new Set(Object.keys(sn.comments || {}));
-  const store = activePasswordManagerStore();
-
-  for (const ip of Object.keys(store || {})) {
-    if (ipBelongsToSubnet(ip, sn)) tracked.add(ip);
-  }
-
-  return Array.from(tracked);
 }
 
 function rebuildSearchIndex() {
@@ -1925,7 +1701,7 @@ function renderOrganizedView() {
       <span class="org-subnet-tag" title="${esc(entrySn.cidr)}">${esc(entrySn.label)}</span>
       <span class="org-ip">${esc(entryIp)}</span>
       <span class="org-comment">${esc(entryComment)}</span>
-      ${canViewPasswordEntries(entryIp) ? `<button class="addr-key-btn" data-key-ip="${esc(entryIp)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
+      ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(entryIp)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
       <button class="addr-menu-btn" data-menu-ip="${esc(entryIp)}" title="Address options">&#8942;</button>`;
 
     row.addEventListener('click', e => {
@@ -1971,7 +1747,6 @@ Promise.all([
   const skin = sanitizeSkin(cfg.skin || 'futuristic');
   applyTheme(skin, preferredModeForSkin(skin));
   userCapabilities.passwordManagerEnabled = !!data.passwordManagerEnabled;
-  userCapabilities.isAdmin = !!data.isAdmin;
   const nav = document.getElementById('user-nav');
   let html = '<span class="u-name">' + esc(data.username) + '</span>' +
     ' &nbsp;&middot;&nbsp; <a href="/">home</a>' +
@@ -2038,7 +1813,3 @@ Promise.all([
   renderPlan();
   rebuildSearchIndex();
 })();
-</script>
-
-</body>
-</html>

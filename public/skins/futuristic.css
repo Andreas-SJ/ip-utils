@@ -1,0 +1,54 @@
+:root {
+  --bg: #0d1014;
+  --bg-elev: #141921;
+  --bg-sunk: #090c10;
+  --line: #5c687c;
+  --line-strong: #7988a0;
+  --ink: #f3f6ff;
+  --ink-mute: #d0d9ea;
+  --ink-faint: #aeb9cf;
+  --accent: #e8a85c;
+  --accent-dim: #8a6535;
+  --danger: #d96856;
+  --ok: #7fb069;
+  --net: #c98ad9;
+  --icon-filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%) drop-shadow(0 0 1px rgba(0,0,0,0.85));
+  --icon-filter-hover: invert(76%) sepia(28%) saturate(560%) hue-rotate(348deg) brightness(102%) contrast(94%) drop-shadow(0 0 1px rgba(0,0,0,0.9));
+}
+
+html.skin-futuristic.mode-light,
+body.skin-futuristic.mode-light {
+  --bg: #f3f5f8;
+  --bg-elev: #ffffff;
+  --bg-sunk: #e9edf2;
+  --line: #8a98ad;
+  --line-strong: #6c7b93;
+  --ink: #1c2735;
+  --ink-mute: #2f3e53;
+  --ink-faint: #4b5b73;
+  --accent: #a56022;
+  --accent-dim: #c08753;
+  --danger: #bf4a3a;
+  --ok: #4e8a3b;
+  --net: #8a6fd3;
+  --icon-filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
+  --icon-filter-hover: invert(33%) sepia(63%) saturate(1022%) hue-rotate(7deg) brightness(96%) contrast(92%);
+}
+
+html.skin-futuristic.mode-dark,
+body.skin-futuristic.mode-dark {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+}
+
+html.skin-futuristic.mode-light,
+body.skin-futuristic.mode-light {
+  background-image:
+    linear-gradient(rgba(12,18,26,0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(12,18,26,0.045) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+}

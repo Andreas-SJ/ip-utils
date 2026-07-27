@@ -132,15 +132,25 @@
     font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
     text-align: center;
   }
-
-  ::selection { background: var(--accent); color: var(--bg); }
+})();
+</script>
+<style>
+  html.pre-skin-futuristic.pre-mode-dark { background: #0d1014; }
+  html.pre-skin-futuristic.pre-mode-light { background: #f3f5f8; }
+  html.pre-skin-enterprise.pre-mode-dark { background: #1a2029; }
+  html.pre-skin-enterprise.pre-mode-light { background: #f5f5f5; }
+  body.skin-loading { opacity: 0; }
+  body.skin-ready { opacity: 1; }
 </style>
 </head>
-<body>
+<body class="skin-loading">
 
 <div class="card">
   <div class="card-head">
     <span class="brand-mark">ip-utils</span>
+    <button id="btn-theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode">
+      <img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" />
+    </button>
     <h1>Sign in</h1>
     <div class="subtitle">IP Planner access is restricted</div>
   </div>
@@ -165,12 +175,82 @@
   </div>
 </div>
 
+<script src="/skins/skin-loader.js"></script>
 <script>
 const UPDATE_SUCCESS_STORAGE_KEY = 'ipUtilsUpdateSuccess';
 const form = document.getElementById('login-form');
 const errorEl = document.getElementById('error');
 const noticeEl = document.getElementById('notice');
 const submitBtn = document.getElementById('submit-btn');
+const uiTheme = { skin: 'futuristic', mode: 'dark' };
+
+function sanitizeSkin(v) {
+  return (v === 'enterprise' || v === 'futuristic') ? v : 'futuristic';
+}
+
+function sanitizeMode(v) {
+  return (v === 'light' || v === 'dark') ? v : 'dark';
+}
+
+function modeStorageKey(skin) {
+  return 'iputils-theme-mode-' + sanitizeSkin(skin);
+}
+
+function preferredModeForSkin(skin) {
+  const normalized = sanitizeSkin(skin);
+  try {
+    const fallback = normalized === 'enterprise' ? 'light' : 'dark';
+    return sanitizeMode(localStorage.getItem(modeStorageKey(normalized)) || fallback);
+  } catch {
+    return normalized === 'enterprise' ? 'light' : 'dark';
+  }
+}
+
+function setThemeIcon() {
+  const icon = document.getElementById('theme-toggle-icon');
+  if (!icon) return;
+  icon.src = uiTheme.mode === 'dark' ? '/icons/day-sunny-icon.svg' : '/icons/moon-line-icon.svg';
+}
+
+function applyTheme(skin, mode) {
+  uiTheme.skin = sanitizeSkin(skin);
+  uiTheme.mode = sanitizeMode(mode);
+  if (window.IpUtilsSkinLoader) {
+    const applied = window.IpUtilsSkinLoader.applySkinAndMode(uiTheme.skin, uiTheme.mode);
+    uiTheme.skin = applied.skin;
+    uiTheme.mode = applied.mode;
+    return;
+  }
+  const body = document.body;
+  body.classList.remove('skin-futuristic', 'skin-enterprise', 'mode-dark', 'mode-light');
+  body.classList.add('skin-' + uiTheme.skin, 'mode-' + uiTheme.mode);
+  setThemeIcon();
+}
+
+const cachedBootSkin = (() => {
+  try {
+    return sanitizeSkin(localStorage.getItem('iputils-global-skin') || 'futuristic');
+  } catch {
+    return 'futuristic';
+  }
+})();
+applyTheme(cachedBootSkin, preferredModeForSkin(cachedBootSkin));
+
+document.getElementById('btn-theme-toggle').addEventListener('click', () => {
+  const nextMode = uiTheme.mode === 'dark' ? 'light' : 'dark';
+  applyTheme(uiTheme.skin, nextMode);
+  try {
+    localStorage.setItem(modeStorageKey(uiTheme.skin), nextMode);
+  } catch {}
+});
+
+(async function initThemeFromConfig() {
+  try {
+    const cfg = await fetch('/api/config').then(r => r.ok ? r.json() : ({})).catch(() => ({}));
+    const skin = sanitizeSkin(cfg.skin || 'futuristic');
+    applyTheme(skin, preferredModeForSkin(skin));
+  } catch {}
+})();
 
 try {
   const raw = sessionStorage.getItem(UPDATE_SUCCESS_STORAGE_KEY);

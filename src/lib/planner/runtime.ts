@@ -1,257 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>subnet/plan &mdash; IP address planner</title>
-<meta name="description" content="Add subnets, enumerate their addresses, annotate each one, and search across everything." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
-<script>
-(() => {
-  const page = 'ip-planner';
-  try {
-    const skin = localStorage.getItem('iputils-global-skin') === 'enterprise' ? 'enterprise' : 'futuristic';
-    const modeKey = 'iputils-theme-mode-' + skin;
-    const fallback = skin === 'enterprise' ? 'light' : 'dark';
-    const raw = localStorage.getItem(modeKey) || fallback;
-    const mode = raw === 'light' ? 'light' : 'dark';
-    document.documentElement.classList.add('pre-skin-' + skin, 'pre-mode-' + mode);
-    const baseLink = document.createElement('link');
-    baseLink.rel = 'stylesheet';
-    baseLink.href = '/skins/' + skin + '.css';
-    baseLink.id = 'skin-base-stylesheet';
-    document.head.appendChild(baseLink);
-    const pageLink = document.createElement('link');
-    pageLink.rel = 'stylesheet';
-    pageLink.href = '/skins/' + skin + '/' + page + '.css';
-    pageLink.id = 'skin-page-stylesheet';
-    document.head.appendChild(pageLink);
-  } catch {
-    const baseLink = document.createElement('link');
-    baseLink.rel = 'stylesheet';
-    baseLink.href = '/skins/futuristic.css';
-    baseLink.id = 'skin-base-stylesheet';
-    document.head.appendChild(baseLink);
-    const pageLink = document.createElement('link');
-    pageLink.rel = 'stylesheet';
-    pageLink.href = '/skins/futuristic/' + page + '.css';
-    pageLink.id = 'skin-page-stylesheet';
-    document.head.appendChild(pageLink);
-  }
-})();
-</script>
-<style>
-  html.pre-skin-futuristic.pre-mode-dark { background: #0d1014; }
-  html.pre-skin-futuristic.pre-mode-light { background: #f3f5f8; }
-  html.pre-skin-enterprise.pre-mode-dark { background: #1a2029; }
-  html.pre-skin-enterprise.pre-mode-light { background: #f5f5f5; }
-  body.skin-loading { opacity: 0; }
-  body.skin-ready { opacity: 1; }
-</style>
-</head>
-<body class="skin-loading">
+// @ts-nocheck
+import { parseCidr, intToIpv4, ipv4ToInt, bigToIpv6, ipv6ToBig } from '$lib/planner/ip';
+import { buildPlannerNavHtml } from '$lib/planner/nav';
+import { confirmDialog as openConfirmDialog, createToastController, cssEsc, downloadJson, esc, highlightMatch } from '$lib/planner/ui';
+import { applyTheme as applySharedTheme, bootSkinFromStorage, preferredModeForSkin, sanitizeSkin, toggleTheme } from '$lib/theme';
 
-<div class="shell">
-
-  <header>
-    <div class="brand">
-      <span class="brand-mark">subnet/plan</span>
-      <h1><i>an</i> <b>IP address planner</b></h1>
-    </div>
-    <div class="meta">
-      <a href="https://asjhosting.com" target="_blank" rel="noopener" class="byline">Andreas Skarmark-Jakobsen</a> &nbsp;&middot;&nbsp; <span>IPv4 + IPv6</span> &nbsp;&middot;&nbsp; per-address notes
-    </div>
-    <div class="user-nav" id="user-nav"></div>
-    <div class="admin-banner" id="admin-banner" style="display:none"></div>
-  </header>
-
-  <div class="searchbar">
-    <div class="search-wrap">
-      <span class="search-glyph"><img class="search-icon-svg" src="/icons/search-icon.svg" alt="" /></span>
-      <input id="search" type="text" autocomplete="off" spellcheck="false"
-              placeholder="search any address, note, or login description across all subnets&hellip;  (e.g. 10.0.1.5, gateway, printer, vpn account)" />
-      <span class="search-stat" id="search-stat"></span>
-      <div id="results" class="results"></div>
-    </div>
-  </div>
-
-  <main>
-    <section class="col-left">
-      <div class="section">
-        <div class="section-head">
-          <span class="section-num">§ 01</span>
-          <h2 class="section-title">Subnets</h2>
-          <span class="section-desc">add as many as you need</span>
-        </div>
-
-        <div class="left-tabs">
-          <button id="tab-subnets" class="left-tab active">Subnets</button>
-          <button id="tab-organized" class="left-tab">Organised view</button>
-        </div>
-
-        <div id="add-form-section" class="add-form">
-          <div class="add-grid">
-            <div>
-              <span class="lbl">CIDR <span style="color:var(--accent)">*</span></span>
-              <input id="in-cidr" type="text" placeholder="192.168.1.0/24  &middot;  10.0.0.0/16  &middot;  2001:db8::/64" />
-            </div>
-            <div>
-              <span class="lbl">Label</span>
-              <input id="in-label" type="text" placeholder="e.g. Office LAN" />
-            </div>
-          </div>
-          <p class="add-err" id="add-err"></p>
-          <button id="btn-add" class="primary">+ add subnet</button>
-          <span class="hint" style="display:inline-block;margin-left:12px;margin-top:0">enter accepts &middot; network address is auto-normalised</span>
-        </div>
-
-        <div id="subnet-list" class="subnet-list"></div>
-        <div id="subnet-empty" class="empty">no subnets yet &mdash; add one above to begin</div>
-        <div id="organized-panel" style="display:none"></div>
-      </div>
-
-      <div id="other-plans-section" class="other-plans-section" style="display:none">
-        <div class="other-plans-hd" id="other-plans-head">
-          <span class="section-num">§ 02</span>
-          <h2 class="section-title">Other IP plans</h2>
-          <span class="other-plans-toggle" id="other-plans-toggle">&#9660;</span>
-        </div>
-        <div id="other-plans-body"></div>
-      </div>
-    </section>
-
-    <section class="col-right">
-      <div class="plan-head">
-        <h2 class="plan-title" id="plan-title">IP plan <small id="plan-cidr"></small></h2>
-        <div class="plan-actions">
-          <button id="btn-export">&#8595; Export</button>
-          <button id="btn-import">&#8593; Import</button>
-          <button id="btn-reset" class="ghost">&#8635; Reset</button>
-          <input id="file-import" type="file" accept="application/json,.json" style="display:none" />
-        </div>
-      </div>
-
-      <div id="plan-facts" class="plan-facts"></div>
-      <div id="plan-region"></div>
-    </section>
-  </main>
-
-  <footer>
-    <div>plan it &middot; annotate it &middot; <span style="color:var(--ink-mute)">export the JSON to keep it</span></div>
-    <div><span style="color:var(--ink-mute)">plans saved to server &middot; per-user storage</span></div>
-  </footer>
-
-</div>
-
-<div id="toast" class="toast"></div>
-
-<div id="modal-back" class="modal-back">
-  <div class="modal">
-    <h3 id="modal-title">Confirm</h3>
-    <p id="modal-msg"></p>
-    <div class="modal-actions">
-      <button id="modal-cancel" class="ghost" style="padding:8px 14px">Cancel</button>
-      <button id="modal-ok">Delete</button>
-    </div>
-  </div>
-</div>
-
-<script src="/skins/skin-loader.js"></script>
-<script>
-function ipv4ToInt(ip) {
-  const p = ip.split('.');
-  if (p.length !== 4) return null;
-  let v = 0;
-  for (const o of p) {
-    if (!/^\d{1,3}$/.test(o)) return null;
-    const n = +o;
-    if (n > 255) return null;
-    v = (v * 256) + n;
-  }
-  return v >>> 0;
-}
-function intToIpv4(v) {
-  v = v >>> 0;
-  return [(v>>>24)&255, (v>>>16)&255, (v>>>8)&255, v&255].join('.');
-}
-function ipv6ToBig(str) {
-  if (str.indexOf(':') === -1) return null;
-  let head, tail;
-  if (str.indexOf('::') !== -1) {
-    const parts = str.split('::');
-    if (parts.length !== 2) return null;
-    head = parts[0]; tail = parts[1];
-  } else { head = str; tail = null; }
-  const h = head.length ? head.split(':') : [];
-  let groups;
-  if (tail !== null) {
-    const t = tail.length ? tail.split(':') : [];
-    const miss = 8 - (h.length + t.length);
-    if (miss < 0) return null;
-    groups = h.concat(Array(miss).fill('0'), t);
-  } else { groups = h; }
-  if (groups.length !== 8) return null;
-  let v = 0n;
-  for (const g of groups) {
-    if (!/^[0-9a-fA-F]{1,4}$/.test(g)) return null;
-    v = (v << 16n) + BigInt(parseInt(g, 16));
-  }
-  return v;
-}
-function bigToIpv6(v) {
-  const g = [];
-  for (let i = 7; i >= 0; i--) g[i] = (Number((v >> BigInt(i*16)) & 0xffffn)).toString(16);
-  let best = -1, bestLen = 0, cur = -1, curLen = 0;
-  for (let i = 0; i < 8; i++) {
-    if (g[i] === '0') { if (cur === -1) cur = i; curLen++; if (curLen > bestLen){ bestLen = curLen; best = cur; } }
-    else { cur = -1; curLen = 0; }
-  }
-  let parts = g.slice();
-  if (bestLen > 1) {
-    parts.splice(best, bestLen, '');
-    let s = parts.join(':');
-    if (best === 0) s = ':' + s;
-    if (best + bestLen === 8) s = s + ':';
-    return s;
-  }
-  return g.join(':');
-}
-
-function parseCidr(input) {
-  const raw = (input || '').trim();
-  if (!raw) return { error: 'Enter a CIDR like 192.168.1.0/24.' };
-  const slash = raw.indexOf('/');
-  if (slash === -1) return { error: 'Missing prefix length — try ' + raw + '/24.' };
-  const addr = raw.slice(0, slash).trim();
-  const prefStr = raw.slice(slash + 1).trim();
-  if (!/^\d{1,3}$/.test(prefStr)) return { error: 'Prefix must be a number.' };
-  const prefix = +prefStr;
-
-  if (addr.indexOf(':') !== -1) {
-    const v = ipv6ToBig(addr);
-    if (v === null) return { error: 'That is not a valid IPv6 address.' };
-    if (prefix < 0 || prefix > 128) return { error: 'IPv6 prefix must be 0–128.' };
-    const mask = prefix === 0 ? 0n : ((1n << 128n) - 1n) ^ ((1n << (128n - BigInt(prefix))) - 1n);
-    const net = v & mask;
-    return { version: 6, prefix, networkBig: net, cidr: bigToIpv6(net) + '/' + prefix };
-  } else {
-    const v = ipv4ToInt(addr);
-    if (v === null) return { error: 'That is not a valid IPv4 address.' };
-    if (prefix < 0 || prefix > 32) return { error: 'IPv4 prefix must be 0–32.' };
-    const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
-    const net = (v & mask) >>> 0;
-    const total = Math.pow(2, 32 - prefix);
-    return {
-      version: 4, prefix, networkInt: net, total,
-      broadcastInt: (net + total - 1) >>> 0,
-      maskStr: intToIpv4(mask),
-      cidr: intToIpv4(net) + '/' + prefix
-    };
-  }
-}
-
+if (!window.__ipPlannerBooted) {
+  window.__ipPlannerBooted = true;
 const MAX_ENUM = 65536;
 
 const state = {
@@ -264,59 +18,11 @@ const state = {
   passwordManager: {}
 };
 const userCapabilities = { passwordManagerEnabled: false, isAdmin: false };
-const uiTheme = { skin: 'futuristic', mode: 'dark' };
-
-function sanitizeSkin(v) {
-  return (v === 'enterprise' || v === 'futuristic') ? v : 'futuristic';
-}
-
-function sanitizeMode(v) {
-  return (v === 'light' || v === 'dark') ? v : 'dark';
-}
-
-function modeStorageKey(skin) {
-  return 'iputils-theme-mode-' + sanitizeSkin(skin);
-}
-
-function preferredModeForSkin(skin) {
-  const normalized = sanitizeSkin(skin);
-  try {
-    const fallback = normalized === 'enterprise' ? 'light' : 'dark';
-    return sanitizeMode(localStorage.getItem(modeStorageKey(normalized)) || fallback);
-  } catch {
-    return normalized === 'enterprise' ? 'light' : 'dark';
-  }
-}
-
-function setThemeIcon() {
-  const icon = document.getElementById('theme-toggle-icon');
-  if (!icon) return;
-  icon.src = uiTheme.mode === 'dark' ? '/icons/day-sunny-icon.svg' : '/icons/moon-line-icon.svg';
-}
+let uiTheme = applySharedTheme(bootSkinFromStorage(), preferredModeForSkin(bootSkinFromStorage()));
 
 function applyTheme(skin, mode) {
-  uiTheme.skin = sanitizeSkin(skin);
-  uiTheme.mode = sanitizeMode(mode);
-  if (window.IpUtilsSkinLoader) {
-    const applied = window.IpUtilsSkinLoader.applySkinAndMode(uiTheme.skin, uiTheme.mode);
-    uiTheme.skin = applied.skin;
-    uiTheme.mode = applied.mode;
-    return;
-  }
-  const body = document.body;
-  body.classList.remove('skin-futuristic', 'skin-enterprise', 'mode-dark', 'mode-light');
-  body.classList.add('skin-' + uiTheme.skin, 'mode-' + uiTheme.mode);
-  setThemeIcon();
+  uiTheme = applySharedTheme(skin, mode);
 }
-
-const cachedBootSkin = (() => {
-  try {
-    return sanitizeSkin(localStorage.getItem('iputils-global-skin') || 'futuristic');
-  } catch {
-    return 'futuristic';
-  }
-})();
-applyTheme(cachedBootSkin, preferredModeForSkin(cachedBootSkin));
 let nextId = 1;
 let renamingId = null;
 const arpState = {};
@@ -764,8 +470,18 @@ function removePasswordEntriesForSubnet(sn) {
   }
 }
 
-function openPasswordMenu(ip, x, y) {
+async function openPasswordMenu(ip, x, y) {
   if (!canViewPasswordEntries(ip)) return;
+
+  if (otherUserView && userCapabilities.isAdmin) {
+    const latest = await loadOtherUserPlan(otherUserView.username, otherUserView.subnets, otherUserView.passwordManager || {});
+    otherPlansData = otherPlansData.map((entry) => entry.username === otherUserView.username
+      ? { ...entry, subnets: latest.subnets, passwordManager: latest.passwordManager }
+      : entry);
+    otherUserView.subnets = latest.subnets;
+    otherUserView.passwordManager = latest.passwordManager || {};
+  }
+
   closeAddrDropdown();
 
   const readOnly = !canEditPasswordEntries();
@@ -1269,9 +985,10 @@ function renderEnumPlan(sn, readOnly) {
       const note = sn.comments[ip] || '';
       const dim = (role === 'net' || role === 'bcast') ? ' dim' : '';
       const isHost = role === 'host';
+      const showPasswordButton = canViewPasswordEntries(ip);
       const actionButtons = isHost ? `
           <div class="addr-actions">
-            ${canViewPasswordEntries(ip) ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
+        ${showPasswordButton ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
             <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>
           </div>` : '';
       html += `
@@ -1363,13 +1080,14 @@ function renderRegistryPlan(sn, readOnly) {
   let rows = '';
   filtered.forEach(ip => {
     const note = sn.comments[ip] || '';
+    const showPasswordButton = canViewPasswordEntries(ip);
     rows += `
       <div class="addr-row reg" data-ip="${esc(ip)}">
         <div class="a-tag"><span class="t role-tag ${tagClass('host', ip)}">host</span></div>
         <div class="a-ip">${esc(ip)}</div>
         <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…"${readOnly ? ' readonly' : ''} />
         <div class="addr-actions">
-          ${canViewPasswordEntries(ip) ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
+          ${showPasswordButton ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
           <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>
         </div>
         ${!readOnly ? `<button class="danger a-del" data-del="${esc(ip)}">&times;</button>` : ''}
@@ -1485,6 +1203,29 @@ async function loadOtherPlans(currentUsername) {
   renderOtherPlansSection();
 }
 
+async function loadOtherUserPlan(username, fallbackSubnets, fallbackPasswordManager) {
+  try {
+    const r = await fetch('/api/admin/plans/' + encodeURIComponent(username));
+    if (!r.ok) {
+      return {
+        subnets: fallbackSubnets,
+        passwordManager: fallbackPasswordManager
+      };
+    }
+
+    const plan = await r.json();
+    return {
+      subnets: (plan && Array.isArray(plan.subnets)) ? plan.subnets : fallbackSubnets,
+      passwordManager: (plan && plan.passwordManager && typeof plan.passwordManager === 'object') ? plan.passwordManager : fallbackPasswordManager
+    };
+  } catch {
+    return {
+      subnets: fallbackSubnets,
+      passwordManager: fallbackPasswordManager
+    };
+  }
+}
+
 function renderOtherPlansSection() {
   const body = document.getElementById('other-plans-body');
   const toggle = document.getElementById('other-plans-toggle');
@@ -1540,9 +1281,19 @@ function renderOtherPlansSection() {
               <div class="subnet-anno ${n ? '' : 'zero'}">&bull; ${n} note${n !== 1 ? 's' : ''}</div>
             </div>
           </div>`;
-        card.addEventListener('click', e => {
+        card.addEventListener('click', async e => {
           e.stopPropagation();
-          otherUserView = { subnets, selectedId: sn.id, username, passwordManager: passwordManager || {}, readOnly: true };
+          const latest = await loadOtherUserPlan(username, subnets, passwordManager || {});
+          otherPlansData = otherPlansData.map((entry) => entry.username === username
+            ? { ...entry, subnets: latest.subnets, passwordManager: latest.passwordManager }
+            : entry);
+          otherUserView = {
+            subnets: latest.subnets,
+            selectedId: sn.id,
+            username,
+            passwordManager: latest.passwordManager || {},
+            readOnly: true
+          };
           state.selectedId = null;
           renderSubnetList();
           renderPlan();
@@ -1690,8 +1441,8 @@ function renderResults(out, q) {
   let html = `<div class="results-head">${out.length} match${out.length === 1 ? '' : 'es'}${out.length > 80 ? ' · showing 80' : ''}</div>`;
   shown.forEach((r, i) => {
     const sn = state.subnets.find(s => s.id === r.subnetId);
-    const ipText = r.ip ? hl(r.ip, q) : '<span style="color:var(--net)">' + esc(r.cidr || '') + '</span>';
-    const cm = r.note ? hl(r.note, q) : '<span style="color:var(--ink-faint);font-style:italic">— no note —</span>';
+    const ipText = r.ip ? highlightMatch(r.ip, q) : '<span style="color:var(--net)">' + esc(r.cidr || '') + '</span>';
+    const cm = r.note ? highlightMatch(r.note, q) : '<span style="color:var(--ink-faint);font-style:italic">— no note —</span>';
     html += `
       <div class="res" data-i="${i}" data-sub="${r.subnetId}" data-ip="${r.ip ? esc(r.ip) : ''}">
         <span class="res-ip">${ipText}</span>
@@ -1741,7 +1492,7 @@ document.addEventListener('click', e => {
 searchEl.addEventListener('focus', () => { if (searchEl.value.trim()) runSearch(searchEl.value); });
 
 document.getElementById('btn-export').addEventListener('click', () => {
-  const data = JSON.stringify({
+  downloadJson('ip-plan.json', {
     format: 'subnetplan',
     version: 1,
     subnets: state.subnets,
@@ -1750,12 +1501,7 @@ document.getElementById('btn-export').addEventListener('click', () => {
     routers: state.routers,
     routerInterfaces: state.routerInterfaces,
     passwordManager: state.passwordManager
-  }, null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'ip-plan.json'; a.click();
-  URL.revokeObjectURL(url);
+  });
   showToast('plan exported');
 });
 
@@ -1798,48 +1544,16 @@ document.getElementById('btn-reset').addEventListener('click', async () => {
   renderSubnetList(); renderPlan(); rebuildSearchIndex(); scheduleSave();
 });
 
-function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
-function hl(text, q) {
-  const s = esc(text);
-  if (!q) return s;
-  const idx = s.toLowerCase().indexOf(q.toLowerCase());
-  if (idx === -1) return s;
-  return s.slice(0, idx) + '<mark>' + s.slice(idx, idx + q.length) + '</mark>' + s.slice(idx + q.length);
-}
-
 const toastEl = document.getElementById('toast');
-function showToast(msg) {
-  toastEl.textContent = msg;
-  toastEl.classList.add('show');
-  clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => toastEl.classList.remove('show'), 1800);
-}
+const showToast = createToastController(toastEl);
 
 function confirmDialog(title, message, confirmLabel) {
-  return new Promise(resolve => {
-    const back = document.getElementById('modal-back');
-    document.getElementById('modal-title').textContent = title;
-    document.getElementById('modal-msg').textContent = message;
-    const ok = document.getElementById('modal-ok');
-    const cancel = document.getElementById('modal-cancel');
-    ok.textContent = confirmLabel || 'Delete';
-    back.classList.add('show');
-    function cleanup(val) {
-      back.classList.remove('show');
-      ok.onclick = cancel.onclick = back.onclick = null;
-      document.removeEventListener('keydown', onKey);
-      resolve(val);
-    }
-    function onKey(e) {
-      if (e.key === 'Escape') cleanup(false);
-      else if (e.key === 'Enter') cleanup(true);
-    }
-    ok.onclick = () => cleanup(true);
-    cancel.onclick = () => cleanup(false);
-    back.onclick = e => { if (e.target === back) cleanup(false); };
-    document.addEventListener('keydown', onKey);
-    ok.focus();
+  return openConfirmDialog(title, message, confirmLabel, {
+    back: document.getElementById('modal-back'),
+    title: document.getElementById('modal-title'),
+    message: document.getElementById('modal-msg'),
+    ok: document.getElementById('modal-ok'),
+    cancel: document.getElementById('modal-cancel')
   });
 }
 
@@ -1919,13 +1633,14 @@ function renderOrganizedView() {
                        (dr.isGuest    ? '<span class="t guest-badge">G</span>' : '') +
                        (dr.isRouter   ? '<span class="t router-badge">R</span>' : '') +
                        (dr.isInterface ? '<span class="t iface-badge">I</span>' : '');
+    const showPasswordButton = canViewPasswordEntries(entryIp);
 
     row.innerHTML = `
       <div class="org-badges">${badgesHtml}</div>
       <span class="org-subnet-tag" title="${esc(entrySn.cidr)}">${esc(entrySn.label)}</span>
       <span class="org-ip">${esc(entryIp)}</span>
       <span class="org-comment">${esc(entryComment)}</span>
-      ${canViewPasswordEntries(entryIp) ? `<button class="addr-key-btn" data-key-ip="${esc(entryIp)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
+      ${showPasswordButton ? `<button class="addr-key-btn" data-key-ip="${esc(entryIp)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
       <button class="addr-menu-btn" data-menu-ip="${esc(entryIp)}" title="Address options">&#8942;</button>`;
 
     row.addEventListener('click', e => {
@@ -1973,29 +1688,12 @@ Promise.all([
   userCapabilities.passwordManagerEnabled = !!data.passwordManagerEnabled;
   userCapabilities.isAdmin = !!data.isAdmin;
   const nav = document.getElementById('user-nav');
-  let html = '<span class="u-name">' + esc(data.username) + '</span>' +
-    ' &nbsp;&middot;&nbsp; <a href="/">home</a>' +
-    (data.isAdmin ? ' &nbsp;&middot;&nbsp; <a href="/admin">admin</a>' : '');
-
-  if (cfg.hasNetplan) {
-    html += ' &nbsp;&middot;&nbsp; <a href="/netplan-gen">netplan-gen</a>';
-  } else {
-    html += ' &nbsp;&middot;&nbsp; <a href="#" id="btn-netplan-missing" class="nav-disabled" aria-disabled="true">netplan-gen</a>';
-  }
-
-  html += ' &nbsp;&middot;&nbsp; <button id="btn-theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode"><img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" /></button>';
-  html += ' &nbsp;&middot;&nbsp; <a href="#" id="btn-logout">logout</a>';
-  nav.innerHTML = html;
-  setThemeIcon();
+  nav.innerHTML = buildPlannerNavHtml(cfg, data, esc);
 
   const themeBtn = document.getElementById('btn-theme-toggle');
   if (themeBtn) {
     themeBtn.addEventListener('click', () => {
-      const nextMode = uiTheme.mode === 'dark' ? 'light' : 'dark';
-      applyTheme(uiTheme.skin, nextMode);
-      try {
-        localStorage.setItem(modeStorageKey(uiTheme.skin), nextMode);
-      } catch {}
+      uiTheme = toggleTheme(uiTheme);
     });
   }
 
@@ -2038,7 +1736,7 @@ Promise.all([
   renderPlan();
   rebuildSearchIndex();
 })();
-</script>
 
-</body>
-</html>
+}
+
+export {};

@@ -410,15 +410,18 @@
     color: var(--ink-mute);
     letter-spacing: 0.04em;
   }
-
-  ::selection { background: var(--accent); color: var(--bg); }
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: var(--bg-sunk); }
-  ::-webkit-scrollbar-thumb { background: var(--line-strong); }
-  ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+})();
+</script>
+<style>
+  html.pre-skin-futuristic.pre-mode-dark { background: #0d1014; }
+  html.pre-skin-futuristic.pre-mode-light { background: #f3f5f8; }
+  html.pre-skin-enterprise.pre-mode-dark { background: #1a2029; }
+  html.pre-skin-enterprise.pre-mode-light { background: #f5f5f5; }
+  body.skin-loading { opacity: 0; }
+  body.skin-ready { opacity: 1; }
 </style>
 </head>
-<body>
+<body class="skin-loading">
 
 <div class="shell">
   <header>
@@ -430,6 +433,10 @@
       <a href="/">home</a>
       &nbsp;&middot;&nbsp;
       <span id="admin-name"></span>
+      &nbsp;&middot;&nbsp;
+      <button id="btn-theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode">
+        <img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" />
+      </button>
       &nbsp;&middot;&nbsp;
       <a href="#" id="logout-link">logout</a>
     </div>
@@ -498,6 +505,27 @@
           <button class="primary" id="btn-create">+ create</button>
         </div>
       </div>
+
+      <div class="additional-options">
+        <div class="additional-options-title">Additional Options</div>
+        <label class="check">
+          <input type="checkbox" id="global-password-manager-enabled" />
+          <span class="box"></span>
+          <span class="lbl-text">Enable password manager (global)</span>
+        </label>
+        <div style="margin-top:10px;max-width:260px">
+          <span class="lbl">Skin</span>
+          <select id="global-skin">
+            <option value="futuristic">futuristic</option>
+            <option value="enterprise">enterprise</option>
+          </select>
+        </div>
+        <div style="margin-top:8px">
+          <button id="btn-save-global-options" class="primary" style="font-size:11px;padding:6px 10px">save global options</button>
+        </div>
+        <div class="option-help">Applies to all users. Skin controls dark/light style family for user theme toggle and overall visuals.</div>
+      </div>
+
       <div class="form-err" id="create-err"></div>
     </div>
 
@@ -886,6 +914,19 @@ async function loadInstalledVersion() {
   }
 }
 
+async function loadGlobalOptions() {
+  try {
+    const r = await fetch('/api/admin/options');
+    if (!r.ok) return;
+    const d = await r.json();
+    document.getElementById('global-password-manager-enabled').checked = !!d.passwordManagerEnabled;
+    const skin = sanitizeSkin(d.skin || 'futuristic');
+    const skinSelect = document.getElementById('global-skin');
+    skinSelect.value = skin;
+    applyTheme(skin, preferredModeForSkin(skin));
+  } catch {}
+}
+
 async function loadUsers() {
   const r = await fetch('/api/admin/users');
   if (!r.ok) return;
@@ -903,7 +944,8 @@ async function loadUsers() {
       <td>${u.isAdmin ? '<span class="badge badge-admin">admin</span>' : '<span style="color:var(--ink-faint);font-size:12px">user</span>'}</td>
       <td>${u.hasPlan
         ? '<span class="badge badge-plan">has plan</span>'
-        : '<span class="badge badge-no-plan">no plan</span>'}</td>
+        : '<span class="badge badge-no-plan">no plan</span>'}
+      </td>
       <td>
         <div class="action-cell">
           <button class="ghost" data-action="change-pw" data-user="${esc(u.username)}">change pw</button>
@@ -985,6 +1027,36 @@ document.getElementById('btn-create').addEventListener('click', async () => {
   document.getElementById('new-is-admin').checked = false;
   showToast('User created');
   loadUsers();
+});
+
+document.getElementById('btn-save-global-options').addEventListener('click', async () => {
+  const enabled = document.getElementById('global-password-manager-enabled').checked;
+  const skin = sanitizeSkin(document.getElementById('global-skin').value);
+  const r = await fetch('/api/admin/options', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ passwordManagerEnabled: enabled, skin })
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    showToast(d.error || 'Failed to save options');
+    return;
+  }
+  applyTheme(skin, preferredModeForSkin(skin));
+  showToast('Global options saved');
+});
+
+document.getElementById('global-skin').addEventListener('change', e => {
+  const nextSkin = sanitizeSkin(e.target.value);
+  applyTheme(nextSkin, preferredModeForSkin(nextSkin));
+});
+
+document.getElementById('btn-theme-toggle').addEventListener('click', () => {
+  const nextMode = uiTheme.mode === 'dark' ? 'light' : 'dark';
+  applyTheme(uiTheme.skin, nextMode);
+  try {
+    localStorage.setItem(modeStorageKey(uiTheme.skin), nextMode);
+  } catch {}
 });
 
 document.getElementById('logout-link').addEventListener('click', async e => {

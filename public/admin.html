@@ -7,408 +7,37 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
-<style>
-  :root {
-    --bg: #0d1014;
-    --bg-elev: #141921;
-    --bg-sunk: #090c10;
-    --line: #1f2530;
-    --line-strong: #2a3142;
-    --ink: #e6e1d5;
-    --ink-mute: #9aa1ad;
-    --ink-faint: #5a6370;
-    --accent: #e8a85c;
-    --accent-dim: #8a6535;
-    --danger: #d96856;
-    --ok: #7fb069;
-    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    --serif: 'IBM Plex Serif', Georgia, serif;
-    --sans: 'IBM Plex Sans', system-ui, sans-serif;
-  }
-
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--sans);
-    font-size: 14px;
-    line-height: 1.55;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  body {
-    background-image:
-      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
-    background-size: 40px 40px;
-    background-position: -1px -1px;
-  }
-
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; text-underline-offset: 3px; }
-
-  .shell { max-width: 900px; margin: 0 auto; padding: 0 28px; }
-
-  header {
-    border-bottom: 1px solid var(--line);
-    padding: 22px 0 18px;
-    display: flex; align-items: baseline; justify-content: space-between;
-    gap: 24px; flex-wrap: wrap;
-  }
-
-  .brand { display: flex; align-items: baseline; gap: 14px; }
-  .brand-mark {
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
-    color: var(--accent); text-transform: uppercase;
-    border: 1px solid var(--accent-dim); padding: 4px 8px; border-radius: 2px;
-  }
-  .brand h1 {
-    font-family: var(--serif); font-weight: 400; font-style: italic;
-    font-size: 26px; margin: 0; letter-spacing: -0.01em;
-  }
-  .brand h1 b { font-style: normal; font-weight: 600; }
-
-  .header-nav {
-    display: flex; align-items: center; gap: 12px;
-    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
-  }
-  .header-nav a { color: var(--accent); }
-
-  main { padding: 36px 0 80px; }
-
-  .section { margin-bottom: 44px; }
-  .section-head {
-    display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px;
-    padding-bottom: 10px; border-bottom: 1px dashed var(--line-strong);
-  }
-  .section-num { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.1em; }
-  .section-title { font-family: var(--serif); font-weight: 600; font-size: 18px; margin: 0; }
-
-  .lbl {
-    display: block; font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
-    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
-  }
-
-  input[type="text"], input[type="password"] {
-    width: 100%; background: var(--bg-sunk); color: var(--ink);
-    border: 1px solid var(--line-strong); border-radius: 2px; padding: 9px 11px;
-    font-family: var(--mono); font-size: 13px;
-    transition: border-color .15s, background .15s;
-  }
-  input:focus { outline: none; border-color: var(--accent); background: #0b0e12; }
-  input::placeholder { color: var(--ink-faint); }
-
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto auto; gap: 10px; align-items: end; }
-  @media (max-width: 700px) {
-    .form-grid { grid-template-columns: 1fr; }
-  }
-
-  label.check {
-    display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
-    font-family: var(--mono); font-size: 11px; color: var(--ink);
-    padding: 9px 10px; border: 1px solid var(--line-strong); border-radius: 2px;
-    background: var(--bg-sunk); white-space: nowrap; transition: border-color .15s;
-  }
-  label.check:hover { border-color: var(--ink-mute); }
-  label.check input { display: none; }
-  label.check .box {
-    width: 12px; height: 12px; border: 1px solid var(--ink-faint);
-    display: inline-block; position: relative; flex-shrink: 0;
-  }
-  label.check input:checked + .box { background: var(--accent); border-color: var(--accent); }
-  label.check input:checked + .box::after {
-    content: ''; position: absolute; inset: 2px; background: var(--bg);
-    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
-  }
-  label.check input:checked ~ .lbl-text { color: var(--accent); }
-
-  button, .btn {
-    cursor: pointer; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em;
-    text-transform: uppercase; background: transparent; color: var(--ink);
-    border: 1px solid var(--line-strong); padding: 8px 14px; border-radius: 2px;
-    transition: all .15s ease; display: inline-flex; align-items: center; gap: 8px;
-    white-space: nowrap;
-  }
-  button:hover { border-color: var(--accent); color: var(--accent); }
-  button.primary { border-color: var(--accent-dim); color: var(--accent); }
-  button.primary:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-  button.danger { color: var(--danger); border-color: var(--line-strong); font-size: 11px; padding: 6px 10px; }
-  button.danger:hover { color: var(--bg); background: var(--danger); border-color: var(--danger); }
-  button.ghost { border-color: transparent; color: var(--ink-mute); padding: 6px 10px; font-size: 11px; }
-  button.ghost:hover { color: var(--accent); border-color: transparent; }
-
-  .form-err {
-    color: var(--danger); font-family: var(--mono); font-size: 12px;
-    margin-top: 8px; min-height: 16px;
-  }
-
-  .user-table {
-    width: 100%; border-collapse: collapse;
-    border: 1px solid var(--line-strong); border-radius: 3px; overflow: hidden;
-  }
-  .user-table th {
-    text-align: left; padding: 9px 14px; background: var(--bg-elev);
-    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
-    letter-spacing: 0.1em; color: var(--ink-faint);
-    border-bottom: 1px solid var(--line);
-  }
-  .user-table td {
-    padding: 10px 14px; border-bottom: 1px solid var(--line);
-    font-family: var(--mono); font-size: 13px; color: var(--ink-mute);
-    vertical-align: middle;
-  }
-  .user-table tr:last-child td { border-bottom: 0; }
-  .user-table tr:hover td { background: rgba(255,255,255,0.015); }
-
-.u-name { color: var(--ink); font-weight: 500; }
-  .badge {
-    display: inline-block; font-family: var(--mono); font-size: 9px;
-    text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 6px;
-    border-radius: 2px; border: 1px solid;
-  }
-  .badge-admin { color: var(--accent); border-color: var(--accent-dim); }
-  .badge-plan { color: var(--ok); border-color: rgba(127,176,105,0.4); }
-  .badge-no-plan { color: var(--ink-faint); border-color: var(--line-strong); }
-
-  .action-cell { display: flex; gap: 6px; align-items: center; }
-
-  .empty-row td { color: var(--ink-faint); font-style: italic; text-align: center; padding: 28px; }
-
-  .toast {
-    position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: var(--bg);
-    padding: 10px 16px; border-radius: 2px; font-family: var(--mono); font-size: 12px;
-    letter-spacing: 0.04em; text-transform: uppercase; transform: translateY(80px);
-    opacity: 0; transition: all .25s ease; pointer-events: none; z-index: 100;
-  }
-  .toast.show { transform: translateY(0); opacity: 1; }
-
-  .modal-back {
-    position: fixed; inset: 0; background: rgba(5,7,10,0.66); z-index: 200;
-    display: none; align-items: center; justify-content: center; padding: 24px;
-    backdrop-filter: blur(2px);
-  }
-  .modal-back.show { display: flex; }
-  .modal {
-    background: var(--bg-elev); border: 1px solid var(--line-strong);
-    border-left: 3px solid var(--danger); border-radius: 3px;
-    max-width: 440px; width: 100%; padding: 22px 24px;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.55);
-  }
-  .modal h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 10px; }
-  .modal p { color: var(--ink-mute); font-size: 13px; margin: 0 0 18px; font-family: var(--mono); line-height: 1.6; }
-  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
-  .modal-ok { border-color: var(--danger); color: var(--danger); padding: 8px 16px; }
-  .modal-ok:hover { background: var(--danger); color: var(--bg); border-color: var(--danger); }
-
-  .pw-modal { border-left-color: var(--accent-dim); }
-  .pw-modal h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 6px; }
-  .pw-modal .pw-sub { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin: 0 0 20px; }
-  .pw-modal .field { margin-bottom: 14px; }
-  .pw-ok { border-color: var(--accent-dim); color: var(--accent); padding: 8px 16px; }
-  .pw-ok:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-  .pw-err { color: var(--danger); font-family: var(--mono); font-size: 12px; min-height: 16px; margin-top: 6px; }
-
-  .update-banner {
-    margin: 24px 0 -20px;
-    border: 1px solid var(--line-strong); border-radius: 3px; overflow: hidden;
-  }
-  .update-banner-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 9px 14px; background: var(--bg-elev);
-    border-bottom: 1px solid var(--line-strong);
-    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
-    letter-spacing: 0.1em; color: var(--ink-faint);
-  }
-  .update-banner-head-left {
-    display: flex; align-items: center; gap: 10px;
-  }
-  .check-updates-btn {
-    padding: 3px 8px; font-size: 10px;
-  }
-  .update-current {
-    padding: 10px 14px;
-    border-left: 3px solid var(--ok);
-    background: rgba(127,176,105,0.12);
-    color: var(--ok);
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.03em;
-  }
-  .update-entry {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 14px; border-bottom: 1px solid var(--line);
-    border-left: 3px solid transparent;
-  }
-  .update-entry:last-child { border-bottom: 0; }
-  .update-entry.type-security-fix { border-left-color: var(--danger); }
-  .update-entry.type-bug-fix      { border-left-color: var(--accent); }
-  .update-entry.type-new-feature  { border-left-color: var(--ok); }
-  .update-tag {
-    flex-shrink: 0; font-family: var(--mono); font-size: 9px;
-    text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 7px;
-    border-radius: 2px; border: 1px solid;
-  }
-  .update-tag.type-security-fix { color: var(--danger); border-color: rgba(217,104,86,0.4); }
-  .update-tag.type-bug-fix      { color: var(--accent); border-color: var(--accent-dim); }
-  .update-tag.type-new-feature  { color: var(--ok);     border-color: rgba(127,176,105,0.4); }
-  .update-msg {
-    flex: 1; font-family: var(--mono); font-size: 12px; color: var(--ink-mute);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .update-date { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
-  .update-now-btn {
-    font-size: 10px;
-    padding: 4px 9px;
-    border-color: var(--accent-dim);
-    color: var(--accent);
-    flex-shrink: 0;
-  }
-  .update-now-btn:hover {
-    background: var(--accent);
-    color: var(--bg);
-    border-color: var(--accent);
-  }
-  .update-job-status {
-    margin: 0 0 10px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--ink-faint);
-  }
-  .update-job-status.running { color: var(--accent); }
-  .update-job-status.queued { color: var(--accent); }
-  .update-job-status.succeeded { color: var(--ok); }
-  .update-job-status.failed { color: var(--danger); }
-
-  .update-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 320;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: rgba(4, 6, 10, 0.62);
-    backdrop-filter: blur(6px);
-    padding: 24px;
-  }
-  .update-overlay.show { display: flex; }
-  .update-overlay-panel {
-    width: min(880px, 94vw);
-    min-height: min(76vh, 620px);
-    border: 1px solid var(--line-strong);
-    border-left: 3px solid var(--accent-dim);
-    border-radius: 4px;
-    background:
-      radial-gradient(circle at 20% 15%, rgba(232,168,92,0.12) 0%, rgba(20,25,33,0.92) 45%),
-      linear-gradient(165deg, rgba(20,25,33,0.96), rgba(9,12,16,0.98));
-    box-shadow: 0 30px 90px rgba(0,0,0,0.6);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    transition: border-color .45s ease, box-shadow .45s ease;
-  }
-  .update-overlay.success .update-overlay-panel {
-    border-left-color: rgba(127,176,105,0.6);
-    box-shadow: 0 30px 90px rgba(0,0,0,0.6), 0 0 0 1px rgba(127,176,105,0.18) inset;
-  }
-  .update-overlay-title {
-    margin: 0;
-    font-family: var(--serif);
-    font-size: clamp(26px, 4.2vw, 42px);
-    font-style: italic;
-    font-weight: 400;
-    letter-spacing: -0.01em;
-  }
-  .update-overlay-title b {
-    font-style: normal;
-    font-weight: 600;
-  }
-  .update-overlay-sub {
-    margin: 10px 0 0;
-    color: var(--ink-mute);
-    font-family: var(--mono);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .update-throbber {
-    width: 88px;
-    height: 88px;
-    border-radius: 50%;
-    border: 3px solid rgba(138,101,53,0.5);
-    border-top-color: var(--accent);
-    border-right-color: var(--accent);
-    margin-bottom: 26px;
-    animation: update-spin 1s linear infinite;
-    position: relative;
-    transition: transform .45s ease, border-color .45s ease, background .45s ease;
-  }
-  .update-throbber::before {
-    content: '';
-    position: absolute;
-    width: 18px;
-    height: 34px;
-    border-right: 4px solid transparent;
-    border-bottom: 4px solid transparent;
-    left: 31px;
-    top: 18px;
-    transform: rotate(45deg) scale(0.65);
-    opacity: 0;
-    transition: transform .38s ease, opacity .3s ease, border-color .3s ease;
-  }
-  .update-throbber::after {
-    content: '';
-    position: absolute;
-    inset: 12px;
-    border-radius: 50%;
-    border: 2px dashed rgba(232,168,92,0.35);
-    animation: update-spin 2.2s linear infinite reverse;
-  }
-  @keyframes update-spin {
-    to { transform: rotate(360deg); }
-  }
-  .update-overlay.success .update-throbber {
-    animation: none;
-    transform: scale(1.04);
-    border-color: rgba(127,176,105,0.5);
-    background: rgba(127,176,105,0.14);
-  }
-  .update-overlay.success .update-throbber::after {
-    animation: none;
-    border-color: rgba(127,176,105,0.35);
-  }
-  .update-overlay.success .update-throbber::before {
-    border-right-color: var(--ok);
-    border-bottom-color: var(--ok);
-    transform: rotate(45deg) scale(1);
-    opacity: 1;
-  }
-  .update-overlay-refresh-msg {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 24px;
-    padding: 0 20px;
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--ink);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  footer {
-    border-top: 1px solid var(--line); padding: 20px 0 28px;
-    color: var(--ink-faint); font-family: var(--mono); font-size: 11px;
-    display: flex; align-items: center; gap: 10px;
-  }
-  .footer-version {
-    color: var(--ink-mute);
-    letter-spacing: 0.04em;
+<script>
+(() => {
+  const page = 'admin';
+  try {
+    const skin = localStorage.getItem('iputils-global-skin') === 'enterprise' ? 'enterprise' : 'futuristic';
+    const modeKey = 'iputils-theme-mode-' + skin;
+    const fallback = skin === 'enterprise' ? 'light' : 'dark';
+    const raw = localStorage.getItem(modeKey) || fallback;
+    const mode = raw === 'light' ? 'light' : 'dark';
+    document.documentElement.classList.add('pre-skin-' + skin, 'pre-mode-' + mode);
+    const baseLink = document.createElement('link');
+    baseLink.rel = 'stylesheet';
+    baseLink.href = '/skins/' + skin + '.css';
+    baseLink.id = 'skin-base-stylesheet';
+    document.head.appendChild(baseLink);
+    const pageLink = document.createElement('link');
+    pageLink.rel = 'stylesheet';
+    pageLink.href = '/skins/' + skin + '/' + page + '.css';
+    pageLink.id = 'skin-page-stylesheet';
+    document.head.appendChild(pageLink);
+  } catch {
+    const baseLink = document.createElement('link');
+    baseLink.rel = 'stylesheet';
+    baseLink.href = '/skins/futuristic.css';
+    baseLink.id = 'skin-base-stylesheet';
+    document.head.appendChild(baseLink);
+    const pageLink = document.createElement('link');
+    pageLink.rel = 'stylesheet';
+    pageLink.href = '/skins/futuristic/' + page + '.css';
+    pageLink.id = 'skin-page-stylesheet';
+    document.head.appendChild(pageLink);
   }
 })();
 </script>
@@ -602,15 +231,7 @@
   </div>
 </div>
 
-<div id="update-progress-overlay" class="update-overlay" aria-live="polite" aria-hidden="true">
-  <div class="update-overlay-panel">
-    <div class="update-throbber" aria-hidden="true"></div>
-    <h2 class="update-overlay-title" id="update-overlay-title"><i>applying</i> <b>update</b></h2>
-    <p class="update-overlay-sub" id="update-overlay-sub">Please wait while ip-utils restarts</p>
-    <p class="update-overlay-refresh-msg" id="update-overlay-refresh-msg">waiting for updater confirmation...</p>
-  </div>
-</div>
-
+<script src="/skins/skin-loader.js"></script>
 <script>
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -654,14 +275,59 @@ function confirmDialog(title, msg, label) {
 let currentUser = null;
 let latestUpdateVersion = null;
 let updateStatusPoll = null;
-let updatesAutoCheckTimer = null;
-let updateRefreshTimer = null;
-let updateOverlayActive = false;
-let activeUpdateJobId = null;
-let activeUpdateStatusToken = null;
-let updateChannelDeadlineAt = 0;
+const uiTheme = { skin: 'futuristic', mode: 'dark' };
 
-const UPDATE_SUCCESS_STORAGE_KEY = 'ipUtilsUpdateSuccess';
+function sanitizeSkin(v) {
+  return (v === 'enterprise' || v === 'futuristic') ? v : 'futuristic';
+}
+
+function sanitizeMode(v) {
+  return (v === 'light' || v === 'dark') ? v : 'dark';
+}
+
+function modeStorageKey(skin) {
+  return 'iputils-theme-mode-' + sanitizeSkin(skin);
+}
+
+function preferredModeForSkin(skin) {
+  const normalized = sanitizeSkin(skin);
+  try {
+    const fallback = normalized === 'enterprise' ? 'light' : 'dark';
+    return sanitizeMode(localStorage.getItem(modeStorageKey(normalized)) || fallback);
+  } catch {
+    return normalized === 'enterprise' ? 'light' : 'dark';
+  }
+}
+
+function setThemeIcon() {
+  const icon = document.getElementById('theme-toggle-icon');
+  if (!icon) return;
+  icon.src = uiTheme.mode === 'dark' ? '/icons/day-sunny-icon.svg' : '/icons/moon-line-icon.svg';
+}
+
+function applyTheme(skin, mode) {
+  uiTheme.skin = sanitizeSkin(skin);
+  uiTheme.mode = sanitizeMode(mode);
+  if (window.IpUtilsSkinLoader) {
+    const applied = window.IpUtilsSkinLoader.applySkinAndMode(uiTheme.skin, uiTheme.mode);
+    uiTheme.skin = applied.skin;
+    uiTheme.mode = applied.mode;
+    return;
+  }
+  const body = document.body;
+  body.classList.remove('skin-futuristic', 'skin-enterprise', 'mode-dark', 'mode-light');
+  body.classList.add('skin-' + uiTheme.skin, 'mode-' + uiTheme.mode);
+  setThemeIcon();
+}
+
+const cachedBootSkin = (() => {
+  try {
+    return sanitizeSkin(localStorage.getItem('iputils-global-skin') || 'futuristic');
+  } catch {
+    return 'futuristic';
+  }
+})();
+applyTheme(cachedBootSkin, preferredModeForSkin(cachedBootSkin));
 
 function parseSemver(v) {
   const m = String(v || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/i);
@@ -685,144 +351,29 @@ function setUpdateJobStatus(text, statusClass) {
   el.className = 'update-job-status' + (statusClass ? (' ' + statusClass) : '');
 }
 
-function setUpdateOverlayRefreshMessage(text) {
-  const refreshMsg = document.getElementById('update-overlay-refresh-msg');
-  if (refreshMsg) refreshMsg.textContent = text || '';
-}
-
-function handleUpdateChannelInterruption() {
-  if (!updateOverlayActive || !activeUpdateJobId || !activeUpdateStatusToken) return;
-
-  if (!updateChannelDeadlineAt) {
-    updateChannelDeadlineAt = Date.now() + 180000;
-  }
-
-  if (Date.now() < updateChannelDeadlineAt) {
-    setUpdateOverlayRefreshMessage('connection interrupted, waiting for app to come back...');
-    return;
-  }
-
-  hideUpdateOverlay('update confirmation timed out');
-}
-
 async function refreshUpdateJobStatus() {
   try {
-    const statusUrl = updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken
-      ? `/api/update-status/${encodeURIComponent(activeUpdateJobId)}/${encodeURIComponent(activeUpdateStatusToken)}`
-      : '/api/admin/update/status';
-    const r = await fetch(statusUrl);
-    if (!r.ok) {
-      if (updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken) {
-        handleUpdateChannelInterruption();
-      }
-      return;
-    }
+    const r = await fetch('/api/admin/update/status');
+    if (!r.ok) return;
     const job = await r.json();
-    if (updateOverlayActive && activeUpdateJobId && activeUpdateStatusToken) {
-      updateChannelDeadlineAt = 0;
-      if (job.status === 'queued' || job.status === 'running') {
-        setUpdateOverlayRefreshMessage('waiting for updater confirmation...');
-      }
-    }
     if (!job || !job.status || job.status === 'idle') {
       setUpdateJobStatus('');
       return;
     }
-    if (job.status === 'queued') {
-      setUpdateJobStatus(`Update queued on branch ${job.branch || 'main'}...`, 'queued');
-    } else if (job.status === 'running') {
+    if (job.status === 'running') {
       setUpdateJobStatus(`Update running on branch ${job.branch || 'main'}...`, 'running');
     } else if (job.status === 'succeeded') {
       setUpdateJobStatus(`Last update succeeded (${job.branch || 'main'})`, 'succeeded');
-      if (updateOverlayActive && activeUpdateJobId && job.id === activeUpdateJobId) {
-        showUpdateSuccessOverlay(job.branch || 'main');
-      }
       await Promise.all([loadUpdates(), loadInstalledVersion()]);
     } else if (job.status === 'failed') {
       setUpdateJobStatus(`Last update failed (${job.branch || 'main'})`, 'failed');
-      if (updateOverlayActive && activeUpdateJobId && job.id === activeUpdateJobId) {
-        hideUpdateOverlay('update failed');
-      }
     }
-
-    if (
-      updateOverlayActive &&
-      activeUpdateJobId &&
-      job.id === activeUpdateJobId &&
-      (job.status === 'queued' || job.status === 'running') &&
-      job.daemonAlive === false
-    ) {
-      setUpdateJobStatus('Updater daemon offline. Update stopped.', 'failed');
-      hideUpdateOverlay('updater daemon offline');
-    }
-  } catch {
-    handleUpdateChannelInterruption();
-  }
+  } catch {}
 }
 
 function ensureUpdateStatusPolling() {
   if (updateStatusPoll) return;
   updateStatusPoll = setInterval(() => { refreshUpdateJobStatus(); }, 3000);
-}
-
-function showUpdateProgressOverlay() {
-  const overlay = document.getElementById('update-progress-overlay');
-  const title = document.getElementById('update-overlay-title');
-  const sub = document.getElementById('update-overlay-sub');
-  const refreshMsg = document.getElementById('update-overlay-refresh-msg');
-  overlay.classList.remove('success');
-  title.innerHTML = '<i>applying</i> <b>update</b>';
-  sub.textContent = 'Please wait while ip-utils restarts';
-  refreshMsg.textContent = 'waiting for updater confirmation...';
-  overlay.classList.add('show');
-  overlay.setAttribute('aria-hidden', 'false');
-  updateOverlayActive = true;
-  updateChannelDeadlineAt = Date.now() + 180000;
-  if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
-  updateRefreshTimer = null;
-}
-
-function showUpdateSuccessOverlay(branch) {
-  const overlay = document.getElementById('update-progress-overlay');
-  const title = document.getElementById('update-overlay-title');
-  const sub = document.getElementById('update-overlay-sub');
-  const refreshMsg = document.getElementById('update-overlay-refresh-msg');
-
-  overlay.classList.add('show');
-  overlay.classList.add('success');
-  overlay.setAttribute('aria-hidden', 'false');
-  title.innerHTML = '<i>update</i> <b>succeeded</b>';
-  sub.textContent = `Branch ${branch} is now live`;
-  refreshMsg.textContent = 'refreshing in 10 seconds';
-
-  try {
-    sessionStorage.setItem(UPDATE_SUCCESS_STORAGE_KEY, JSON.stringify({
-      branch,
-      at: new Date().toISOString(),
-    }));
-  } catch {}
-
-  if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
-  updateRefreshTimer = setTimeout(() => {
-    window.location.reload();
-  }, 10000);
-  updateOverlayActive = false;
-  activeUpdateJobId = null;
-  activeUpdateStatusToken = null;
-}
-
-function hideUpdateOverlay(reasonText) {
-  const overlay = document.getElementById('update-progress-overlay');
-  overlay.classList.remove('show');
-  overlay.classList.remove('success');
-  overlay.setAttribute('aria-hidden', 'true');
-  if (updateRefreshTimer) clearTimeout(updateRefreshTimer);
-  updateRefreshTimer = null;
-  updateOverlayActive = false;
-  activeUpdateJobId = null;
-  activeUpdateStatusToken = null;
-  updateChannelDeadlineAt = 0;
-  showToast(reasonText || 'update failed');
 }
 
 function openUpdateModal() {
@@ -1106,24 +657,6 @@ async function loadUpdates() {
   }
 }
 
-async function triggerUpdateCheck({ showToastOnSuccess = false, showToastOnFailure = false } = {}) {
-  const r = await fetch('/api/admin/updates/check', { method: 'POST' });
-  if (!r.ok) {
-    if (showToastOnFailure) showToast('update check failed');
-    return false;
-  }
-  await loadUpdates();
-  if (showToastOnSuccess) showToast('update check complete');
-  return true;
-}
-
-function ensureUpdatesAutoCheckSchedule() {
-  if (updatesAutoCheckTimer) return;
-  updatesAutoCheckTimer = setInterval(() => {
-    triggerUpdateCheck().catch(() => {});
-  }, 60 * 60 * 1000);
-}
-
 document.getElementById('upd-proxy-mode').addEventListener('change', e => {
   const wrap = document.getElementById('upd-proxy-ip-wrap');
   wrap.style.display = e.target.value === 'set' ? '' : 'none';
@@ -1172,10 +705,7 @@ document.getElementById('upd-submit').addEventListener('click', async e => {
       return;
     }
 
-    activeUpdateJobId = d.id || null;
-    activeUpdateStatusToken = d.statusToken || null;
     closeUpdateModal();
-    showUpdateProgressOverlay();
     showToast('update started');
     setUpdateJobStatus(`Update running on branch ${branch}...`, 'running');
     ensureUpdateStatusPolling();
@@ -1195,7 +725,13 @@ document.getElementById('check-updates').addEventListener('click', async e => {
   btn.disabled = true;
   btn.textContent = 'checking...';
   try {
-    await triggerUpdateCheck({ showToastOnSuccess: true, showToastOnFailure: true });
+    const r = await fetch('/api/admin/updates/check', { method: 'POST' });
+    if (!r.ok) {
+      showToast('update check failed');
+      return;
+    }
+    await loadUpdates();
+    showToast('update check complete');
   } catch {
     showToast('update check failed');
   } finally {
@@ -1212,9 +748,7 @@ document.getElementById('dismiss-updates').addEventListener('click', async () =>
 
 (async function init() {
   await loadMe();
-  await Promise.all([loadUsers(), loadInstalledVersion()]);
-  await triggerUpdateCheck();
-  ensureUpdatesAutoCheckSchedule();
+  await Promise.all([loadUsers(), loadGlobalOptions(), loadUpdates(), loadInstalledVersion()]);
   ensureUpdateStatusPolling();
   await refreshUpdateJobStatus();
 })();

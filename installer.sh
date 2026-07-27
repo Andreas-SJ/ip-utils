@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-if [ ! -t 0 ] && [ -p /dev/stdin ] && [ -z "$IP_UTILS_SKIP_STDIN_BOOTSTRAP" ]; then
+if [ ! -t 0 ] && [ -z "$IP_UTILS_SKIP_STDIN_BOOTSTRAP" ]; then
     TMPSCRIPT=$(mktemp /tmp/ip-utils-install-XXXXX.sh)
   cat > "$TMPSCRIPT" || { echo "Error: failed to read installer script from stdin."; rm -f "$TMPSCRIPT"; exit 1; }
     bash "$TMPSCRIPT" "$@" < /dev/tty
@@ -13,20 +13,12 @@ fi
 REPO_URL="https://github.com/Andreas-SJ/ip-utils.git"
 REPO_BRANCH="main"
 AUTO_UPDATE_NOW=false
-AUTO_REFRESH_DAEMON_ONLY=false
 AUTO_PROXY_MODE="keep"
 AUTO_PROXY_IP=""
 INSTALL_DIR="/opt/ip-utils"
 DATA_DIR="/opt/ip-utils-data"
 IMAGE_NAME="ip-utils"
 CONTAINER_NAME="ip-utils"
-UPDATER_DAEMON_SCRIPT="${INSTALL_DIR}/updater-daemon.sh"
-UPDATER_SERVICE_NAME="ip-utils-updater.service"
-UPDATER_REQUEST_FILE="${DATA_DIR}/update-request.env"
-UPDATER_STATUS_FILE="${DATA_DIR}/update-status.env"
-UPDATER_OUTPUT_FILE="${DATA_DIR}/update-status.log"
-UPDATER_LAST_ID_FILE="${DATA_DIR}/update-last-id"
-UPDATER_HEARTBEAT_FILE="${DATA_DIR}/update-heartbeat"
 
 if [ "$EUID" -ne 0 ]; then SUDO="sudo"; else SUDO=""; fi
 
@@ -64,9 +56,6 @@ parse_args() {
       --update-now)
         AUTO_UPDATE_NOW=true
         ;;
-      --refresh-daemon-only)
-        AUTO_REFRESH_DAEMON_ONLY=true
-        ;;
       --proxy-mode)
         shift
         [ -n "$1" ] || die "--proxy-mode requires one of: keep, remove, set"
@@ -84,13 +73,12 @@ parse_args() {
         AUTO_PROXY_IP="${1#*=}"
         ;;
       -h|--help)
-        echo "Usage: installer.sh [--testing] [--main] [--branch <name>] [--update-now] [--refresh-daemon-only] [--proxy-mode <keep|remove|set>] [--proxy-ip <IPv4>]"
+        echo "Usage: installer.sh [--testing] [--main] [--branch <name>] [--update-now] [--proxy-mode <keep|remove|set>] [--proxy-ip <IPv4>]"
         echo ""
         echo "  --testing        Use the testing branch"
         echo "  --main           Use the main branch (default)"
         echo "  --branch <name>  Use a specific branch"
         echo "  --update-now     Non-interactive update of an existing install"
-        echo "  --refresh-daemon-only  Refresh updater daemon/service files and restart daemon"
         echo "  --proxy-mode     Proxy setting for --update-now (keep/remove/set)"
         echo "  --proxy-ip       Proxy IP for --proxy-mode set"
         exit 0
@@ -131,165 +119,6 @@ sync_repo_source() {
   fi
 }
 
-install_update_daemon() {
-  if [ "$AUTO_UPDATE_NOW" = "true" ]; then
-    say "Update daemon: skipping daemon setup during --update-now run."
-    return 0
-  fi
-
-  if [ -n "$IP_UTILS_SKIP_DAEMON_SETUP" ]; then
-    say "Update daemon: skipping daemon setup in daemon-managed update context."
-    return 0
-  fi
-
-  if ! command -v systemctl >/dev/null 2>&1; then
-    say "Update daemon: systemd not found; skipping daemon setup on this OS."
-    return 0
-  fi
-
-  $SUDO mkdir -p "$DATA_DIR"
-
-  $SUDO tee "$UPDATER_DAEMON_SCRIPT" > /dev/null <<EOF
-#!/bin/bash
-set -u
-
-DATA_DIR="$DATA_DIR"
-INSTALLER="$INSTALL_DIR/installer.sh"
-REQUEST_FILE="$UPDATER_REQUEST_FILE"
-STATUS_FILE="$UPDATER_STATUS_FILE"
-OUTPUT_FILE="$UPDATER_OUTPUT_FILE"
-LAST_ID_FILE="$UPDATER_LAST_ID_FILE"
-HEARTBEAT_FILE="$UPDATER_HEARTBEAT_FILE"
-
-read_kv() {
-  local key="\$1" file="\$2"
-  [ -f "\$file" ] || { echo ""; return; }
-  awk -F= -v key="\$key" '\$1 == key { sub(/^[^=]*=/, ""); print; exit }' "\$file"
-}
-
-write_status() {
-  local id="\$1" status="\$2" started_at="\$3" ended_at="\$4" exit_code="\$5" branch="\$6" error="\$7" public_token="\$8"
-  {
-    echo "id=\$id"
-    echo "status=\$status"
-    echo "started_at=\$started_at"
-    echo "ended_at=\$ended_at"
-    echo "exit_code=\$exit_code"
-    echo "branch=\$branch"
-    echo "error=\$error"
-    echo "public_token=\$public_token"
-    echo "output_file=\$OUTPUT_FILE"
-  } > "\$STATUS_FILE"
-}
-
-schedule_daemon_refresh() {
-  local req_id="\$1"
-  if ! command -v systemd-run >/dev/null 2>&1; then
-    echo "[updater] WARNING: systemd-run not available; daemon refresh not scheduled." >> "\$OUTPUT_FILE"
-    return 1
-  fi
-
-  local refresh_unit="ip-utils-updater-refresh-\${req_id}"
-  if systemd-run --unit "\$refresh_unit" --property=Type=oneshot --property=After=network.target /bin/bash -lc "IP_UTILS_SKIP_STDIN_BOOTSTRAP=1 bash \"\$INSTALLER\" --refresh-daemon-only" >> "\$OUTPUT_FILE" 2>&1; then
-    echo "[updater] Scheduled daemon refresh via transient unit: \$refresh_unit" >> "\$OUTPUT_FILE"
-    return 0
-  fi
-
-  echo "[updater] WARNING: failed to schedule daemon refresh transient unit." >> "\$OUTPUT_FILE"
-  return 1
-}
-
-touch "\$OUTPUT_FILE"
-date +%s > "\$HEARTBEAT_FILE"
-
-while true; do
-  date +%s > "\$HEARTBEAT_FILE"
-
-  if [ -f "\$REQUEST_FILE" ]; then
-    req_id="\$(read_kv id "\$REQUEST_FILE")"
-    branch="\$(read_kv branch "\$REQUEST_FILE")"
-    proxy_mode="\$(read_kv proxy_mode "\$REQUEST_FILE")"
-    proxy_ip="\$(read_kv proxy_ip "\$REQUEST_FILE")"
-    public_token="\$(read_kv public_token "\$REQUEST_FILE")"
-
-    [ -n "\$branch" ] || branch="main"
-    [ -n "\$proxy_mode" ] || proxy_mode="keep"
-
-    last_id=""
-    [ -f "\$LAST_ID_FILE" ] && last_id="\$(cat "\$LAST_ID_FILE" 2>/dev/null || true)"
-
-    if [ -n "\$req_id" ] && [ "\$req_id" != "\$last_id" ]; then
-      started_at="\$(date -Iseconds)"
-      write_status "\$req_id" "running" "\$started_at" "" "" "\$branch" "" "\$public_token"
-
-      : > "\$OUTPUT_FILE"
-      cmd=(env IP_UTILS_SKIP_STDIN_BOOTSTRAP=1 IP_UTILS_SKIP_DAEMON_SETUP=1 bash "\$INSTALLER" --branch "\$branch" --update-now --proxy-mode "\$proxy_mode")
-      if [ "\$proxy_mode" = "set" ] && [ -n "\$proxy_ip" ]; then
-        cmd+=(--proxy-ip "\$proxy_ip")
-      fi
-
-      if "\${cmd[@]}" > "\$OUTPUT_FILE" 2>&1; then
-        exit_code=0
-        status="succeeded"
-        error=""
-      else
-        exit_code=\$?
-        status="failed"
-        error="installer exited with code \$exit_code"
-      fi
-
-      ended_at="\$(date -Iseconds)"
-      write_status "\$req_id" "\$status" "\$started_at" "\$ended_at" "\$exit_code" "\$branch" "\$error" "\$public_token"
-      echo "\$req_id" > "\$LAST_ID_FILE"
-
-      if [ "\$status" = "succeeded" ]; then
-        schedule_daemon_refresh "\$req_id" || true
-      fi
-    fi
-  fi
-
-  sleep 2
-done
-EOF
-
-  $SUDO chmod +x "$UPDATER_DAEMON_SCRIPT"
-
-  $SUDO tee "/etc/systemd/system/$UPDATER_SERVICE_NAME" > /dev/null <<EOF
-[Unit]
-Description=ip-utils host updater daemon
-After=network.target docker.service
-Wants=docker.service
-
-[Service]
-Type=simple
-ExecStart=$UPDATER_DAEMON_SCRIPT
-Restart=always
-RestartSec=2
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  if ! $SUDO systemctl daemon-reload; then
-    die "Failed to reload systemd for updater daemon ($UPDATER_SERVICE_NAME)."
-  fi
-  if ! $SUDO systemctl enable "$UPDATER_SERVICE_NAME" >/dev/null 2>&1; then
-    die "Failed to enable updater daemon service ($UPDATER_SERVICE_NAME)."
-  fi
-  if ! $SUDO systemctl restart "$UPDATER_SERVICE_NAME"; then
-    die "Failed to start updater daemon service ($UPDATER_SERVICE_NAME)."
-  fi
-
-  if ! $SUDO systemctl is-active --quiet "$UPDATER_SERVICE_NAME"; then
-    die "Updater daemon service is not active after restart ($UPDATER_SERVICE_NAME). Check: journalctl -u $UPDATER_SERVICE_NAME -n 100 --no-pager"
-  fi
-
-  say "Update daemon installed and running ($UPDATER_SERVICE_NAME)."
-  say "Note: a 'systemd-ssh-generator ... AF_VSOCK CID' warning from systemd can appear on some hosts and is non-fatal."
-  return 0
-}
-
 parse_args "$@"
 
 hr
@@ -298,13 +127,6 @@ say "Repository: $REPO_URL"
 say "Branch: $REPO_BRANCH"
 hr
 echo ""
-
-if [ "$AUTO_REFRESH_DAEMON_ONLY" = "true" ]; then
-  say "Refreshing updater daemon only ..."
-  install_update_daemon
-  say "Updater daemon refresh complete."
-  exit 0
-fi
 
 check_docker() {
   if ! docker version &>/dev/null; then
@@ -390,7 +212,6 @@ do_start_container() {
   fi
   args+=("$IMAGE_NAME")
   $SUDO docker "${args[@]}" > /dev/null
-  install_update_daemon
 }
 
 upgrade_mode_to_both() {
@@ -591,20 +412,8 @@ do_reset_password() {
 
 print_summary() {
   local mode="$1" admin_user="$2"
-  local updater_status="unknown"
   LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
   if [ -z "$LOCAL_IP" ]; then LOCAL_IP="<server-ip>"; fi
-
-  if command -v systemctl >/dev/null 2>&1; then
-    if $SUDO systemctl is-active --quiet "$UPDATER_SERVICE_NAME"; then
-      updater_status="active"
-    else
-      updater_status="inactive"
-    fi
-  else
-    updater_status="unsupported (no systemd)"
-  fi
-
   hr
   echo ""
   say "  Running at:  http://${LOCAL_IP}"
@@ -618,12 +427,8 @@ print_summary() {
   echo ""
   say "Container name:  $CONTAINER_NAME"
   say "Data directory:  $DATA_DIR"
-  say "Updater daemon: $UPDATER_SERVICE_NAME ($updater_status)"
   say "To stop:         docker stop $CONTAINER_NAME"
   say "To view logs:    docker logs $CONTAINER_NAME"
-  if [ "$updater_status" = "inactive" ]; then
-    say "Daemon logs:     journalctl -u $UPDATER_SERVICE_NAME -n 100 --no-pager"
-  fi
   echo ""
 }
 
@@ -633,11 +438,6 @@ if $SUDO docker container inspect "$CONTAINER_NAME" &>/dev/null; then
 fi
 
 if [ "$EXISTING_CONTAINER" = "true" ]; then
-  if [ "$AUTO_UPDATE_NOW" != "true" ]; then
-    say "Ensuring updater daemon is installed ..."
-    install_update_daemon
-  fi
-
   RAW_EXISTING_MODE=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^MODE=' | cut -d= -f2- || true)
   EXISTING_MODE=$(normalize_mode "$RAW_EXISTING_MODE")
   EXISTING_TRUST_PROXY=$($SUDO docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" 2>/dev/null | grep '^TRUST_PROXY=' | cut -d= -f2- || true)

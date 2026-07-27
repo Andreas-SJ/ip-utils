@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const https = require('https');
 
 const app = express();
@@ -537,11 +537,26 @@ app.post('/api/arp/scan', requireAuth, async (req, res) => {
 
 const UPDATES_FILE = path.join(DATA_DIR, 'update_notifications.json');
 const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/Andreas-SJ/ip-utils/refs/heads/main/version.json';
-const UPDATE_REQUEST_FILE = path.join(DATA_DIR, 'update-request.env');
-const UPDATE_STATUS_FILE = path.join(DATA_DIR, 'update-status.env');
-const UPDATE_STATUS_LOG = path.join(DATA_DIR, 'update-status.log');
-const UPDATE_HEARTBEAT_FILE = path.join(DATA_DIR, 'update-heartbeat');
-const UPDATE_HEARTBEAT_MAX_AGE_MS = 15000;
+const INSTALLER_PATH = path.join(__dirname, 'installer.sh');
+
+let updateJob = {
+  id: null,
+  status: 'idle',
+  startedAt: null,
+  endedAt: null,
+  exitCode: null,
+  branch: null,
+  output: '',
+  error: null,
+};
+
+function appendJobOutput(chunk) {
+  const text = String(chunk || '');
+  updateJob.output += text;
+  if (updateJob.output.length > 50000) {
+    updateJob.output = updateJob.output.slice(-50000);
+  }
+}
 
 function normalizeBranchName(branch) {
   const b = String(branch || '').trim() || 'main';
@@ -562,136 +577,50 @@ function sanitizeJob(job) {
     branch: job.branch,
     error: job.error,
     output: job.output,
-    daemonAlive: !!job.daemonAlive,
-    daemonLastSeenAt: job.daemonLastSeenAt,
-    daemonStaleSeconds: job.daemonStaleSeconds,
   };
 }
 
-function sanitizePublicJob(job) {
-  return {
-    id: job.id,
-    status: job.status,
-    startedAt: job.startedAt,
-    endedAt: job.endedAt,
-    exitCode: job.exitCode,
-    branch: job.branch,
-    error: job.error,
-    daemonAlive: !!job.daemonAlive,
-    daemonLastSeenAt: job.daemonLastSeenAt,
-    daemonStaleSeconds: job.daemonStaleSeconds,
-  };
-}
+function startUpdateJob(options) {
+  const { branch, proxyMode, proxyIp } = options;
+  const args = [INSTALLER_PATH, '--branch', branch, '--update-now', '--proxy-mode', proxyMode];
+  if (proxyMode === 'set') args.push('--proxy-ip', proxyIp);
 
-function readDaemonHeartbeat() {
-  try {
-    const stat = fs.statSync(UPDATE_HEARTBEAT_FILE);
-    const lastSeenAt = new Date(stat.mtimeMs).toISOString();
-    const staleMs = Math.max(0, Date.now() - stat.mtimeMs);
-    return {
-      daemonAlive: staleMs <= UPDATE_HEARTBEAT_MAX_AGE_MS,
-      daemonLastSeenAt: lastSeenAt,
-      daemonStaleSeconds: Math.floor(staleMs / 1000),
-    };
-  } catch {
-    return {
-      daemonAlive: false,
-      daemonLastSeenAt: null,
-      daemonStaleSeconds: null,
-    };
-  }
-}
-
-function parseEnvFile(filePath) {
-  try {
-    const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
-    const out = {};
-    for (const line of lines) {
-      if (!line || !line.includes('=')) continue;
-      const i = line.indexOf('=');
-      const key = line.slice(0, i).trim();
-      const value = line.slice(i + 1).trim();
-      if (!key) continue;
-      out[key] = value;
-    }
-    return out;
-  } catch {
-    return null;
-  }
-}
-
-function writeEnvFile(filePath, values) {
-  const lines = Object.entries(values).map(([k, v]) => `${k}=${String(v ?? '').replace(/[\r\n]/g, ' ')}`);
-  fs.writeFileSync(filePath, lines.join('\n') + '\n');
-}
-
-function readLogTail(filePath, maxBytes = 50000) {
-  try {
-    const text = fs.readFileSync(filePath, 'utf8');
-    return text.length > maxBytes ? text.slice(-maxBytes) : text;
-  } catch {
-    return '';
-  }
-}
-
-function readUpdateJobStatusRaw() {
-  const heartbeat = readDaemonHeartbeat();
-  const raw = parseEnvFile(UPDATE_STATUS_FILE);
-  if (!raw) {
-    return {
-      id: null,
-      status: 'idle',
-      startedAt: null,
-      endedAt: null,
-      exitCode: null,
-      branch: null,
-      error: null,
-      output: '',
-      publicToken: null,
-      ...heartbeat,
-    };
-  }
-
-  return {
-    id: raw.id || null,
-    status: raw.status || 'idle',
-    startedAt: raw.started_at || null,
-    endedAt: raw.ended_at || null,
-    exitCode: raw.exit_code ? Number(raw.exit_code) : null,
-    branch: raw.branch || null,
-    error: raw.error || null,
-    output: readLogTail(raw.output_file || UPDATE_STATUS_LOG),
-    publicToken: raw.public_token || null,
-    ...heartbeat,
-  };
-}
-
-function readUpdateJobStatus() {
-  return sanitizeJob(readUpdateJobStatusRaw());
-}
-
-function queueUpdateJobRequest(options) {
-  const { id, branch, proxyMode, proxyIp, statusToken } = options;
-  writeEnvFile(UPDATE_REQUEST_FILE, {
+  const id = crypto.randomBytes(8).toString('hex');
+  updateJob = {
     id,
+    status: 'running',
+    startedAt: new Date().toISOString(),
+    endedAt: null,
+    exitCode: null,
     branch,
-    proxy_mode: proxyMode,
-    proxy_ip: proxyMode === 'set' ? proxyIp : '',
-    public_token: statusToken,
-    requested_at: new Date().toISOString(),
+    output: `Starting update job ${id} on branch '${branch}'...\n`,
+    error: null,
+  };
+
+  const child = spawn('bash', args, {
+    cwd: __dirname,
+    env: { ...process.env, IP_UTILS_SKIP_STDIN_BOOTSTRAP: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  writeEnvFile(UPDATE_STATUS_FILE, {
-    id,
-    status: 'queued',
-    started_at: '',
-    ended_at: '',
-    exit_code: '',
-    branch,
-    error: '',
-    public_token: statusToken,
-    output_file: UPDATE_STATUS_LOG,
+  child.stdout.on('data', appendJobOutput);
+  child.stderr.on('data', appendJobOutput);
+  child.on('error', err => {
+    updateJob.status = 'failed';
+    updateJob.endedAt = new Date().toISOString();
+    updateJob.exitCode = -1;
+    updateJob.error = err.message || 'Failed to start update process.';
+    appendJobOutput(`\n[error] ${updateJob.error}\n`);
   });
+  child.on('close', code => {
+    updateJob.endedAt = new Date().toISOString();
+    updateJob.exitCode = code;
+    updateJob.status = code === 0 ? 'succeeded' : 'failed';
+    if (code !== 0 && !updateJob.error) updateJob.error = `Installer exited with code ${code}`;
+    appendJobOutput(`\n[done] update job completed with exit code ${code}\n`);
+  });
+
+  return id;
 }
 
 function loadUpdates() {
@@ -846,27 +775,12 @@ app.get('/api/admin/version', requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/update/status', requireAdmin, (req, res) => {
-  res.json(readUpdateJobStatus());
-});
-
-app.get('/api/update-status/:id/:token', (req, res) => {
-  const job = readUpdateJobStatusRaw();
-  if (!job.id || job.id !== req.params.id || !job.publicToken || job.publicToken !== req.params.token) {
-    return res.status(404).json({ error: 'Update status not found.' });
-  }
-  res.json(sanitizePublicJob(job));
+  res.json(sanitizeJob(updateJob));
 });
 
 app.post('/api/admin/update/start', requireAdmin, async (req, res) => {
-  const currentJob = readUpdateJobStatus();
-  if (currentJob.status === 'running' || currentJob.status === 'queued') {
-    return res.status(409).json({ error: 'An update is already running.', job: currentJob });
-  }
-  if (!currentJob.daemonAlive) {
-    return res.status(503).json({
-      error: 'Updater daemon is offline. Run installer once to install/repair ip-utils-updater.service and retry.',
-      job: currentJob,
-    });
+  if (updateJob.status === 'running') {
+    return res.status(409).json({ error: 'An update is already running.', job: sanitizeJob(updateJob) });
   }
 
   const branch = normalizeBranchName(req.body?.branch);
@@ -895,10 +809,8 @@ app.post('/api/admin/update/start', requireAdmin, async (req, res) => {
   const ok = await bcrypt.compare(adminPassword, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Invalid admin password.' });
 
-  const id = crypto.randomBytes(8).toString('hex');
-  const statusToken = crypto.randomBytes(16).toString('hex');
-  queueUpdateJobRequest({ id, branch, proxyMode, proxyIp, statusToken });
-  return res.json({ ok: true, id, statusToken, job: readUpdateJobStatus() });
+  const id = startUpdateJob({ branch, proxyMode, proxyIp });
+  return res.json({ ok: true, id, job: sanitizeJob(updateJob) });
 });
 
 app.post('/api/admin/updates/check', requireAdmin, async (req, res) => {

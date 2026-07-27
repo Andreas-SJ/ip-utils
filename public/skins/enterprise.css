@@ -17,6 +17,9 @@ body.skin-enterprise.mode-dark {
   --accent-dim: #bc6930;
   --danger: #de6252;
   --ok: #7ebf67;
+  --net: #7fb8d9;
+  --icon-filter: invert(92%) sepia(7%) saturate(184%) hue-rotate(189deg) brightness(98%) contrast(90%) drop-shadow(0 0 1px rgba(0,0,0,0.85));
+  --icon-filter-hover: invert(71%) sepia(69%) saturate(1918%) hue-rotate(344deg) brightness(99%) contrast(92%) drop-shadow(0 0 1px rgba(0,0,0,0.9));
 }
 
 body.skin-enterprise.mode-light {
@@ -32,6 +35,9 @@ body.skin-enterprise.mode-light {
   --accent-dim: #2e7fba;
   --danger: #bf4d45;
   --ok: #4c8e4f;
+  --net: #2f78af;
+  --icon-filter: invert(17%) sepia(8%) saturate(0%) hue-rotate(185deg) brightness(96%) contrast(91%);
+  --icon-filter-hover: invert(44%) sepia(53%) saturate(911%) hue-rotate(168deg) brightness(92%) contrast(88%);
 }
 
 body.skin-enterprise.mode-light,

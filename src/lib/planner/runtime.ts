@@ -411,25 +411,40 @@ function setComment(sn, ip, val) {
 }
 
 function canUsePasswordManager() {
-  return !!userCapabilities.passwordManagerEnabled && !otherUserView;
+  return !!userCapabilities.passwordManagerEnabled;
+}
+
+function isPasswordManagerReadOnly() {
+  return !!(otherUserView && otherUserView.readOnly);
+}
+
+function activePasswordManagerStore() {
+  if (otherUserView) {
+    if (!otherUserView.passwordManager || typeof otherUserView.passwordManager !== 'object') {
+      otherUserView.passwordManager = {};
+    }
+    return otherUserView.passwordManager;
+  }
+  return state.passwordManager;
 }
 
 function getPasswordEntries(ip) {
-  const list = state.passwordManager[ip];
+  const list = activePasswordManagerStore()[ip];
   return Array.isArray(list) ? list : [];
 }
 
 function upsertPasswordEntry(ip, entry) {
   const cur = getPasswordEntries(ip);
   const next = [...cur, entry];
-  state.passwordManager[ip] = next;
+  activePasswordManagerStore()[ip] = next;
 }
 
 function removePasswordEntry(ip, id) {
   const cur = getPasswordEntries(ip);
   const next = cur.filter(e => e.id !== id);
-  if (next.length) state.passwordManager[ip] = next;
-  else delete state.passwordManager[ip];
+  const store = activePasswordManagerStore();
+  if (next.length) store[ip] = next;
+  else delete store[ip];
 }
 
 function removePasswordEntriesForSubnet(sn) {
@@ -441,6 +456,8 @@ function removePasswordEntriesForSubnet(sn) {
 function openPasswordMenu(ip, x, y) {
   if (!canUsePasswordManager()) return;
   closeAddrDropdown();
+
+  const readOnly = isPasswordManagerReadOnly();
 
   const dropdown = document.createElement('div');
   dropdown.className = 'addr-dropdown pw-dropdown';
@@ -464,14 +481,14 @@ function openPasswordMenu(ip, x, y) {
           </div>
           <div class="pw-secret" data-pw-secret="${esc(e.id)}">${maskPassword(e.password)}</div>
         </div>
-        <button class="pw-del" data-pw-del="${esc(e.id)}">delete</button>
+        ${readOnly ? '' : `<button class="pw-del" data-pw-del="${esc(e.id)}">delete</button>`}
       </div>`).join('')
     : '<div class="pw-none">No documented logins for this host yet.</div>';
 
   dropdown.innerHTML = `
     <div class="pw-head">Password manager · ${esc(ip)}</div>
     <div class="pw-list">${entriesHtml}</div>
-    <div class="pw-form">
+    ${readOnly ? '<div class="pw-none" style="padding-top:10px">Viewing stored logins in read-only mode.</div>' : `<div class="pw-form">
       <div class="pw-form-grid">
         <div>
           <span class="lbl">Username</span>
@@ -490,7 +507,7 @@ function openPasswordMenu(ip, x, y) {
       <div class="pw-form-actions">
         <button class="primary" id="pw-save-btn">save login</button>
       </div>
-    </div>`;
+    </div>`}`;
 
   dropdown.addEventListener('click', e => {
     const eyeBtn = e.target.closest('[data-pw-eye]');
@@ -522,6 +539,7 @@ function openPasswordMenu(ip, x, y) {
     const delId = e.target.dataset.pwDel;
     if (!delId) return;
     e.preventDefault();
+    if (readOnly) return;
     removePasswordEntry(ip, delId);
     scheduleSave();
     rebuildSearchIndex();
@@ -535,6 +553,7 @@ function openPasswordMenu(ip, x, y) {
   const errEl = dropdown.querySelector('#pw-form-err');
 
   function submitPwEntry() {
+    if (readOnly) return;
     const username = userEl.value.trim();
     const password = passEl.value;
     const description = descEl.value.trim();
@@ -558,12 +577,12 @@ function openPasswordMenu(ip, x, y) {
     openPasswordMenu(ip, x, y);
   }
 
-  saveBtn.addEventListener('click', e => {
+  if (saveBtn) saveBtn.addEventListener('click', e => {
     e.preventDefault();
     submitPwEntry();
   });
   dropdown.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && (e.target.id === 'pw-user' || e.target.id === 'pw-pass' || e.target.id === 'pw-desc')) {
+    if (!readOnly && e.key === 'Enter' && (e.target.id === 'pw-user' || e.target.id === 'pw-pass' || e.target.id === 'pw-desc')) {
       e.preventDefault();
       submitPwEntry();
     }
@@ -575,7 +594,7 @@ function openPasswordMenu(ip, x, y) {
     const rect = dropdown.getBoundingClientRect();
     if (rect.right > window.innerWidth - 8) dropdown.style.left = Math.max(8, x - rect.width) + 'px';
     if (rect.bottom > window.innerHeight - 8) dropdown.style.top = Math.max(8, y - rect.height - 8) + 'px';
-    dropdown.querySelector('#pw-user')?.focus();
+    if (!readOnly) dropdown.querySelector('#pw-user')?.focus();
   });
 }
 

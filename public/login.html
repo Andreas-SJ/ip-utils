@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 <script>
 (() => {
+  const page = 'login';
   try {
     const skin = localStorage.getItem('iputils-global-skin') === 'enterprise' ? 'enterprise' : 'futuristic';
     const modeKey = 'iputils-theme-mode-' + skin;
@@ -16,225 +17,27 @@
     const raw = localStorage.getItem(modeKey) || fallback;
     const mode = raw === 'light' ? 'light' : 'dark';
     document.documentElement.classList.add('pre-skin-' + skin, 'pre-mode-' + mode);
-  } catch {}
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/skins/' + skin + '/' + page + '.css';
+    link.id = 'skin-stylesheet';
+    document.head.appendChild(link);
+  } catch {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/skins/futuristic/' + page + '.css';
+    link.id = 'skin-stylesheet';
+    document.head.appendChild(link);
+  }
 })();
 </script>
 <style>
-  :root {
-    --bg: #0d1014;
-    --bg-elev: #141921;
-    --bg-sunk: #090c10;
-    --line: #5c687c;
-    --line-strong: #7988a0;
-    --ink: #f3f6ff;
-    --ink-mute: #d0d9ea;
-    --ink-faint: #aeb9cf;
-    --accent: #e8a85c;
-    --accent-dim: #8a6535;
-    --danger: #d96856;
-    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    --serif: 'IBM Plex Serif', Georgia, serif;
-    --sans: 'IBM Plex Sans', system-ui, sans-serif;
-  }
-
-  * { box-sizing: border-box; }
-
   html.pre-skin-futuristic.pre-mode-dark { background: #0d1014; }
   html.pre-skin-futuristic.pre-mode-light { background: #f3f5f8; }
   html.pre-skin-enterprise.pre-mode-dark { background: #1a2029; }
   html.pre-skin-enterprise.pre-mode-light { background: #f5f5f5; }
-
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--sans);
-    font-size: 14px;
-    line-height: 1.55;
-    min-height: 100vh;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  body {
-    background-image:
-      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
-    background-size: 40px 40px;
-    background-position: -1px -1px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-
-  body.skin-loading {
-    opacity: 0;
-    background: transparent !important;
-    background-image: none !important;
-  }
+  body.skin-loading { opacity: 0; }
   body.skin-ready { opacity: 1; }
-
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; text-underline-offset: 3px; }
-
-  .card {
-    background: var(--bg-elev);
-    border: 1px solid var(--line-strong);
-    border-left: 3px solid var(--accent-dim);
-    border-radius: 3px;
-    padding: 32px 32px 28px;
-    width: 100%;
-    max-width: 400px;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
-    position: relative;
-  }
-
-  body.skin-enterprise.mode-light .card,
-  body.skin-enterprise.mode-dark .card {
-    border-radius: 0;
-    border-left-width: 1px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.28);
-    max-width: 440px;
-    padding: 26px 28px 24px;
-  }
-
-  .card-head { margin-bottom: 26px; }
-  .card-head { position: relative; }
-
-  .theme-toggle {
-    position: absolute;
-    right: 0;
-    top: 0;
-    width: 28px;
-    height: 24px;
-    border: 1px solid var(--line-strong);
-    border-radius: 2px;
-    background: transparent;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    cursor: pointer;
-  }
-  .theme-toggle:hover { border-color: var(--accent-dim); }
-  .theme-icon {
-    width: 14px;
-    height: 14px;
-    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%);
-    pointer-events: none;
-  }
-  body.mode-light .theme-icon {
-    filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
-  }
-
-  .brand-mark {
-    font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
-    color: var(--accent); text-transform: uppercase;
-    border: 1px solid var(--accent-dim); padding: 3px 7px; border-radius: 2px;
-    display: inline-block; margin-bottom: 12px;
-  }
-
-  h1 {
-    font-family: var(--serif); font-weight: 600; font-size: 22px;
-    margin: 0 0 6px; letter-spacing: -0.01em;
-  }
-
-  .subtitle { color: var(--ink-faint); font-size: 13px; font-family: var(--mono); }
-
-  .field { margin-bottom: 16px; }
-
-  .lbl {
-    display: block; font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
-    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
-  }
-
-  input[type="text"], input[type="password"] {
-    width: 100%; background: var(--bg-sunk); color: var(--ink);
-    border: 1px solid var(--line-strong); border-radius: 2px; padding: 9px 11px;
-    font-family: var(--mono); font-size: 13px;
-    transition: border-color .15s, background .15s;
-  }
-  input:focus { outline: none; border-color: var(--accent); background: #0b0e12; }
-  input::placeholder { color: var(--ink-faint); }
-
-  .error {
-    background: rgba(217,104,86,0.1); border: 1px solid var(--danger);
-    border-radius: 2px; padding: 8px 12px; margin-bottom: 16px;
-    color: var(--danger); font-family: var(--mono); font-size: 12px;
-    display: none;
-  }
-  .error.show { display: block; }
-
-  button[type="submit"] {
-    width: 100%; cursor: pointer; font-family: var(--mono); font-size: 12px;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    background: var(--accent); color: var(--bg);
-    border: 1px solid var(--accent); padding: 10px 14px; border-radius: 2px;
-    transition: all .15s ease; margin-top: 4px;
-  }
-  button[type="submit"]:hover { background: #d49848; border-color: #d49848; }
-  button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .card-foot {
-    margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line);
-    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
-    text-align: center;
-  }
-
-  body.skin-enterprise.mode-light .brand-mark,
-  body.skin-enterprise.mode-dark .brand-mark {
-    border-radius: 0;
-    color: var(--accent);
-    border-color: var(--accent-dim);
-    font-weight: 600;
-    letter-spacing: 0.08em;
-  }
-  body.skin-enterprise.mode-light h1,
-  body.skin-enterprise.mode-dark h1 {
-    font-family: var(--sans);
-    font-weight: 400;
-    font-size: 20px;
-    color: var(--ink);
-  }
-  body.skin-enterprise.mode-light .subtitle,
-  body.skin-enterprise.mode-dark .subtitle {
-    color: var(--ink-faint);
-    font-family: var(--sans);
-    font-size: 12px;
-  }
-  body.skin-enterprise.mode-light input[type="text"],
-  body.skin-enterprise.mode-light input[type="password"],
-  body.skin-enterprise.mode-dark input[type="text"],
-  body.skin-enterprise.mode-dark input[type="password"] {
-    border-radius: 0;
-    border-color: var(--line-strong);
-    font-family: var(--sans);
-    background: var(--bg-sunk);
-    color: var(--ink);
-  }
-  body.skin-enterprise.mode-light button[type="submit"],
-  body.skin-enterprise.mode-dark button[type="submit"] {
-    border-radius: 0;
-    text-transform: none;
-    letter-spacing: 0;
-    font-family: var(--sans);
-    font-size: 12px;
-    color: var(--ink);
-    background: var(--bg-elev);
-    border-color: var(--line-strong);
-  }
-  body.skin-enterprise.mode-light button[type="submit"]:hover,
-  body.skin-enterprise.mode-dark button[type="submit"]:hover {
-    background: color-mix(in srgb, var(--accent) 18%, var(--bg-elev));
-    border-color: var(--accent);
-  }
-  body.skin-enterprise.mode-light .card-foot,
-  body.skin-enterprise.mode-dark .card-foot {
-    border-top-color: var(--line);
-    color: var(--ink-faint);
-  }
-
-  ::selection { background: var(--accent); color: var(--bg); }
 </style>
 </head>
 <body class="skin-loading">

@@ -20,6 +20,16 @@
     }
   }
 
+  function currentPageName() {
+    var p = (window.location && window.location.pathname) || '/';
+    if (p === '/' || p === '') return 'index';
+    if (p.indexOf('/admin') === 0) return 'admin';
+    if (p.indexOf('/ip-planner') === 0) return 'ip-planner';
+    if (p.indexOf('/login') === 0) return 'login';
+    if (p.indexOf('/netplan-gen') === 0) return 'netplan-gen';
+    return 'index';
+  }
+
   function ensureSkinStylesheet(skin) {
     var id = 'skin-stylesheet';
     var link = document.getElementById(id);
@@ -29,7 +39,7 @@
       link.rel = 'stylesheet';
       document.head.appendChild(link);
     }
-    var href = '/skins/' + skin + '.css';
+    var href = '/skins/' + skin + '/' + currentPageName() + '.css';
     if (link.getAttribute('href') !== href) {
       link.setAttribute('href', href);
     }

@@ -52,6 +52,7 @@
   let latestUpdateVersion: string | null = null;
   let updateJobStatusText = '';
   let updateJobStatusClass = '';
+  let checkingUpdates = false;
 
   let newUsername = '';
   let newPassword = '';
@@ -410,13 +411,24 @@
     }
   }
 
-  async function onCheckUpdates() {
+  async function onCheckUpdates(event: MouseEvent) {
+    event.preventDefault();
+    checkingUpdates = true;
     try {
-      await fetchJson('/api/admin/updates/check', { method: 'POST' });
+      const r = await fetch('/api/admin/updates/check', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (!r.ok) {
+        showToast('update check failed');
+        return;
+      }
       await loadUpdates();
       showToast('update check complete');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'update check failed');
+    } catch {
+      showToast('update check failed');
+    } finally {
+      checkingUpdates = false;
     }
   }
 
@@ -481,7 +493,7 @@
     <div class="update-banner-header">
       <div class="update-banner-head-left">
         <span>version updates</span>
-        <button class="ghost check-updates-btn" id="check-updates" title="Check for updates now" onclick={onCheckUpdates}>check now</button>
+        <button class="ghost check-updates-btn" id="check-updates" title="Check for updates now" onclick={onCheckUpdates} disabled={checkingUpdates}>{checkingUpdates ? 'checking...' : 'check now'}</button>
       </div>
       <button class="ghost" id="dismiss-updates" style="padding:3px 8px;font-size:10px;visibility: {updates.length ? 'visible' : 'hidden'}" onclick={onDismissUpdates}>dismiss all</button>
     </div>

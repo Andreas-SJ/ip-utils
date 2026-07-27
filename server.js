@@ -208,6 +208,7 @@ function isJsonRequest(req) {
 
 app.use(express.json({ limit: '4mb' }));
 app.use(express.urlencoded({ extended: false }));
+app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use(session({
   secret: sessionSecret,
   resave: false,

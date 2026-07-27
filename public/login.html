@@ -318,7 +318,14 @@ function applyTheme(skin, mode) {
   setThemeIcon();
 }
 
-applyTheme('futuristic', preferredModeForSkin('futuristic'));
+const cachedBootSkin = (() => {
+  try {
+    return sanitizeSkin(localStorage.getItem('iputils-global-skin') || 'futuristic');
+  } catch {
+    return 'futuristic';
+  }
+})();
+applyTheme(cachedBootSkin, preferredModeForSkin(cachedBootSkin));
 
 document.getElementById('btn-theme-toggle').addEventListener('click', () => {
   const nextMode = uiTheme.mode === 'dark' ? 'light' : 'dark';

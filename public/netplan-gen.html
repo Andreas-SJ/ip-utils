@@ -1118,7 +1118,14 @@ function applyTheme(skin, mode) {
   setThemeIcon();
 }
 
-applyTheme('futuristic', preferredModeForSkin('futuristic'));
+const cachedBootSkin = (() => {
+  try {
+    return sanitizeSkin(localStorage.getItem('iputils-global-skin') || 'futuristic');
+  } catch {
+    return 'futuristic';
+  }
+})();
+applyTheme(cachedBootSkin, preferredModeForSkin(cachedBootSkin));
 
 const state = {
   renderer: 'networkd',

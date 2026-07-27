@@ -925,7 +925,14 @@ function applyTheme(skin, mode) {
   setThemeIcon();
 }
 
-applyTheme('futuristic', preferredModeForSkin('futuristic'));
+const cachedBootSkin = (() => {
+  try {
+    return sanitizeSkin(localStorage.getItem('iputils-global-skin') || 'futuristic');
+  } catch {
+    return 'futuristic';
+  }
+})();
+applyTheme(cachedBootSkin, preferredModeForSkin(cachedBootSkin));
 
 function parseSemver(v) {
   const m = String(v || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/i);

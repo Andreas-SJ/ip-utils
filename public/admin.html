@@ -35,6 +35,7 @@
     font-family: var(--sans);
     font-size: 14px;
     line-height: 1.55;
+    min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -44,6 +45,8 @@
       linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
     background-size: 40px 40px;
     background-position: -1px -1px;
+    display: flex;
+    flex-direction: column;
   }
 
   body.skin-futuristic.mode-light {
@@ -224,7 +227,15 @@
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-  .shell { max-width: 900px; margin: 0 auto; padding: 0 28px; }
+  .shell {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 28px;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
 
   header {
     border-bottom: 1px solid var(--line);
@@ -274,7 +285,7 @@
     filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
   }
 
-  main { padding: 36px 0 80px; }
+  main { padding: 36px 0 80px; flex: 1; }
 
   .section { margin-bottom: 44px; }
   .section-head {

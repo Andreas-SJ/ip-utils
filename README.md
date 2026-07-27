@@ -5,7 +5,8 @@ This project is currently being migrated from static HTML pages served by Expres
 ## Current Architecture
 
 - Frontend pages: SvelteKit routes in src/routes
-- Backend API/auth/session: Express server in server.cjs
+- Production page server: SvelteKit Node build mounted by prod-server.mjs
+- Backend API/auth/session: Express app in server.cjs mounted under the same Node process
 - Shared visual system: skins and icons under public/skins and public/icons
 
 ## Local Development (Transition Mode)
@@ -25,6 +26,13 @@ npm run dev
 The Vite dev server proxies /api calls to http://127.0.0.1:80 by default.
 Override with IP_UTILS_API_ORIGIN if needed.
 
+## Production Runtime
+
+- `npm run build` builds the SvelteKit app with adapter-node
+- `npm start` runs `prod-server.mjs`
+- `prod-server.mjs` mounts the existing Express API app from `server.cjs`
+- SvelteKit serves all page routes and static assets for production requests
+
 ## Migrated Routes
 
 - / (Svelte + TypeScript)
@@ -33,9 +41,12 @@ Override with IP_UTILS_API_ORIGIN if needed.
 - /ip-planner (Svelte route shell + TS runtime module in src/lib/planner/runtime.ts)
 - /netplan-gen (Svelte route shell + TS runtime module in src/lib/netplan/runtime.ts)
 
-## Temporary Legacy Route Fallbacks
+## Route Handling
 
-No route-level fallbacks remain. Remaining migration work is incrementally removing ts-nocheck and replacing legacy DOM/runtime sections with fully typed Svelte/TS components.
+- Page routes are served by SvelteKit in production
+- API routes remain in Express under `/api`
+- Direct requests to unavailable tools redirect to `/tool-not-installed`
+- Remaining migration work is focused on moving `/api` endpoints from Express into typed SvelteKit server routes over time
 
 ## Build
 

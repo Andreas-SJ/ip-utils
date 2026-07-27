@@ -21,6 +21,7 @@ const VALID_SKINS = new Set(['futuristic', 'enterprise']);
 const MODE = VALID_MODES.has(process.env.MODE) ? process.env.MODE : 'both';
 const HAS_PLANNER = MODE === 'both' || MODE === 'planner';
 const HAS_NETPLAN = MODE === 'both' || MODE === 'netplan';
+const DISABLE_LEGACY_PAGE_ROUTES = process.env.IP_UTILS_DISABLE_LEGACY_PAGE_ROUTES === '1';
 
 function getInstalledVersion() {
   try {
@@ -211,6 +212,19 @@ function isJsonRequest(req) {
   return (req.xhr || (req.headers.accept && req.headers.accept.includes('application/json')));
 }
 
+function shouldRememberReturnTo(req) {
+  if (isJsonRequest(req)) return false;
+  if (typeof req.originalUrl !== 'string') return false;
+  return !req.originalUrl.startsWith('/api/');
+}
+
+function normalizeReturnTo(value, fallback) {
+  if (typeof value !== 'string' || !value.startsWith('/')) return fallback;
+  if (value.startsWith('/api/')) return fallback;
+  if (value.startsWith('//')) return fallback;
+  return value;
+}
+
 app.use(express.json({ limit: '4mb' }));
 app.use(express.urlencoded({ extended: false }));
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
@@ -224,7 +238,7 @@ app.use(session({
 
 function requireAuth(req, res, next) {
   if (!req.session.user) {
-    req.session.returnTo = req.originalUrl;
+    if (shouldRememberReturnTo(req)) req.session.returnTo = req.originalUrl;
     if (isJsonRequest(req)) return res.status(401).json({ error: 'Authentication required.' });
     return res.redirect('/login');
   }
@@ -245,41 +259,43 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-app.get('/', (req, res) => {
-  if (MODE === 'planner') return res.redirect('/ip-planner');
-  if (MODE === 'netplan') return res.redirect('/netplan-gen');
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-function sendToolNotInstalled(res, toolLabel) {
-  const encodedTool = encodeURIComponent(toolLabel || 'unknown');
-  return res.redirect(302, `/tool-not-installed?tool=${encodedTool}`);
-}
-
-app.get('/tool-not-installed', (req, res) => {
-  res.status(404).sendFile(path.join(__dirname, 'public', 'tool-not-installed.html'));
-});
-
-app.get('/login', (req, res) => {
-  if (req.session.user) return res.redirect('/');
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-app.get('/netplan-gen', (req, res) => {
-  if (!HAS_NETPLAN) return sendToolNotInstalled(res, 'netplan-gen');
-  res.sendFile(path.join(__dirname, 'public', 'netplan-gen.html'));
-});
-
-app.get('/ip-planner', (req, res, next) => {
-  if (!HAS_PLANNER) return sendToolNotInstalled(res, 'ip-planner');
-  return requireAuth(req, res, () => {
-    res.sendFile(path.join(__dirname, 'public', 'ip-planner.html'));
+if (!DISABLE_LEGACY_PAGE_ROUTES) {
+  app.get('/', (req, res) => {
+    if (MODE === 'planner') return res.redirect('/ip-planner');
+    if (MODE === 'netplan') return res.redirect('/netplan-gen');
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
-});
 
-app.get('/admin', requireAdmin, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
+  function sendToolNotInstalled(res, toolLabel) {
+    const encodedTool = encodeURIComponent(toolLabel || 'unknown');
+    return res.redirect(302, `/tool-not-installed?tool=${encodedTool}`);
+  }
+
+  app.get('/tool-not-installed', (req, res) => {
+    res.status(404).sendFile(path.join(__dirname, 'public', 'tool-not-installed.html'));
+  });
+
+  app.get('/login', (req, res) => {
+    if (req.session.user) return res.redirect('/');
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  });
+
+  app.get('/netplan-gen', (req, res) => {
+    if (!HAS_NETPLAN) return sendToolNotInstalled(res, 'netplan-gen');
+    res.sendFile(path.join(__dirname, 'public', 'netplan-gen.html'));
+  });
+
+  app.get('/ip-planner', (req, res, next) => {
+    if (!HAS_PLANNER) return sendToolNotInstalled(res, 'ip-planner');
+    return requireAuth(req, res, () => {
+      res.sendFile(path.join(__dirname, 'public', 'ip-planner.html'));
+    });
+  });
+
+  app.get('/admin', requireAdmin, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  });
+}
 
 app.get('/api/config', (req, res) => {
   const settings = loadSettings();
@@ -301,7 +317,8 @@ app.post('/api/login', async (req, res) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials.' });
   req.session.user = { username: user.username, isAdmin: !!user.isAdmin };
-  const returnTo = req.session.returnTo || (user.isAdmin ? '/admin' : '/');
+  const defaultReturnTo = user.isAdmin ? '/admin' : '/';
+  const returnTo = normalizeReturnTo(req.session.returnTo, defaultReturnTo);
   delete req.session.returnTo;
   res.json({
     username: user.username,
@@ -829,7 +846,7 @@ app.post('/api/admin/updates/dismiss', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-async function bootstrap() {
+async function bootstrap(serverApp = app) {
   const ADMIN_USER = process.env.ADMIN_USER;
   const ADMIN_PASS = process.env.ADMIN_PASS;
   if (ADMIN_USER && ADMIN_PASS) {
@@ -845,7 +862,7 @@ async function bootstrap() {
       console.log('Admin user created: ' + ADMIN_USER);
     }
   }
-  app.listen(PORT, () => {
+  serverApp.listen(PORT, () => {
     console.log('ip-utils listening on port ' + PORT + ' (mode: ' + MODE + ')');
   });
 
@@ -853,7 +870,11 @@ async function bootstrap() {
   setInterval(() => checkForUpdates().catch(() => {}), 10 * 60 * 1000);
 }
 
-bootstrap().catch(err => {
-  console.error('Fatal error during bootstrap:', err);
-  process.exit(1);
-});
+module.exports = { app, bootstrap };
+
+if (require.main === module) {
+  bootstrap().catch(err => {
+    console.error('Fatal error during bootstrap:', err);
+    process.exit(1);
+  });
+}

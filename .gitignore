@@ -21,3 +21,8 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+data/password_manager_key.txt
+data/session_secret.txt
+data/settings.json
+data/update_notifications.json
+data/users.json

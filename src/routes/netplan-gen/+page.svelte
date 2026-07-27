@@ -1,7 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { getConfig } from '$lib/api';
 
   onMount(async () => {
+    const config = await getConfig();
+    if (!config.hasNetplan) {
+      window.location.href = '/tool-not-installed?tool=netplan-gen';
+      return;
+    }
     await import('$lib/netplan/runtime');
   });
 </script>

@@ -50,7 +50,7 @@
 					<img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" />
 				</button>
 				<span>&nbsp;&middot;&nbsp;</span>
-				<a href="#" onclick={onLogout}>logout</a>
+				<button type="button" class="nav-button" onclick={onLogout}>logout</button>
 			{:else}
 				<button id="btn-theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode" onclick={onToggleTheme}>
 					<img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" />
@@ -94,3 +94,14 @@
 		<div>ip-utils &mdash; self-hosted networking tools</div>
 	</footer>
 </div>
+
+<style>
+	.nav-button {
+		background: none;
+		border: 0;
+		padding: 0;
+		font: inherit;
+		color: inherit;
+		cursor: pointer;
+	}
+</style>

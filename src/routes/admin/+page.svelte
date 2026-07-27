@@ -403,6 +403,13 @@
     window.location.href = '/login';
   }
 
+  function onBackdropKey(event: KeyboardEvent, close: () => void) {
+    if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      close();
+    }
+  }
+
   async function onCheckUpdates() {
     try {
       await fetchJson('/api/admin/updates/check', { method: 'POST' });
@@ -466,7 +473,7 @@
         <img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" />
       </button>
       <span>&nbsp;&middot;&nbsp;</span>
-      <a href="#" onclick={onLogout}>logout</a>
+      <button type="button" class="nav-button" onclick={onLogout}>logout</button>
     </div>
   </header>
 
@@ -615,7 +622,15 @@
 
 <div id="toast" class={`toast ${toastVisible ? 'show' : ''}`}>{toastMessage}</div>
 
-<div id="modal-back" class={`modal-back ${confirmOpen ? 'show' : ''}`} onclick={(e) => e.currentTarget === e.target && cancelConfirm()}>
+<div
+  id="modal-back"
+  class={`modal-back ${confirmOpen ? 'show' : ''}`}
+  role="button"
+  tabindex="0"
+  aria-label="Close confirmation dialog"
+  onclick={(e) => e.currentTarget === e.target && cancelConfirm()}
+  onkeydown={(e) => onBackdropKey(e, cancelConfirm)}
+>
   <div class="modal">
     <h3 id="modal-title">{confirmTitle || 'Confirm'}</h3>
     <p id="modal-msg">{confirmMessage}</p>
@@ -626,7 +641,15 @@
   </div>
 </div>
 
-<div id="pw-modal-back" class={`modal-back ${pwModalOpen ? 'show' : ''}`} onclick={(e) => e.currentTarget === e.target && (pwModalOpen = false)}>
+<div
+  id="pw-modal-back"
+  class={`modal-back ${pwModalOpen ? 'show' : ''}`}
+  role="button"
+  tabindex="0"
+  aria-label="Close password dialog"
+  onclick={(e) => e.currentTarget === e.target && (pwModalOpen = false)}
+  onkeydown={(e) => onBackdropKey(e, () => (pwModalOpen = false))}
+>
   <div class="modal pw-modal">
     <h3 id="pw-modal-title">Change password</h3>
     <p class="pw-sub" id="pw-modal-sub">User: {pwModalUser}</p>
@@ -646,7 +669,15 @@
   </div>
 </div>
 
-<div id="upd-modal-back" class={`modal-back ${updModalOpen ? 'show' : ''}`} onclick={(e) => e.currentTarget === e.target && (updModalOpen = false)}>
+<div
+  id="upd-modal-back"
+  class={`modal-back ${updModalOpen ? 'show' : ''}`}
+  role="button"
+  tabindex="0"
+  aria-label="Close update dialog"
+  onclick={(e) => e.currentTarget === e.target && (updModalOpen = false)}
+  onkeydown={(e) => onBackdropKey(e, () => (updModalOpen = false))}
+>
   <div class="modal pw-modal">
     <h3 id="upd-modal-title">Run update</h3>
     <p class="pw-sub">Choose update options and confirm with your admin password.</p>
@@ -679,3 +710,14 @@
     </div>
   </div>
 </div>
+
+<style>
+  .nav-button {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+</style>

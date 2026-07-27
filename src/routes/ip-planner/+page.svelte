@@ -1,7 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { getConfig } from '$lib/api';
 
   onMount(async () => {
+    const config = await getConfig();
+    if (!config.hasPlanner) {
+      window.location.href = '/tool-not-installed?tool=ip-planner';
+      return;
+    }
     await import('$lib/planner/runtime');
   });
 </script>

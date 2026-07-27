@@ -105,6 +105,27 @@
     .form-grid { grid-template-columns: 1fr; }
   }
 
+  .additional-options {
+    margin-top: 14px;
+    border: 1px dashed var(--line-strong);
+    border-radius: 3px;
+    padding: 12px;
+  }
+  .additional-options-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+  .option-help {
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+
   label.check {
     display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
     font-family: var(--mono); font-size: 11px; color: var(--ink);
@@ -377,6 +398,17 @@
           <button class="primary" id="btn-create">+ create</button>
         </div>
       </div>
+
+      <div class="additional-options">
+        <div class="additional-options-title">Additional Options</div>
+        <label class="check">
+          <input type="checkbox" id="new-password-manager-enabled" />
+          <span class="box"></span>
+          <span class="lbl-text">Enable password manager</span>
+        </label>
+        <div class="option-help">Shows a key icon next to host actions in the IP planner.</div>
+      </div>
+
       <div class="form-err" id="create-err"></div>
     </div>
 
@@ -650,7 +682,9 @@ async function loadUsers() {
       <td>${u.isAdmin ? '<span class="badge badge-admin">admin</span>' : '<span style="color:var(--ink-faint);font-size:12px">user</span>'}</td>
       <td>${u.hasPlan
         ? '<span class="badge badge-plan">has plan</span>'
-        : '<span class="badge badge-no-plan">no plan</span>'}</td>
+        : '<span class="badge badge-no-plan">no plan</span>'}
+        ${u.passwordManagerEnabled ? '<span class="badge" style="margin-left:6px;color:var(--accent);border-color:var(--accent-dim)">pw manager</span>' : ''}
+      </td>
       <td>
         <div class="action-cell">
           <button class="ghost" data-action="change-pw" data-user="${esc(u.username)}">change pw</button>
@@ -708,6 +742,7 @@ document.getElementById('btn-create').addEventListener('click', async () => {
   const username = document.getElementById('new-username').value.trim();
   const password = document.getElementById('new-password').value;
   const isAdmin = document.getElementById('new-is-admin').checked;
+  const passwordManagerEnabled = document.getElementById('new-password-manager-enabled').checked;
   const errEl = document.getElementById('create-err');
   errEl.textContent = '';
 
@@ -719,7 +754,7 @@ document.getElementById('btn-create').addEventListener('click', async () => {
   const r = await fetch('/api/admin/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, isAdmin })
+    body: JSON.stringify({ username, password, isAdmin, passwordManagerEnabled })
   });
   const d = await r.json();
   if (!r.ok) {
@@ -730,6 +765,7 @@ document.getElementById('btn-create').addEventListener('click', async () => {
   document.getElementById('new-username').value = '';
   document.getElementById('new-password').value = '';
   document.getElementById('new-is-admin').checked = false;
+  document.getElementById('new-password-manager-enabled').checked = false;
   showToast('User created');
   loadUsers();
 });

@@ -463,6 +463,23 @@
   }
   .addr-menu-btn:hover { color: var(--ink); background: rgba(255,255,255,0.07); }
 
+  .addr-key-btn {
+    flex-shrink: 0; width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--accent); line-height: 1;
+    background: transparent; border: none; border-radius: 2px;
+    cursor: pointer; padding: 0; margin-left: 2px;
+    transition: color .15s, background .15s;
+  }
+  .addr-key-btn:hover { color: var(--ink); background: rgba(232,168,92,0.16); }
+
+  .addr-actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
   .addr-dropdown {
     position: fixed; z-index: 500;
     background: var(--bg-elev); border: 1px solid var(--line-strong);
@@ -482,6 +499,111 @@
   .addr-dropdown-item.item-danger:hover { background: rgba(217,104,86,0.1); color: var(--danger); }
   .addr-dropdown-sub { padding-left: 26px; font-size: 11px; color: var(--ink-mute); }
   .hv-sub-list { border-top: 1px solid var(--line-strong); max-height: 220px; overflow-y: auto; }
+
+  .pw-dropdown {
+    min-width: 320px;
+    max-width: min(460px, calc(100vw - 16px));
+    padding: 10px;
+  }
+  .pw-head {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+  .pw-list {
+    max-height: 190px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    margin-bottom: 8px;
+  }
+  .pw-item {
+    padding: 8px 9px;
+    border-bottom: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .pw-item:last-child { border-bottom: 0; }
+  .pw-main { min-width: 0; }
+  .pw-desc {
+    font-size: 12px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pw-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pw-none {
+    padding: 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .pw-del {
+    border-color: transparent;
+    color: var(--danger);
+    font-size: 10px;
+    padding: 3px 7px;
+  }
+  .pw-del:hover {
+    border-color: var(--danger);
+    background: var(--danger);
+    color: var(--bg);
+  }
+  .pw-form {
+    border: 1px dashed var(--line-strong);
+    border-radius: 2px;
+    padding: 8px;
+  }
+  .pw-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  .pw-form-grid .full { grid-column: 1 / -1; }
+  .pw-form .lbl {
+    margin-bottom: 4px;
+    font-size: 10px;
+  }
+  .pw-form input[type="text"],
+  .pw-form input[type="password"] {
+    width: 100%;
+    background: var(--bg-sunk);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    padding: 7px 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .pw-form input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .pw-form-actions {
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .pw-form-err {
+    margin-top: 6px;
+    min-height: 14px;
+    color: var(--danger);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
 
   .addr-row.iface-row { border-left: 2px solid rgba(168,214,125,0.35); background: rgba(255,255,255,0.008); }
   .addr-row.reg.iface-row { margin-left: 20px; }
@@ -576,7 +698,7 @@
     <div class="search-wrap">
       <span class="search-glyph">&#8981;</span>
       <input id="search" type="text" autocomplete="off" spellcheck="false"
-             placeholder="search any address or comment across all subnets&hellip;  (e.g. 10.0.1.5, gateway, printer, mail server)" />
+              placeholder="search any address, note, or login description across all subnets&hellip;  (e.g. 10.0.1.5, gateway, printer, vpn account)" />
       <span class="search-stat" id="search-stat"></span>
       <div id="results" class="results"></div>
     </div>
@@ -758,7 +880,16 @@ function parseCidr(input) {
 
 const MAX_ENUM = 65536;
 
-const state = { subnets: [], selectedId: null, hypervisors: {}, guests: {}, routers: {}, routerInterfaces: {} };
+const state = {
+  subnets: [],
+  selectedId: null,
+  hypervisors: {},
+  guests: {},
+  routers: {},
+  routerInterfaces: {},
+  passwordManager: {}
+};
+const userCapabilities = { passwordManagerEnabled: false };
 let nextId = 1;
 let renamingId = null;
 const arpState = {};
@@ -793,13 +924,25 @@ async function saveState() {
       await fetch('/api/admin/plans/' + encodeURIComponent(otherUserView.username), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subnets: otherUserView.subnets, selectedId: otherUserView.selectedId })
+        body: JSON.stringify({
+          subnets: otherUserView.subnets,
+          selectedId: otherUserView.selectedId,
+          passwordManager: otherUserView.passwordManager || {}
+        })
       });
     } else {
       await fetch(planApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subnets: state.subnets, selectedId: state.selectedId, hypervisors: state.hypervisors, guests: state.guests, routers: state.routers, routerInterfaces: state.routerInterfaces })
+        body: JSON.stringify({
+          subnets: state.subnets,
+          selectedId: state.selectedId,
+          hypervisors: state.hypervisors,
+          guests: state.guests,
+          routers: state.routers,
+          routerInterfaces: state.routerInterfaces,
+          passwordManager: state.passwordManager
+        })
       });
     }
   } catch (e) {}
@@ -815,6 +958,7 @@ async function loadState() {
       state.guests = d.guests || {};
       state.routers = d.routers || {};
       state.routerInterfaces = d.routerInterfaces || {};
+      state.passwordManager = d.passwordManager || {};
       state.selectedId = null;
       nextId = state.subnets.reduce((m, s) => Math.max(m, s.id), 0) + 1;
       return true;
@@ -961,6 +1105,7 @@ function renderSubnetList() {
             if (!go) return;
           }
           state.subnets = state.subnets.filter(x => x.id !== sn.id);
+          removePasswordEntriesForSubnet(sn);
           if (state.selectedId === sn.id) state.selectedId = state.subnets[0]?.id || null;
           renderSubnetList(); renderPlan(); rebuildSearchIndex(); scheduleSave();
         })();
@@ -1131,6 +1276,140 @@ async function triggerSingleArp(ip, sn) {
 function setComment(sn, ip, val) {
   if (val && val.trim()) sn.comments[ip] = val;
   else delete sn.comments[ip];
+}
+
+function canUsePasswordManager() {
+  return !!userCapabilities.passwordManagerEnabled && !otherUserView;
+}
+
+function getPasswordEntries(ip) {
+  const list = state.passwordManager[ip];
+  return Array.isArray(list) ? list : [];
+}
+
+function upsertPasswordEntry(ip, entry) {
+  const cur = getPasswordEntries(ip);
+  const next = [...cur, entry];
+  state.passwordManager[ip] = next;
+}
+
+function removePasswordEntry(ip, id) {
+  const cur = getPasswordEntries(ip);
+  const next = cur.filter(e => e.id !== id);
+  if (next.length) state.passwordManager[ip] = next;
+  else delete state.passwordManager[ip];
+}
+
+function removePasswordEntriesForSubnet(sn) {
+  for (const ip of Object.keys(state.passwordManager || {})) {
+    if (ipBelongsToSubnet(ip, sn)) delete state.passwordManager[ip];
+  }
+}
+
+function openPasswordMenu(ip, x, y) {
+  if (!canUsePasswordManager()) return;
+  closeAddrDropdown();
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'addr-dropdown pw-dropdown';
+  dropdown.style.left = x + 'px';
+  dropdown.style.top = y + 'px';
+
+  const entries = getPasswordEntries(ip);
+  const entriesHtml = entries.length
+    ? entries.map(e => `
+      <div class="pw-item" data-pw-id="${esc(e.id)}">
+        <div class="pw-main">
+          <div class="pw-desc" title="${esc(e.description || '')}">${esc(e.description || '')}</div>
+          <div class="pw-meta">${esc(e.username || '(no username)')}</div>
+        </div>
+        <button class="pw-del" data-pw-del="${esc(e.id)}">delete</button>
+      </div>`).join('')
+    : '<div class="pw-none">No documented logins for this host yet.</div>';
+
+  dropdown.innerHTML = `
+    <div class="pw-head">Password manager · ${esc(ip)}</div>
+    <div class="pw-list">${entriesHtml}</div>
+    <div class="pw-form">
+      <div class="pw-form-grid">
+        <div>
+          <span class="lbl">Username</span>
+          <input type="text" id="pw-user" placeholder="svc-vpn" autocomplete="off" />
+        </div>
+        <div>
+          <span class="lbl">Password</span>
+          <input type="password" id="pw-pass" placeholder="password" autocomplete="new-password" />
+        </div>
+        <div class="full">
+          <span class="lbl">Description <span style="color:var(--accent)">*</span></span>
+          <input type="text" id="pw-desc" placeholder="Required: what this login is used for" autocomplete="off" />
+        </div>
+      </div>
+      <div class="pw-form-err" id="pw-form-err"></div>
+      <div class="pw-form-actions">
+        <button class="primary" id="pw-save-btn">save login</button>
+      </div>
+    </div>`;
+
+  dropdown.addEventListener('click', e => {
+    const delId = e.target.dataset.pwDel;
+    if (!delId) return;
+    e.preventDefault();
+    removePasswordEntry(ip, delId);
+    scheduleSave();
+    rebuildSearchIndex();
+    openPasswordMenu(ip, x, y);
+  });
+
+  const saveBtn = dropdown.querySelector('#pw-save-btn');
+  const userEl = dropdown.querySelector('#pw-user');
+  const passEl = dropdown.querySelector('#pw-pass');
+  const descEl = dropdown.querySelector('#pw-desc');
+  const errEl = dropdown.querySelector('#pw-form-err');
+
+  function submitPwEntry() {
+    const username = userEl.value.trim();
+    const password = passEl.value;
+    const description = descEl.value.trim();
+    errEl.textContent = '';
+
+    if (!description) {
+      errEl.textContent = 'Description is required.';
+      descEl.focus();
+      return;
+    }
+
+    upsertPasswordEntry(ip, {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      username,
+      password,
+      description
+    });
+
+    scheduleSave();
+    rebuildSearchIndex();
+    openPasswordMenu(ip, x, y);
+  }
+
+  saveBtn.addEventListener('click', e => {
+    e.preventDefault();
+    submitPwEntry();
+  });
+  dropdown.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.target.id === 'pw-user' || e.target.id === 'pw-pass' || e.target.id === 'pw-desc')) {
+      e.preventDefault();
+      submitPwEntry();
+    }
+  });
+
+  document.body.appendChild(dropdown);
+  activeDropdown = dropdown;
+  requestAnimationFrame(() => {
+    const rect = dropdown.getBoundingClientRect();
+    if (rect.right > window.innerWidth - 8) dropdown.style.left = Math.max(8, x - rect.width) + 'px';
+    if (rect.bottom > window.innerHeight - 8) dropdown.style.top = Math.max(8, y - rect.height - 8) + 'px';
+    dropdown.querySelector('#pw-user')?.focus();
+  });
 }
 
 function enableHypervisor(ip) {
@@ -1434,6 +1713,15 @@ function renderEnumPlan(sn, readOnly) {
   });
 
   scroll.addEventListener('click', e => {
+    const keyBtn = e.target.closest('.addr-key-btn');
+    if (keyBtn) {
+      e.stopPropagation();
+      const kip = keyBtn.dataset.keyIp;
+      const rect = keyBtn.getBoundingClientRect();
+      openPasswordMenu(kip, rect.left, rect.bottom + 4);
+      return;
+    }
+
     const menuBtn = e.target.closest('.addr-menu-btn');
     if (menuBtn) {
       e.stopPropagation();
@@ -1467,12 +1755,19 @@ function renderEnumPlan(sn, readOnly) {
       const role = roleOf(sn, int);
       const note = sn.comments[ip] || '';
       const dim = (role === 'net' || role === 'bcast') ? ' dim' : '';
+      const isHost = role === 'host';
+      const actionButtons = isHost ? `
+          <div class="addr-actions">
+            ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager">&#128273;</button>` : ''}
+            <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>
+          </div>` : '';
       html += `
         <div class="addr-row" style="top:${r * rowH}px" data-ip="${ip}">
           <div class="a-tag"><span class="t role-tag ${tagClass(role, ip)}">${roleLabel(role)}</span></div>
           <div class="a-ip${dim}">${ip}</div>
           <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${ip}"
                  value="${esc(note)}" placeholder="add a note…"${readOnly ? ' readonly' : ''} />
+          ${actionButtons}
         </div>`;
     }
     sizer.innerHTML = html;
@@ -1560,6 +1855,10 @@ function renderRegistryPlan(sn, readOnly) {
         <div class="a-tag"><span class="t role-tag ${tagClass('host', ip)}">host</span></div>
         <div class="a-ip">${esc(ip)}</div>
         <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…"${readOnly ? ' readonly' : ''} />
+        <div class="addr-actions">
+          ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager">&#128273;</button>` : ''}
+          <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>
+        </div>
         ${!readOnly ? `<button class="danger a-del" data-del="${esc(ip)}">&times;</button>` : ''}
       </div>`;
   });
@@ -1587,6 +1886,18 @@ function renderRegistryPlan(sn, readOnly) {
     }
   });
   scroll.addEventListener('click', e => {
+    const keyBtn = e.target.closest('.addr-key-btn');
+    if (keyBtn) {
+      const rect = keyBtn.getBoundingClientRect();
+      openPasswordMenu(keyBtn.dataset.keyIp, rect.left, rect.bottom + 4);
+      return;
+    }
+    const menuBtn = e.target.closest('.addr-menu-btn');
+    if (menuBtn) {
+      const rect = menuBtn.getBoundingClientRect();
+      showAddrMenu(menuBtn.dataset.menuIp, rect.left, rect.bottom + 4);
+      return;
+    }
     if (!readOnly && e.target.dataset.del) {
       delete sn.comments[e.target.dataset.del];
       renderPlan(); renderSubnetList(); scheduleSave(); rebuildSearchIndex();
@@ -1646,8 +1957,14 @@ async function loadOtherPlans(currentUsername) {
     try {
       const r2 = await fetch('/api/admin/plans/' + encodeURIComponent(u));
       const plan = r2.ok ? await r2.json() : null;
-      return { username: u, subnets: (plan && Array.isArray(plan.subnets)) ? plan.subnets : [] };
-    } catch { return { username: u, subnets: [] }; }
+      return {
+        username: u,
+        subnets: (plan && Array.isArray(plan.subnets)) ? plan.subnets : [],
+        passwordManager: (plan && plan.passwordManager && typeof plan.passwordManager === 'object') ? plan.passwordManager : {}
+      };
+    } catch {
+      return { username: u, subnets: [], passwordManager: {} };
+    }
   }));
 
   const section = document.getElementById('other-plans-section');
@@ -1664,7 +1981,7 @@ function renderOtherPlansSection() {
   if (!otherPlansSectionOpen) return;
 
   body.innerHTML = '';
-  for (const { username, subnets } of otherPlansData) {
+  for (const { username, subnets, passwordManager } of otherPlansData) {
     const group = document.createElement('div');
     group.className = 'other-user-group';
     const isExpanded = !!otherUserOpen[username];
@@ -1712,7 +2029,7 @@ function renderOtherPlansSection() {
           </div>`;
         card.addEventListener('click', e => {
           e.stopPropagation();
-          otherUserView = { subnets, selectedId: sn.id, username, readOnly: true };
+          otherUserView = { subnets, selectedId: sn.id, username, passwordManager: passwordManager || {}, readOnly: true };
           state.selectedId = null;
           renderSubnetList();
           renderPlan();
@@ -1739,21 +2056,63 @@ const resultsEl = document.getElementById('results');
 const searchStat = document.getElementById('search-stat');
 
 let searchIndex = [];
+
+function ipBelongsToSubnet(ip, sn) {
+  if (sn.version === 4) {
+    const v = ipv4ToInt(ip);
+    return v !== null && v >= sn.networkInt && v <= sn.broadcastInt;
+  }
+  if (sn.version === 6) {
+    const v = ipv6ToBig(ip);
+    const net = BigInt(sn.networkBig || '0');
+    if (v === null) return false;
+    const prefix = Number(sn.prefix);
+    if (!(prefix >= 0 && prefix <= 128)) return false;
+    const mask = prefix === 0 ? 0n : ((1n << 128n) - 1n) ^ ((1n << (128n - BigInt(prefix))) - 1n);
+    return (v & mask) === net;
+  }
+  return false;
+}
+
+function findSubnetForIp(ip) {
+  return state.subnets.find(sn => ipBelongsToSubnet(ip, sn)) || null;
+}
+
 function rebuildSearchIndex() {
   searchIndex = [];
   for (const sn of state.subnets) {
     for (const ip in sn.comments) {
-      if ((sn.comments[ip] || '').trim()) searchIndex.push({ subnetId: sn.id, ip, note: sn.comments[ip] });
+      const note = (sn.comments[ip] || '').trim();
+      if (note) searchIndex.push({ subnetId: sn.id, ip, note, tag: 'note' });
     }
   }
+
+  if (canUsePasswordManager()) {
+    for (const [ip, entries] of Object.entries(state.passwordManager || {})) {
+      if (!Array.isArray(entries)) continue;
+      const sn = findSubnetForIp(ip);
+      if (!sn) continue;
+      for (const entry of entries) {
+        const description = String(entry?.description || '').trim();
+        if (!description) continue;
+        searchIndex.push({
+          subnetId: sn.id,
+          ip,
+          note: description,
+          tag: 'login'
+        });
+      }
+    }
+  }
+
   updateSearchStat();
   if (searchEl.value.trim()) runSearch(searchEl.value);
 }
 
 function updateSearchStat() {
   const subs = state.subnets.length;
-  const notes = searchIndex.length;
-  searchStat.textContent = subs + ' subnet' + (subs === 1 ? '' : 's') + ' · ' + notes + ' note' + (notes === 1 ? '' : 's');
+  const indexed = searchIndex.length;
+  searchStat.textContent = subs + ' subnet' + (subs === 1 ? '' : 's') + ' · ' + indexed + ' searchable entr' + (indexed === 1 ? 'y' : 'ies');
 }
 
 function runSearch(query) {
@@ -1777,10 +2136,10 @@ function runSearch(query) {
 
   for (const e of searchIndex) {
     const key = e.subnetId + '|' + e.ip;
-    if (seen.has(key)) continue;
+    if (seen.has(key) && e.tag !== 'login') continue;
     if (e.ip.toLowerCase().includes(q) || e.note.toLowerCase().includes(q)) {
-      seen.add(key);
-      out.push({ subnetId: e.subnetId, ip: e.ip, note: e.note, tag: 'note' });
+      if (e.tag !== 'login') seen.add(key);
+      out.push({ subnetId: e.subnetId, ip: e.ip, note: e.note, tag: e.tag || 'note' });
     }
   }
 
@@ -1858,7 +2217,16 @@ document.addEventListener('click', e => {
 searchEl.addEventListener('focus', () => { if (searchEl.value.trim()) runSearch(searchEl.value); });
 
 document.getElementById('btn-export').addEventListener('click', () => {
-  const data = JSON.stringify({ format: 'subnetplan', version: 1, subnets: state.subnets }, null, 2);
+  const data = JSON.stringify({
+    format: 'subnetplan',
+    version: 1,
+    subnets: state.subnets,
+    hypervisors: state.hypervisors,
+    guests: state.guests,
+    routers: state.routers,
+    routerInterfaces: state.routerInterfaces,
+    passwordManager: state.passwordManager
+  }, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1877,6 +2245,11 @@ document.getElementById('file-import').addEventListener('change', e => {
       const d = JSON.parse(reader.result);
       if (!d || !Array.isArray(d.subnets)) throw new Error('bad');
       state.subnets = d.subnets;
+      state.hypervisors = d.hypervisors || {};
+      state.guests = d.guests || {};
+      state.routers = d.routers || {};
+      state.routerInterfaces = d.routerInterfaces || {};
+      state.passwordManager = d.passwordManager || {};
       nextId = state.subnets.reduce((m, s) => Math.max(m, s.id || 0), 0) + 1;
       state.subnets.forEach((s, i) => { if (!s.id) s.id = nextId++; });
       state.selectedId = state.subnets[0]?.id || null;
@@ -1892,6 +2265,11 @@ document.getElementById('btn-reset').addEventListener('click', async () => {
   const go = await confirmDialog('Reset everything', 'Remove all subnets and notes?\n\nThis cannot be undone.', 'Reset everything');
   if (!go) return;
   state.subnets = []; state.selectedId = null;
+  state.hypervisors = {};
+  state.guests = {};
+  state.routers = {};
+  state.routerInterfaces = {};
+  state.passwordManager = {};
   searchEl.value = ''; resultsEl.classList.remove('show');
   renderSubnetList(); renderPlan(); rebuildSearchIndex(); scheduleSave();
 });
@@ -2023,9 +2401,17 @@ function renderOrganizedView() {
       <span class="org-subnet-tag" title="${esc(entrySn.cidr)}">${esc(entrySn.label)}</span>
       <span class="org-ip">${esc(entryIp)}</span>
       <span class="org-comment">${esc(entryComment)}</span>
+      ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(entryIp)}" title="Password manager">&#128273;</button>` : ''}
       <button class="addr-menu-btn" data-menu-ip="${esc(entryIp)}" title="Address options">&#8942;</button>`;
 
     row.addEventListener('click', e => {
+      const keyBtn = e.target.closest('.addr-key-btn');
+      if (keyBtn) {
+        e.stopPropagation();
+        const rect = keyBtn.getBoundingClientRect();
+        openPasswordMenu(entryIp, rect.left, rect.bottom + 4);
+        return;
+      }
       const btn = e.target.closest('.addr-menu-btn');
       if (btn) {
         e.stopPropagation();
@@ -2058,6 +2444,7 @@ Promise.all([
   })
 ]).then(([cfg, data]) => {
   if (!data) return;
+  userCapabilities.passwordManagerEnabled = !!data.passwordManagerEnabled;
   const nav = document.getElementById('user-nav');
   let html = '<span class="u-name">' + esc(data.username) + '</span>' +
     ' &nbsp;&middot;&nbsp; <a href="/">home</a>' +
@@ -2089,6 +2476,10 @@ Promise.all([
   if (data.isAdmin) {
     loadOtherPlans(data.username);
   }
+
+  renderPlan();
+  if (currentLeftTab === 'organized') renderOrganizedView();
+  rebuildSearchIndex();
 }).catch(() => { window.location.href = '/login'; });
 
 (async function boot() {

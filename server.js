@@ -52,6 +52,88 @@ try {
   fs.writeFileSync(secretFile, sessionSecret, { mode: 0o600 });
 }
 
+const PM_KEY_FILE = path.join(DATA_DIR, 'password_manager_key.txt');
+let passwordManagerSecret = String(process.env.PASSWORD_MANAGER_KEY || '').trim();
+if (!passwordManagerSecret) {
+  try {
+    passwordManagerSecret = fs.readFileSync(PM_KEY_FILE, 'utf8').trim();
+  } catch {
+    passwordManagerSecret = crypto.randomBytes(32).toString('base64');
+    fs.writeFileSync(PM_KEY_FILE, passwordManagerSecret, { mode: 0o600 });
+  }
+}
+const passwordManagerKey = crypto.createHash('sha256').update(passwordManagerSecret).digest();
+const passwordManagerKeyId = crypto.createHash('sha256').update(passwordManagerKey).digest('hex').slice(0, 12);
+
+function isEncryptedPasswordValue(value) {
+  return typeof value === 'string' && value.startsWith('enc:v1:');
+}
+
+function encryptPasswordValue(value) {
+  if (typeof value !== 'string') return '';
+  if (!value) return '';
+  if (isEncryptedPasswordValue(value)) return value;
+
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', passwordManagerKey, iv);
+  const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `enc:v1:${passwordManagerKeyId}:${iv.toString('base64')}:${tag.toString('base64')}:${ciphertext.toString('base64')}`;
+}
+
+function decryptPasswordValue(value) {
+  if (typeof value !== 'string') return '';
+  if (!value) return '';
+  if (!isEncryptedPasswordValue(value)) return value;
+
+  const parts = value.split(':');
+  if (parts.length !== 6) return value;
+  const iv = Buffer.from(parts[3], 'base64');
+  const tag = Buffer.from(parts[4], 'base64');
+  const ciphertext = Buffer.from(parts[5], 'base64');
+
+  try {
+    const decipher = crypto.createDecipheriv('aes-256-gcm', passwordManagerKey, iv);
+    decipher.setAuthTag(tag);
+    const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return plain.toString('utf8');
+  } catch {
+    // Keep ciphertext untouched if this instance does not have the matching key.
+    return value;
+  }
+}
+
+function normalizePasswordManager(raw, mode) {
+  const source = (raw && typeof raw === 'object') ? raw : {};
+  const output = {};
+
+  for (const [ip, entries] of Object.entries(source)) {
+    if (!Array.isArray(entries)) continue;
+    const normIp = String(ip || '').trim();
+    if (!normIp) continue;
+
+    const normEntries = [];
+    for (const entry of entries) {
+      if (!entry || typeof entry !== 'object') continue;
+      const description = String(entry.description || '').trim();
+      if (!description) continue;
+
+      const id = String(entry.id || '').trim() || crypto.randomBytes(6).toString('hex');
+      const username = String(entry.username || '').trim();
+      const rawPassword = String(entry.password || '');
+      const password = mode === 'decrypt'
+        ? decryptPasswordValue(rawPassword)
+        : encryptPasswordValue(rawPassword);
+
+      normEntries.push({ id, username, password, description });
+    }
+
+    if (normEntries.length) output[normIp] = normEntries;
+  }
+
+  return output;
+}
+
 function loadUsers() {
   try {
     return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
@@ -62,6 +144,26 @@ function loadUsers() {
 
 function saveUsers(users) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+}
+
+function normalizePlanPayload(raw, options = {}) {
+  const allowPasswordManager = !!options.allowPasswordManager;
+  const passwordMode = options.passwordMode === 'decrypt' ? 'decrypt' : 'encrypt';
+  const input = (raw && typeof raw === 'object') ? raw : {};
+  const out = {
+    subnets: Array.isArray(input.subnets) ? input.subnets : [],
+    selectedId: (typeof input.selectedId === 'number' || input.selectedId === null) ? input.selectedId : null,
+    hypervisors: (input.hypervisors && typeof input.hypervisors === 'object') ? input.hypervisors : {},
+    guests: (input.guests && typeof input.guests === 'object') ? input.guests : {},
+    routers: (input.routers && typeof input.routers === 'object') ? input.routers : {},
+    routerInterfaces: (input.routerInterfaces && typeof input.routerInterfaces === 'object') ? input.routerInterfaces : {},
+  };
+
+  if (allowPasswordManager && input.passwordManager && typeof input.passwordManager === 'object') {
+    out.passwordManager = normalizePasswordManager(input.passwordManager, passwordMode);
+  }
+
+  return out;
 }
 
 function isJsonRequest(req) {
@@ -156,7 +258,12 @@ app.post('/api/login', async (req, res) => {
   req.session.user = { username: user.username, isAdmin: !!user.isAdmin };
   const returnTo = req.session.returnTo || (user.isAdmin ? '/admin' : '/');
   delete req.session.returnTo;
-  res.json({ username: user.username, isAdmin: !!user.isAdmin, returnTo });
+  res.json({
+    username: user.username,
+    isAdmin: !!user.isAdmin,
+    passwordManagerEnabled: !!user.passwordManagerEnabled,
+    returnTo
+  });
 });
 
 app.post('/api/logout', (req, res) => {
@@ -166,23 +273,38 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/me', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Not authenticated.' });
-  res.json({ username: req.session.user.username, isAdmin: req.session.user.isAdmin });
+  const users = loadUsers();
+  const user = users[req.session.user.username];
+  if (!user) return res.status(401).json({ error: 'Not authenticated.' });
+  res.json({
+    username: req.session.user.username,
+    isAdmin: req.session.user.isAdmin,
+    passwordManagerEnabled: !!user.passwordManagerEnabled
+  });
 });
 
 app.get('/api/plan', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const user = users[req.session.user.username];
+  const allowPasswordManager = !!user?.passwordManagerEnabled;
   const file = path.join(PLANS_DIR, req.session.user.username + '.json');
   if (!fs.existsSync(file)) return res.json(null);
   try {
-    res.json(JSON.parse(fs.readFileSync(file, 'utf8')));
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+    res.json(normalizePlanPayload(raw, { allowPasswordManager, passwordMode: 'decrypt' }));
   } catch {
     res.json(null);
   }
 });
 
 app.post('/api/plan', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const user = users[req.session.user.username];
+  const allowPasswordManager = !!user?.passwordManagerEnabled;
   const file = path.join(PLANS_DIR, req.session.user.username + '.json');
   try {
-    fs.writeFileSync(file, JSON.stringify(req.body, null, 2));
+    const payload = normalizePlanPayload(req.body, { allowPasswordManager, passwordMode: 'encrypt' });
+    fs.writeFileSync(file, JSON.stringify(payload, null, 2));
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Failed to save plan.' });
@@ -194,13 +316,14 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
   const result = Object.values(users).map(u => ({
     username: u.username,
     isAdmin: !!u.isAdmin,
+    passwordManagerEnabled: !!u.passwordManagerEnabled,
     hasPlan: fs.existsSync(path.join(PLANS_DIR, u.username + '.json'))
   }));
   res.json(result);
 });
 
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
-  const { username, password, isAdmin } = req.body;
+  const { username, password, isAdmin, passwordManagerEnabled } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password required.' });
   }
@@ -213,7 +336,12 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
   const users = loadUsers();
   if (users[username]) return res.status(409).json({ error: 'Username already taken.' });
   const hash = await bcrypt.hash(password, 10);
-  users[username] = { username, passwordHash: hash, isAdmin: !!isAdmin };
+  users[username] = {
+    username,
+    passwordHash: hash,
+    isAdmin: !!isAdmin,
+    passwordManagerEnabled: !!passwordManagerEnabled
+  };
   saveUsers(users);
   res.json({ ok: true });
 });
@@ -248,19 +376,27 @@ app.delete('/api/admin/users/:username', requireAdmin, (req, res) => {
 
 app.get('/api/admin/plans/:username', requireAdmin, (req, res) => {
   const { username } = req.params;
-  if (!loadUsers()[username]) return res.status(404).json({ error: 'User not found.' });
+  const users = loadUsers();
+  if (!users[username]) return res.status(404).json({ error: 'User not found.' });
+  const allowPasswordManager = !!users[username].passwordManagerEnabled;
   const file = path.join(PLANS_DIR, username + '.json');
   if (!fs.existsSync(file)) return res.json(null);
-  try { res.json(JSON.parse(fs.readFileSync(file, 'utf8'))); }
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+    res.json(normalizePlanPayload(raw, { allowPasswordManager, passwordMode: 'decrypt' }));
+  }
   catch { res.json(null); }
 });
 
 app.post('/api/admin/plans/:username', requireAdmin, async (req, res) => {
   const { username } = req.params;
-  if (!loadUsers()[username]) return res.status(404).json({ error: 'User not found.' });
+  const users = loadUsers();
+  if (!users[username]) return res.status(404).json({ error: 'User not found.' });
+  const allowPasswordManager = !!users[username].passwordManagerEnabled;
   const file = path.join(PLANS_DIR, username + '.json');
   try {
-    fs.writeFileSync(file, JSON.stringify(req.body, null, 2));
+    const payload = normalizePlanPayload(req.body, { allowPasswordManager, passwordMode: 'encrypt' });
+    fs.writeFileSync(file, JSON.stringify(payload, null, 2));
     res.json({ ok: true });
   } catch { res.status(500).json({ error: 'Failed to save plan.' }); }
 });
@@ -626,7 +762,12 @@ async function bootstrap() {
     const users = loadUsers();
     if (!users[ADMIN_USER]) {
       const hash = await bcrypt.hash(ADMIN_PASS, 10);
-      users[ADMIN_USER] = { username: ADMIN_USER, passwordHash: hash, isAdmin: true };
+      users[ADMIN_USER] = {
+        username: ADMIN_USER,
+        passwordHash: hash,
+        isAdmin: true,
+        passwordManagerEnabled: false
+      };
       saveUsers(users);
       console.log('Admin user created: ' + ADMIN_USER);
     }

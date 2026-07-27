@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 5,
-  "patch": 10,
-  "current": "v1.5.10",
+  "patch": 11,
+  "current": "v1.5.11",
   "history": [
     {
       "version": "v1.1.0",
@@ -207,6 +207,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-27T15:15:38+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/c9b5f83648b1e8e20e8502f30c1ace953cc0de67"
+    },
+    {
+      "version": "v1.5.11",
+      "type": "bug",
+      "security": false,
+      "summary": "pathed ui-updater",
+      "description": null,
+      "hash": "68b42d3c9f6892a26b19dbf9508d922b640c4656",
+      "shortHash": "68b42d3",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-27T15:28:54+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/68b42d3c9f6892a26b19dbf9508d922b640c4656"
     }
   ]
 }

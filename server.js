@@ -712,10 +712,19 @@ function toNotification(entry) {
   };
 }
 
-async function checkForUpdates() {
+async function checkForUpdates(options = {}) {
+  const strict = options.strict === true;
   const state = loadUpdates();
   const manifest = await fetchVersionManifest();
-  if (!manifest || !Array.isArray(manifest.history) || !manifest.current) return;
+  if (!manifest) {
+    if (strict) throw new Error('Unable to fetch version manifest.');
+    return;
+  }
+
+  if (!Array.isArray(manifest.history) || !manifest.current) {
+    if (strict) throw new Error('Version manifest is invalid.');
+    return;
+  }
 
   const installedVersion = getInstalledVersion();
   if (
@@ -735,29 +744,31 @@ async function checkForUpdates() {
   if (compareVersions(manifest.current, state.lastSeenVersion) <= 0) return;
 
   const history = manifest.history;
-  const lastSeenIndex = history.findIndex(entry => entry.version === state.lastSeenVersion);
-  if (lastSeenIndex < 0) {
-    state.lastSeenVersion = manifest.current;
-    saveUpdates(state);
-    return;
-  }
-
   const existingVersions = new Set((state.pending || []).map(entry => String(entry.version || '').trim()).filter(Boolean));
 
   const baselineVersion = state.lastSeenVersion;
   const newNotifications = history
-    .slice(lastSeenIndex + 1)
     .map(toNotification)
     .filter(entry => {
       if (!entry.version || existingVersions.has(entry.version)) return false;
+
+      if (!versionToComparableParts(entry.version)) return false;
+
       if (
         baselineVersion &&
-        versionToComparableParts(entry.version) &&
         versionToComparableParts(baselineVersion) &&
         compareVersions(entry.version, baselineVersion) <= 0
       ) {
         return false;
       }
+
+      if (
+        versionToComparableParts(manifest.current) &&
+        compareVersions(entry.version, manifest.current) > 0
+      ) {
+        return false;
+      }
+
       return true;
     });
 
@@ -815,10 +826,13 @@ app.post('/api/admin/update/start', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/updates/check', requireAdmin, async (req, res) => {
   try {
-    await checkForUpdates();
+    await checkForUpdates({ strict: true });
     res.json({ ok: true, pending: loadUpdates().pending || [] });
-  } catch {
-    res.status(500).json({ error: 'Failed to check for updates.' });
+  } catch (error) {
+    const message = error && typeof error.message === 'string' && error.message.trim()
+      ? error.message.trim()
+      : 'Failed to check for updates.';
+    res.status(502).json({ error: message });
   }
 });
 

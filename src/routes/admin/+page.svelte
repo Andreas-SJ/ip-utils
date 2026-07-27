@@ -415,8 +415,8 @@
       await fetchJson('/api/admin/updates/check', { method: 'POST' });
       await loadUpdates();
       showToast('update check complete');
-    } catch {
-      showToast('update check failed');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'update check failed');
     }
   }
 

@@ -308,8 +308,10 @@ function renderPlan() {
     ro.className = 'notice';
     ro.style.cssText = 'margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:16px';
     const linkStyle = 'font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em';
+    const passwordStats = getPasswordStatsForSubnet(sn);
+    const statsText = 'password-debug: ' + passwordStats.hostCount + ' host' + (passwordStats.hostCount === 1 ? '' : 's') + ', ' + passwordStats.entryCount + ' entr' + (passwordStats.entryCount === 1 ? 'y' : 'ies') + (passwordStats.sampleIps.length ? ' · ' + passwordStats.sampleIps.join(', ') : '');
     if (readOnly) {
-      ro.innerHTML = '<span>Viewing ' + esc(otherUserView.username) + '&apos;s plan &mdash; read-only</span>';
+      ro.innerHTML = '<span>Viewing ' + esc(otherUserView.username) + '&apos;s plan &mdash; read-only<br><span style="font-size:10px;color:var(--ink-faint)">' + esc(statsText) + '</span></span>';
       const editBtn = document.createElement('a');
       editBtn.href = '#';
       editBtn.style.cssText = linkStyle;
@@ -317,7 +319,7 @@ function renderPlan() {
       editBtn.addEventListener('click', e => { e.preventDefault(); otherUserView.readOnly = false; renderPlan(); });
       ro.appendChild(editBtn);
     } else {
-      ro.innerHTML = '<span>Editing plan for <b>' + esc(otherUserView.username) + '</b></span>';
+      ro.innerHTML = '<span>Editing plan for <b>' + esc(otherUserView.username) + '</b><br><span style="font-size:10px;color:var(--ink-faint)">' + esc(statsText) + '</span></span>';
       const backBtn = document.createElement('a');
       backBtn.href = '#';
       backBtn.style.cssText = linkStyle;
@@ -415,6 +417,18 @@ function canUsePasswordManager() {
   return !!userCapabilities.passwordManagerEnabled;
 }
 
+function hasPasswordEntries(ip) {
+  return getPasswordEntries(ip).length > 0;
+}
+
+function canViewPasswordEntries(ip) {
+  return canUsePasswordManager() || hasPasswordEntries(ip);
+}
+
+function canEditPasswordEntries() {
+  return canUsePasswordManager() && !isPasswordManagerReadOnly();
+}
+
 function isPasswordManagerReadOnly() {
   return !!(otherUserView && otherUserView.readOnly);
 }
@@ -455,10 +469,10 @@ function removePasswordEntriesForSubnet(sn) {
 }
 
 function openPasswordMenu(ip, x, y) {
-  if (!canUsePasswordManager()) return;
+  if (!canViewPasswordEntries(ip)) return;
   closeAddrDropdown();
 
-  const readOnly = isPasswordManagerReadOnly();
+  const readOnly = !canEditPasswordEntries();
 
   const dropdown = document.createElement('div');
   dropdown.className = 'addr-dropdown pw-dropdown';
@@ -943,9 +957,10 @@ function renderEnumPlan(sn, readOnly) {
       const note = sn.comments[ip] || '';
       const dim = (role === 'net' || role === 'bcast') ? ' dim' : '';
       const isHost = role === 'host';
+      const showPasswordButton = canViewPasswordEntries(ip);
       const actionButtons = isHost ? `
           <div class="addr-actions">
-            ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
+        ${showPasswordButton ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
             <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>
           </div>` : '';
       html += `
@@ -1037,13 +1052,14 @@ function renderRegistryPlan(sn, readOnly) {
   let rows = '';
   filtered.forEach(ip => {
     const note = sn.comments[ip] || '';
+    const showPasswordButton = canViewPasswordEntries(ip);
     rows += `
       <div class="addr-row reg" data-ip="${esc(ip)}">
         <div class="a-tag"><span class="t role-tag ${tagClass('host', ip)}">host</span></div>
         <div class="a-ip">${esc(ip)}</div>
         <input class="a-cm${note.trim() ? ' has' : ''}" type="text" data-ip="${esc(ip)}" value="${esc(note)}" placeholder="add a note…"${readOnly ? ' readonly' : ''} />
         <div class="addr-actions">
-          ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
+          ${showPasswordButton ? `<button class="addr-key-btn" data-key-ip="${esc(ip)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
           <button class="addr-menu-btn" data-menu-ip="${esc(ip)}" title="Address options">&#8942;</button>
         </div>
         ${!readOnly ? `<button class="danger a-del" data-del="${esc(ip)}">&times;</button>` : ''}
@@ -1307,6 +1323,22 @@ function getTrackedIpsForSubnet(sn) {
   }
 
   return Array.from(tracked);
+}
+
+function getPasswordStatsForSubnet(sn) {
+  const store = activePasswordManagerStore();
+  let hostCount = 0;
+  let entryCount = 0;
+  const sampleIps = [];
+
+  for (const [ip, entries] of Object.entries(store || {})) {
+    if (!ipBelongsToSubnet(ip, sn) || !Array.isArray(entries) || !entries.length) continue;
+    hostCount += 1;
+    entryCount += entries.length;
+    if (sampleIps.length < 5) sampleIps.push(ip);
+  }
+
+  return { hostCount, entryCount, sampleIps };
 }
 
 function rebuildSearchIndex() {
@@ -1589,13 +1621,14 @@ function renderOrganizedView() {
                        (dr.isGuest    ? '<span class="t guest-badge">G</span>' : '') +
                        (dr.isRouter   ? '<span class="t router-badge">R</span>' : '') +
                        (dr.isInterface ? '<span class="t iface-badge">I</span>' : '');
+    const showPasswordButton = canViewPasswordEntries(entryIp);
 
     row.innerHTML = `
       <div class="org-badges">${badgesHtml}</div>
       <span class="org-subnet-tag" title="${esc(entrySn.cidr)}">${esc(entrySn.label)}</span>
       <span class="org-ip">${esc(entryIp)}</span>
       <span class="org-comment">${esc(entryComment)}</span>
-      ${canUsePasswordManager() ? `<button class="addr-key-btn" data-key-ip="${esc(entryIp)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
+      ${showPasswordButton ? `<button class="addr-key-btn" data-key-ip="${esc(entryIp)}" title="Password manager" aria-label="Password manager"><img class="icon-svg" src="/icons/key-black-icon.svg" alt="" /></button>` : ''}
       <button class="addr-menu-btn" data-menu-ip="${esc(entryIp)}" title="Address options">&#8942;</button>`;
 
     row.addEventListener('click', e => {

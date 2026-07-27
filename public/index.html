@@ -12,11 +12,11 @@
     --bg: #0d1014;
     --bg-elev: #141921;
     --bg-sunk: #090c10;
-    --line: #1f2530;
-    --line-strong: #2a3142;
-    --ink: #e6e1d5;
-    --ink-mute: #9aa1ad;
-    --ink-faint: #5a6370;
+    --line: #5c687c;
+    --line-strong: #7988a0;
+    --ink: #f3f6ff;
+    --ink-mute: #d0d9ea;
+    --ink-faint: #aeb9cf;
     --accent: #e8a85c;
     --accent-dim: #8a6535;
     --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -45,6 +45,62 @@
     background-position: -1px -1px;
     display: flex;
     flex-direction: column;
+  }
+
+  body.skin-futuristic.mode-light {
+    --bg: #f3f5f8;
+    --bg-elev: #ffffff;
+    --bg-sunk: #e9edf2;
+    --line: #8a98ad;
+    --line-strong: #6c7b93;
+    --ink: #1c2735;
+    --ink-mute: #2f3e53;
+    --ink-faint: #4b5b73;
+    --accent: #a56022;
+    --accent-dim: #c08753;
+  }
+
+  body.skin-enterprise.mode-dark {
+    --bg: #1a2029;
+    --bg-elev: #232c39;
+    --bg-sunk: #141a23;
+    --line: #6a7892;
+    --line-strong: #8a99b2;
+    --ink: #f2f6ff;
+    --ink-mute: #d2dced;
+    --ink-faint: #afbbd1;
+    --accent: #f08232;
+    --accent-dim: #bc6930;
+  }
+
+  body.skin-enterprise.mode-light {
+    --bg: #f5f5f5;
+    --bg-elev: #ffffff;
+    --bg-sunk: #ffffff;
+    --line: #949494;
+    --line-strong: #7b7b7b;
+    --ink: #121212;
+    --ink-mute: #303030;
+    --ink-faint: #4a4a4a;
+    --accent: #3892d4;
+    --accent-dim: #2e7fba;
+  }
+
+  body.skin-enterprise {
+    --sans: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, Verdana, sans-serif;
+    --serif: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, Verdana, sans-serif;
+    --mono: 'Consolas', 'Liberation Mono', Menlo, monospace;
+  }
+
+  body.skin-enterprise.mode-light,
+  body.skin-enterprise.mode-dark {
+    background-image: none;
+  }
+
+  body.mode-light {
+    background-image:
+      linear-gradient(rgba(12,18,26,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(12,18,26,0.045) 1px, transparent 1px);
   }
 
   a { color: var(--accent); text-decoration: none; }
@@ -76,6 +132,30 @@
     font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
   }
   .header-nav a { color: var(--accent); }
+  .u-name { color: var(--ink); font-weight: 500; }
+
+  .theme-toggle {
+    width: 28px;
+    height: 24px;
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent-dim); }
+  .theme-icon {
+    width: 14px;
+    height: 14px;
+    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%);
+    pointer-events: none;
+  }
+  body.mode-light .theme-icon {
+    filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
+  }
 
   main {
     flex: 1;
@@ -109,7 +189,7 @@
     background: var(--line-strong);
     transition: background .15s;
   }
-  .tool-card:hover { border-color: var(--accent); background: #181f28; text-decoration: none; }
+  .tool-card:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev)); text-decoration: none; }
   .tool-card:hover::before { background: var(--accent); }
 
   .tool-tag {
@@ -145,6 +225,99 @@
     letter-spacing: 0.04em;
   }
 
+  body.skin-enterprise.mode-light,
+  body.skin-enterprise.mode-dark {
+    font-size: 13px;
+  }
+  body.skin-enterprise.mode-light .shell,
+  body.skin-enterprise.mode-dark .shell {
+    max-width: 1260px;
+    padding: 0 8px;
+  }
+  body.skin-enterprise.mode-light header,
+  body.skin-enterprise.mode-dark header {
+    min-height: 42px;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-top: 0;
+    border-radius: 0;
+  }
+  body.skin-enterprise.mode-light .brand,
+  body.skin-enterprise.mode-dark .brand {
+    gap: 10px;
+  }
+  body.skin-enterprise.mode-light .brand-mark,
+  body.skin-enterprise.mode-dark .brand-mark {
+    border-radius: 0;
+    color: var(--accent);
+    border-color: var(--accent-dim);
+    background: var(--bg-elev);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+  }
+  body.skin-enterprise.mode-light .brand h1,
+  body.skin-enterprise.mode-dark .brand h1 {
+    font-size: 17px;
+    font-weight: 400;
+    font-style: normal;
+    color: var(--ink);
+  }
+  body.skin-enterprise.mode-light main,
+  body.skin-enterprise.mode-dark main {
+    padding: 12px 0 24px;
+  }
+  body.skin-enterprise.mode-light .tool-grid,
+  body.skin-enterprise.mode-dark .tool-grid {
+    gap: 12px;
+  }
+  body.skin-enterprise.mode-light .tool-card,
+  body.skin-enterprise.mode-dark .tool-card {
+    border-radius: 0;
+    border-color: var(--line-strong);
+    background: var(--bg-elev);
+    padding: 20px 20px 16px;
+  }
+  body.skin-enterprise.mode-light .tool-tag,
+  body.skin-enterprise.mode-dark .tool-tag {
+    border-radius: 0;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+  body.skin-enterprise.mode-light .tool-title,
+  body.skin-enterprise.mode-dark .tool-title {
+    font-family: var(--sans);
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--ink);
+  }
+  body.skin-enterprise.mode-light .tool-desc,
+  body.skin-enterprise.mode-dark .tool-desc {
+    font-size: 12px;
+    color: var(--ink-mute);
+  }
+  body.skin-enterprise.mode-light .tool-go,
+  body.skin-enterprise.mode-dark .tool-go {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+  }
+  body.skin-enterprise.mode-light .tool-locked,
+  body.skin-enterprise.mode-dark .tool-locked {
+    color: var(--ink-faint);
+  }
+  body.skin-enterprise.mode-light footer,
+  body.skin-enterprise.mode-dark footer {
+    margin-top: 8px;
+    padding: 8px 10px 12px;
+    border-top: 1px solid var(--line-strong);
+    color: var(--ink-faint);
+  }
+
   ::selection { background: var(--accent); color: var(--bg); }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: var(--bg-sunk); }
@@ -173,16 +346,61 @@
 </div>
 
 <script>
+const uiTheme = { skin: 'futuristic', mode: 'dark' };
+
+function sanitizeSkin(v) {
+  return (v === 'enterprise' || v === 'futuristic') ? v : 'futuristic';
+}
+
+function sanitizeMode(v) {
+  return (v === 'light' || v === 'dark') ? v : 'dark';
+}
+
+function modeStorageKey(skin) {
+  return 'iputils-theme-mode-' + sanitizeSkin(skin);
+}
+
+function preferredModeForSkin(skin) {
+  const normalized = sanitizeSkin(skin);
+  try {
+    const fallback = normalized === 'enterprise' ? 'light' : 'dark';
+    return sanitizeMode(localStorage.getItem(modeStorageKey(normalized)) || fallback);
+  } catch {
+    return normalized === 'enterprise' ? 'light' : 'dark';
+  }
+}
+
+function setThemeIcon() {
+  const icon = document.getElementById('theme-toggle-icon');
+  if (!icon) return;
+  icon.src = uiTheme.mode === 'dark' ? '/icons/day-sunny-icon.svg' : '/icons/moon-line-icon.svg';
+}
+
+function applyTheme(skin, mode) {
+  uiTheme.skin = sanitizeSkin(skin);
+  uiTheme.mode = sanitizeMode(mode);
+  const body = document.body;
+  body.classList.remove('skin-futuristic', 'skin-enterprise', 'mode-dark', 'mode-light');
+  body.classList.add('skin-' + uiTheme.skin, 'mode-' + uiTheme.mode);
+  setThemeIcon();
+}
+
+applyTheme('futuristic', preferredModeForSkin('futuristic'));
+
 async function init() {
   const [cfgRes, meRes] = await Promise.all([
-    fetch('/api/config').then(r => r.json()).catch(() => ({ hasPlanner: true, hasNetplan: true })),
+    fetch('/api/config').then(r => r.json()).catch(() => ({ hasPlanner: true, hasNetplan: true, skin: 'futuristic' })),
     fetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null)
   ]);
+
+  const skin = sanitizeSkin(cfgRes.skin || 'futuristic');
+  applyTheme(skin, preferredModeForSkin(skin));
 
   const nav = document.getElementById('header-nav');
   if (meRes) {
     nav.innerHTML = '<span class="u-name">' + esc(meRes.username) + '</span>' +
       (meRes.isAdmin ? ' &nbsp;&middot;&nbsp; <a href="/admin">admin</a>' : '') +
+      ' &nbsp;&middot;&nbsp; <button id="btn-theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode"><img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" /></button>' +
       ' &nbsp;&middot;&nbsp; <a href="#" id="logout-link">logout</a>';
     document.getElementById('logout-link').addEventListener('click', async e => {
       e.preventDefault();
@@ -190,7 +408,19 @@ async function init() {
       window.location.reload();
     });
   } else {
-    nav.innerHTML = '<a href="/login">log in</a>';
+    nav.innerHTML = '<button id="btn-theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode"><img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" /></button> &nbsp;&middot;&nbsp; <a href="/login">log in</a>';
+  }
+
+  setThemeIcon();
+  const themeBtn = document.getElementById('btn-theme-toggle');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
+      const nextMode = uiTheme.mode === 'dark' ? 'light' : 'dark';
+      applyTheme(uiTheme.skin, nextMode);
+      try {
+        localStorage.setItem(modeStorageKey(uiTheme.skin), nextMode);
+      } catch {}
+    });
   }
 
   const grid = document.getElementById('tool-grid');

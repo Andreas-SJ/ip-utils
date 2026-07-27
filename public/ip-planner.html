@@ -378,8 +378,21 @@
   }
   .search-wrap { position: relative; display: flex; align-items: center; gap: 12px; }
   .search-glyph {
-    font-family: var(--mono); color: var(--accent); font-size: 14px;
-    flex-shrink: 0; letter-spacing: 0.1em;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .search-glyph .search-icon-svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    filter: var(--icon-filter);
+  }
+  .search-wrap:focus-within .search-glyph .search-icon-svg {
+    filter: var(--icon-filter-hover);
   }
   #search {
     flex: 1; background: var(--bg-sunk); color: var(--ink);
@@ -1309,7 +1322,7 @@
 
   <div class="searchbar">
     <div class="search-wrap">
-      <span class="search-glyph">&#8981;</span>
+      <span class="search-glyph"><img class="search-icon-svg" src="/icons/search-icon.svg" alt="" /></span>
       <input id="search" type="text" autocomplete="off" spellcheck="false"
               placeholder="search any address, note, or login description across all subnets&hellip;  (e.g. 10.0.1.5, gateway, printer, vpn account)" />
       <span class="search-stat" id="search-stat"></span>

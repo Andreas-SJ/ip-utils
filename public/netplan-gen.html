@@ -472,6 +472,33 @@
     filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
   }
 
+  .action-icon {
+    width: 12px;
+    height: 12px;
+    display: block;
+    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%);
+    pointer-events: none;
+  }
+  body.mode-light .action-icon {
+    filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
+  }
+  button:hover .action-icon {
+    filter: invert(76%) sepia(28%) saturate(560%) hue-rotate(348deg) brightness(102%) contrast(94%);
+  }
+  body.mode-light button:hover .action-icon {
+    filter: invert(33%) sepia(63%) saturate(1022%) hue-rotate(7deg) brightness(96%) contrast(92%);
+  }
+  .icon-only {
+    min-width: 28px;
+    justify-content: center;
+    padding: 4px 6px;
+    gap: 0;
+  }
+  .icon-only .action-icon {
+    width: 13px;
+    height: 13px;
+  }
+
   main {
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
@@ -1034,11 +1061,11 @@
 
       <div class="add-iface">
         <span class="lead">add interface</span>
-        <button data-add="ethernets">+ ethernet</button>
-        <button data-add="wifis">+ wifi</button>
-        <button data-add="bridges">+ bridge</button>
-        <button data-add="bonds">+ bond</button>
-        <button data-add="vlans">+ vlan</button>
+        <button data-add="ethernets"><img class="action-icon" src="/icons/plus-icon.svg" alt="" /> ethernet</button>
+        <button data-add="wifis"><img class="action-icon" src="/icons/plus-icon.svg" alt="" /> wifi</button>
+        <button data-add="bridges"><img class="action-icon" src="/icons/plus-icon.svg" alt="" /> bridge</button>
+        <button data-add="bonds"><img class="action-icon" src="/icons/plus-icon.svg" alt="" /> bond</button>
+        <button data-add="vlans"><img class="action-icon" src="/icons/plus-icon.svg" alt="" /> vlan</button>
       </div>
     </div>
 
@@ -1048,9 +1075,9 @@
     <div class="output-head">
       <h2 class="output-title">Output <small>/etc/netplan/01-config.yaml</small></h2>
       <div class="output-actions">
-        <button id="btn-copy" class="primary">⎘ Copy</button>
-        <button id="btn-download">↓ Download</button>
-        <button id="btn-reset" class="ghost">↺ Reset</button>
+        <button id="btn-copy" class="primary"><img class="action-icon" src="/icons/copy-icon.svg" alt="" /> Copy</button>
+        <button id="btn-download"><img class="action-icon" src="/icons/round-line-bottom-arrow-icon.svg" alt="" /> Download</button>
+        <button id="btn-reset" class="ghost"><img class="action-icon" src="/icons/undo-arrow-icon.svg" alt="" /> Reset</button>
       </div>
     </div>
 
@@ -1207,8 +1234,8 @@ function renderIface(iface, idx) {
     <span class="iface-type">${kindLabel}</span>
     <input class="iface-name-input" type="text" value="${esc(iface.name)}" placeholder="interface name" data-bind="name" />
     <div class="iface-actions">
-      <button class="ghost" data-action="up" title="Move up">↑</button>
-      <button class="ghost" data-action="down" title="Move down">↓</button>
+      <button class="ghost icon-only" data-action="up" title="Move up" aria-label="Move up"><img class="action-icon" src="/icons/long-arrow-top-icon.svg" alt="" /></button>
+      <button class="ghost icon-only" data-action="down" title="Move down" aria-label="Move down"><img class="action-icon" src="/icons/long-arrow-bottom-icon.svg" alt="" /></button>
       <button class="danger" data-action="remove">remove</button>
     </div>
   `;
@@ -1240,7 +1267,7 @@ function renderIfaceBody(iface) {
             <button class="danger" data-action="remove-ap" data-i="${i}">×</button>
           </div>
         `).join('')}
-        <button class="ghost repeater-add" data-action="add-ap">+ access point</button>
+        <button class="ghost repeater-add" data-action="add-ap"><img class="action-icon" src="/icons/plus-icon.svg" alt="" /> access point</button>
       </div>
     `;
   }
@@ -1350,7 +1377,7 @@ function renderIfaceBody(iface) {
             <button class="danger" data-action="remove-addr" data-i="${i}" ${lockedAttr}>×</button>
           </div>
         `).join('')}
-        <button class="ghost repeater-add" data-action="add-addr" ${lockedAttr}>+ address</button>
+        <button class="ghost repeater-add" data-action="add-addr" ${lockedAttr}><img class="action-icon" src="/icons/plus-icon.svg" alt="" /> address</button>
       </div>
     </div>
   `;
@@ -1388,7 +1415,7 @@ function renderIfaceBody(iface) {
             <button class="danger" data-action="remove-route" data-i="${i}">×</button>
           </div>
         `).join('')}
-        <button class="ghost repeater-add" data-action="add-route">+ route</button>
+        <button class="ghost repeater-add" data-action="add-route"><img class="action-icon" src="/icons/plus-icon.svg" alt="" /> route</button>
       </div>
     </div>
   `;
@@ -1456,10 +1483,11 @@ function handleInput(iface, e) {
 }
 
 function handleClick(iface, e) {
-  const action = e.target.dataset.action;
-  if (!action) return;
+  const actionEl = e.target.closest('[data-action]');
+  if (!actionEl) return;
+  const action = actionEl.dataset.action;
   e.preventDefault();
-  const i = parseInt(e.target.dataset.i, 10);
+  const i = parseInt(actionEl.dataset.i, 10);
 
   switch (action) {
     case 'remove':

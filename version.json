@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 6,
-  "patch": 0,
-  "current": "v1.6.0",
+  "patch": 1,
+  "current": "v1.6.1",
   "history": [
     {
       "version": "v1.1.0",
@@ -243,6 +243,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-27T15:41:45+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/79e76137a333651e97bdd89c3997db31780baca1"
+    },
+    {
+      "version": "v1.6.1",
+      "type": "bug",
+      "security": false,
+      "summary": "fixed minor css issue",
+      "description": null,
+      "hash": "f812d7508a61f764038d229b75081c9ed6b5be05",
+      "shortHash": "f812d75",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-27T15:45:45+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/f812d7508a61f764038d229b75081c9ed6b5be05"
     }
   ]
 }

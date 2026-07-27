@@ -21,6 +21,9 @@ const VALID_SKINS = new Set(['futuristic', 'enterprise']);
 const MODE = VALID_MODES.has(process.env.MODE) ? process.env.MODE : 'both';
 const HAS_PLANNER = MODE === 'both' || MODE === 'planner';
 const HAS_NETPLAN = MODE === 'both' || MODE === 'netplan';
+const VERBOSE_API_LOGS = process.env.IP_UTILS_VERBOSE_API_LOGS !== '0';
+const API_LOG_MAX_CHARS = Number.parseInt(process.env.IP_UTILS_API_LOG_MAX_CHARS || '4000', 10) || 4000;
+const SENSITIVE_LOG_KEY_RE = /(pass(word)?|secret|token|key|cookie|auth|session)/i;
 
 function getInstalledVersion() {
   try {
@@ -211,6 +214,88 @@ function isJsonRequest(req) {
   return (req.xhr || (req.headers.accept && req.headers.accept.includes('application/json')));
 }
 
+function truncateLogString(value, max = API_LOG_MAX_CHARS) {
+  const text = String(value);
+  if (text.length <= max) return text;
+  return `${text.slice(0, max)}... [truncated ${text.length - max} chars]`;
+}
+
+function sanitizeLogValue(value, key = '', depth = 0, seen = new WeakSet()) {
+  if (SENSITIVE_LOG_KEY_RE.test(String(key || ''))) return '[REDACTED]';
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'string') return truncateLogString(value, 600);
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'bigint') return value.toString();
+  if (Buffer.isBuffer(value)) return `[Buffer ${value.length} bytes]`;
+  if (typeof value === 'function') return `[Function ${value.name || 'anonymous'}]`;
+  if (depth >= 5) return '[MaxDepth]';
+
+  if (Array.isArray(value)) {
+    const maxItems = 50;
+    const out = value.slice(0, maxItems).map(item => sanitizeLogValue(item, '', depth + 1, seen));
+    if (value.length > maxItems) out.push(`[+${value.length - maxItems} more items]`);
+    return out;
+  }
+
+  if (typeof value === 'object') {
+    if (seen.has(value)) return '[Circular]';
+    seen.add(value);
+    const out = {};
+    for (const [childKey, childValue] of Object.entries(value)) {
+      out[childKey] = sanitizeLogValue(childValue, childKey, depth + 1, seen);
+    }
+    return out;
+  }
+
+  return String(value);
+}
+
+function formatApiLogPayload(payload) {
+  if (payload === undefined) return '-';
+  try {
+    return truncateLogString(JSON.stringify(sanitizeLogValue(payload)));
+  } catch {
+    return truncateLogString(String(payload));
+  }
+}
+
+function apiVerboseLogger(req, res, next) {
+  if (!VERBOSE_API_LOGS || typeof req.originalUrl !== 'string' || !req.originalUrl.startsWith('/api/')) {
+    return next();
+  }
+
+  const requestId = crypto.randomBytes(3).toString('hex');
+  const started = process.hrtime.bigint();
+  const userLabel = req.session?.user?.username || 'anon';
+  const queryPayload = formatApiLogPayload(req.query && Object.keys(req.query).length ? req.query : undefined);
+  const reqPayload = formatApiLogPayload(req.body && Object.keys(req.body).length ? req.body : undefined);
+  console.log(`[api:${requestId}] -> ${req.method} ${req.originalUrl} user=${userLabel} query=${queryPayload} body=${reqPayload}`);
+
+  let responsePayload;
+  let responseCaptured = false;
+  const originalJson = res.json.bind(res);
+  const originalSend = res.send.bind(res);
+
+  res.json = function patchedJson(body) {
+    responseCaptured = true;
+    responsePayload = body;
+    return originalJson(body);
+  };
+
+  res.send = function patchedSend(body) {
+    if (!responseCaptured) responsePayload = body;
+    return originalSend(body);
+  };
+
+  res.on('finish', () => {
+    const durationMs = Number(process.hrtime.bigint() - started) / 1e6;
+    const responseText = formatApiLogPayload(responsePayload);
+    console.log(`[api:${requestId}] <- ${res.statusCode} ${req.method} ${req.originalUrl} ${durationMs.toFixed(1)}ms response=${responseText}`);
+  });
+
+  next();
+}
+
 app.use(express.json({ limit: '4mb' }));
 app.use(express.urlencoded({ extended: false }));
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
@@ -221,6 +306,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: { httpOnly: true, sameSite: 'lax', secure: TRUST_PROXY ? 'auto' : false, maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
+app.use(apiVerboseLogger);
 
 function requireAuth(req, res, next) {
   if (!req.session.user) {

@@ -12,11 +12,11 @@
     --bg: #0d1014;
     --bg-elev: #141921;
     --bg-sunk: #090c10;
-    --line: #1f2530;
-    --line-strong: #2a3142;
-    --ink: #e6e1d5;
-    --ink-mute: #9aa1ad;
-    --ink-faint: #5a6370;
+    --line: #5c687c;
+    --line-strong: #7988a0;
+    --ink: #f3f6ff;
+    --ink-mute: #d0d9ea;
+    --ink-faint: #aeb9cf;
     --accent: #e8a85c;
     --accent-dim: #8a6535;
     --danger: #d96856;
@@ -50,11 +50,11 @@
     --bg: #f3f5f8;
     --bg-elev: #ffffff;
     --bg-sunk: #e9edf2;
-    --line: #d3dae5;
-    --line-strong: #c1cada;
+    --line: #8a98ad;
+    --line-strong: #6c7b93;
     --ink: #1c2735;
-    --ink-mute: #445265;
-    --ink-faint: #6b788c;
+    --ink-mute: #2f3e53;
+    --ink-faint: #4b5b73;
     --accent: #a56022;
     --accent-dim: #c08753;
     --danger: #bf4a3a;
@@ -62,14 +62,14 @@
   }
 
   body.skin-enterprise.mode-dark {
-    --bg: #1f232c;
-    --bg-elev: #2b3240;
-    --bg-sunk: #1a1f28;
-    --line: #3a4356;
-    --line-strong: #4a5670;
-    --ink: #e9edf5;
-    --ink-mute: #b7c2d7;
-    --ink-faint: #8894ab;
+    --bg: #1a2029;
+    --bg-elev: #232c39;
+    --bg-sunk: #141a23;
+    --line: #6a7892;
+    --line-strong: #8a99b2;
+    --ink: #f2f6ff;
+    --ink-mute: #d2dced;
+    --ink-faint: #afbbd1;
     --accent: #f08232;
     --accent-dim: #bc6930;
     --danger: #de6252;
@@ -80,11 +80,11 @@
     --bg: #f5f5f5;
     --bg-elev: #ffffff;
     --bg-sunk: #ffffff;
-    --line: #cfcfcf;
-    --line-strong: #b8b8b8;
-    --ink: #000000;
-    --ink-mute: #4d4d4d;
-    --ink-faint: #6a6a6a;
+    --line: #949494;
+    --line-strong: #7b7b7b;
+    --ink: #121212;
+    --ink-mute: #303030;
+    --ink-faint: #4a4a4a;
     --accent: #3892d4;
     --accent-dim: #2e7fba;
     --danger: #bf4d45;
@@ -96,7 +96,8 @@
     --serif: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, Verdana, sans-serif;
     --mono: 'Consolas', 'Liberation Mono', Menlo, monospace;
   }
-  body.skin-enterprise.mode-light {
+  body.skin-enterprise.mode-light,
+  body.skin-enterprise.mode-dark {
     background-image: none;
   }
   body.skin-enterprise.mode-light .shell {
@@ -509,137 +510,167 @@
   }
 
   /* Enterprise skin v2: denser panel chrome and flatter controls, Proxmox-inspired. */
-  body.skin-enterprise.mode-light {
+  body.skin-enterprise.mode-light,
+  body.skin-enterprise.mode-dark {
     font-size: 13px;
   }
-  body.skin-enterprise.mode-light .shell {
+  body.skin-enterprise.mode-light .shell,
+  body.skin-enterprise.mode-dark .shell {
     max-width: none;
     padding: 0 8px;
   }
-  body.skin-enterprise.mode-light header {
+  body.skin-enterprise.mode-light header,
+  body.skin-enterprise.mode-dark header {
     min-height: 42px;
     align-items: center;
     gap: 10px;
     padding: 7px 10px;
-    background: #f5f5f5;
-    border: 1px solid #b8b8b8;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
     border-top: 0;
     border-radius: 0;
   }
-  body.skin-enterprise.mode-light .brand h1 {
+  body.skin-enterprise.mode-light .brand h1,
+  body.skin-enterprise.mode-dark .brand h1 {
     font-size: 17px;
     font-weight: 400;
+    color: var(--ink);
   }
-  body.skin-enterprise.mode-light main {
+  body.skin-enterprise.mode-light main,
+  body.skin-enterprise.mode-dark main {
     padding: 12px 0 24px;
   }
-  body.skin-enterprise.mode-light .section {
-    border: 1px solid #b8b8b8;
-    background: #fff;
+  body.skin-enterprise.mode-light .section,
+  body.skin-enterprise.mode-dark .section {
+    border: 1px solid var(--line-strong);
+    background: var(--bg-elev);
     margin-bottom: 14px;
   }
-  body.skin-enterprise.mode-light .section-head {
-    background: #f5f5f5;
+  body.skin-enterprise.mode-light .section-head,
+  body.skin-enterprise.mode-dark .section-head {
+    background: var(--bg);
     min-height: 32px;
     display: flex;
     align-items: center;
     margin-bottom: 0;
     padding: 0 10px;
-    border-bottom: 1px solid #b8b8b8;
+    border-bottom: 1px solid var(--line-strong);
   }
-  body.skin-enterprise.mode-light .section > *:not(.section-head) {
+  body.skin-enterprise.mode-light .section > *:not(.section-head),
+  body.skin-enterprise.mode-dark .section > *:not(.section-head) {
     padding-left: 10px;
     padding-right: 10px;
   }
-  body.skin-enterprise.mode-light .form-grid {
+  body.skin-enterprise.mode-light .form-grid,
+  body.skin-enterprise.mode-dark .form-grid {
     gap: 8px;
     margin-top: 10px;
     margin-bottom: 10px;
   }
-  body.skin-enterprise.mode-light .lbl {
+  body.skin-enterprise.mode-light .lbl,
+  body.skin-enterprise.mode-dark .lbl {
     font-size: 10px;
     letter-spacing: 0.02em;
-    color: #555;
+    color: var(--ink-mute);
   }
   body.skin-enterprise.mode-light input[type="text"],
   body.skin-enterprise.mode-light input[type="password"],
-  body.skin-enterprise.mode-light select {
+  body.skin-enterprise.mode-light select,
+  body.skin-enterprise.mode-dark input[type="text"],
+  body.skin-enterprise.mode-dark input[type="password"],
+  body.skin-enterprise.mode-dark select {
     height: 29px;
     padding: 5px 8px;
-    border: 1px solid #b8b8b8;
-    background: #fff;
+    border: 1px solid var(--line-strong);
+    background: var(--bg-sunk);
     font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, Verdana, sans-serif;
     font-size: 12px;
-    color: #111;
+    color: var(--ink);
   }
-  body.skin-enterprise.mode-light label.check {
+  body.skin-enterprise.mode-light label.check,
+  body.skin-enterprise.mode-dark label.check {
     border-radius: 0;
     padding: 7px 8px;
-    background: #fff;
+    background: var(--bg-elev);
   }
-  body.skin-enterprise.mode-light .user-table {
+  body.skin-enterprise.mode-light .user-table,
+  body.skin-enterprise.mode-dark .user-table {
     margin: 10px 0;
-    border: 1px solid #b8b8b8;
+    border: 1px solid var(--line-strong);
   }
-  body.skin-enterprise.mode-light .user-table th {
+  body.skin-enterprise.mode-light .user-table th,
+  body.skin-enterprise.mode-dark .user-table th {
     padding: 6px 10px;
-    background: #f5f5f5;
-    color: #333;
+    background: var(--bg);
+    color: var(--ink-mute);
     font-size: 10px;
   }
-  body.skin-enterprise.mode-light .user-table td {
+  body.skin-enterprise.mode-light .user-table td,
+  body.skin-enterprise.mode-dark .user-table td {
     padding: 6px 10px;
     font-size: 12px;
-    color: #333;
-    border-bottom-color: #d5d5d5;
+    color: var(--ink);
+    border-bottom-color: var(--line);
   }
-  body.skin-enterprise.mode-light .user-table tbody tr:nth-child(even) td {
-    background: #fafafa;
+  body.skin-enterprise.mode-light .user-table tbody tr:nth-child(even) td,
+  body.skin-enterprise.mode-dark .user-table tbody tr:nth-child(even) td {
+    background: color-mix(in srgb, var(--bg-elev) 92%, var(--line) 8%);
   }
-  body.skin-enterprise.mode-light .user-table tr:hover td {
-    background: #e2eff9;
+  body.skin-enterprise.mode-light .user-table tr:hover td,
+  body.skin-enterprise.mode-dark .user-table tr:hover td {
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev));
   }
   body.skin-enterprise.mode-light button,
   body.skin-enterprise.mode-light .btn,
-  body.skin-enterprise.mode-light .theme-toggle {
+  body.skin-enterprise.mode-light .theme-toggle,
+  body.skin-enterprise.mode-dark button,
+  body.skin-enterprise.mode-dark .btn,
+  body.skin-enterprise.mode-dark .theme-toggle {
     min-height: 27px;
     padding: 4px 9px;
-    border: 1px solid #a8a8a8;
-    background: #f5f5f5;
-    color: #000;
+    border: 1px solid var(--line-strong);
+    background: var(--bg-elev);
+    color: var(--ink);
     text-transform: none;
     letter-spacing: 0;
     font-weight: 400;
     border-radius: 0;
   }
-  body.skin-enterprise.mode-light button.primary {
-    border-color: #a8a8a8;
-    background: #f5f5f5;
-    color: #000;
+  body.skin-enterprise.mode-light button.primary,
+  body.skin-enterprise.mode-dark button.primary {
+    border-color: var(--line-strong);
+    background: var(--bg-elev);
+    color: var(--ink);
   }
   body.skin-enterprise.mode-light button:hover,
   body.skin-enterprise.mode-light button.primary:hover,
-  body.skin-enterprise.mode-light .theme-toggle:hover {
-    background: #e2eff9;
-    border-color: #7da2c6;
-    color: #000;
+  body.skin-enterprise.mode-light .theme-toggle:hover,
+  body.skin-enterprise.mode-dark button:hover,
+  body.skin-enterprise.mode-dark button.primary:hover,
+  body.skin-enterprise.mode-dark .theme-toggle:hover {
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg-elev));
+    border-color: var(--accent);
+    color: var(--ink);
   }
-  body.skin-enterprise.mode-light .additional-options {
+  body.skin-enterprise.mode-light .additional-options,
+  body.skin-enterprise.mode-dark .additional-options {
     margin-top: 10px;
     margin-bottom: 10px;
     border-style: solid;
-    border-color: #cfcfcf;
-    background: #fafafa;
+    border-color: var(--line);
+    background: var(--bg-elev);
   }
-  body.skin-enterprise.mode-light .option-help {
+  body.skin-enterprise.mode-light .option-help,
+  body.skin-enterprise.mode-dark .option-help {
     font-size: 10px;
-    color: #666;
+    color: var(--ink-faint);
   }
-  body.skin-enterprise.mode-light footer {
+  body.skin-enterprise.mode-light footer,
+  body.skin-enterprise.mode-dark footer {
     margin-top: 8px;
     padding: 8px 10px 12px;
-    border-top: 1px solid #b8b8b8;
-    color: #666;
+    border-top: 1px solid var(--line-strong);
+    color: var(--ink-faint);
   }
 
   ::selection { background: var(--accent); color: var(--bg); }

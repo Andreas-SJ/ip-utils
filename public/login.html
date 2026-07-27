@@ -12,11 +12,11 @@
     --bg: #0d1014;
     --bg-elev: #141921;
     --bg-sunk: #090c10;
-    --line: #1f2530;
-    --line-strong: #2a3142;
-    --ink: #e6e1d5;
-    --ink-mute: #9aa1ad;
-    --ink-faint: #5a6370;
+    --line: #5c687c;
+    --line-strong: #7988a0;
+    --ink: #f3f6ff;
+    --ink-mute: #d0d9ea;
+    --ink-faint: #aeb9cf;
     --accent: #e8a85c;
     --accent-dim: #8a6535;
     --danger: #d96856;
@@ -54,25 +54,25 @@
     --bg: #f3f5f8;
     --bg-elev: #ffffff;
     --bg-sunk: #e9edf2;
-    --line: #d3dae5;
-    --line-strong: #c1cada;
+    --line: #8a98ad;
+    --line-strong: #6c7b93;
     --ink: #1c2735;
-    --ink-mute: #445265;
-    --ink-faint: #6b788c;
+    --ink-mute: #2f3e53;
+    --ink-faint: #4b5b73;
     --accent: #a56022;
     --accent-dim: #c08753;
     --danger: #bf4a3a;
   }
 
   body.skin-enterprise.mode-dark {
-    --bg: #1f232c;
-    --bg-elev: #2b3240;
-    --bg-sunk: #1a1f28;
-    --line: #3a4356;
-    --line-strong: #4a5670;
-    --ink: #e9edf5;
-    --ink-mute: #b7c2d7;
-    --ink-faint: #8894ab;
+    --bg: #1a2029;
+    --bg-elev: #232c39;
+    --bg-sunk: #141a23;
+    --line: #6a7892;
+    --line-strong: #8a99b2;
+    --ink: #f2f6ff;
+    --ink-mute: #d2dced;
+    --ink-faint: #afbbd1;
     --accent: #f08232;
     --accent-dim: #bc6930;
     --danger: #de6252;
@@ -82,11 +82,11 @@
     --bg: #f5f5f5;
     --bg-elev: #ffffff;
     --bg-sunk: #ffffff;
-    --line: #cfcfcf;
-    --line-strong: #b8b8b8;
-    --ink: #000;
-    --ink-mute: #4d4d4d;
-    --ink-faint: #6a6a6a;
+    --line: #949494;
+    --line-strong: #7b7b7b;
+    --ink: #121212;
+    --ink-mute: #303030;
+    --ink-faint: #4a4a4a;
     --accent: #3892d4;
     --accent-dim: #2e7fba;
     --danger: #bf4d45;
@@ -95,7 +95,8 @@
     --mono: 'Consolas', 'Liberation Mono', Menlo, monospace;
   }
 
-  body.skin-enterprise.mode-light {
+  body.skin-enterprise.mode-light,
+  body.skin-enterprise.mode-dark {
     background-image: none;
   }
 
@@ -114,10 +115,11 @@
     position: relative;
   }
 
-  body.skin-enterprise.mode-light .card {
+  body.skin-enterprise.mode-light .card,
+  body.skin-enterprise.mode-dark .card {
     border-radius: 0;
     border-left-width: 1px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.28);
     max-width: 440px;
     padding: 26px 28px 24px;
   }
@@ -205,47 +207,57 @@
     text-align: center;
   }
 
-  body.skin-enterprise.mode-light .brand-mark {
+  body.skin-enterprise.mode-light .brand-mark,
+  body.skin-enterprise.mode-dark .brand-mark {
     border-radius: 0;
-    color: #d46d2d;
-    border-color: #d08a55;
+    color: var(--accent);
+    border-color: var(--accent-dim);
     font-weight: 600;
     letter-spacing: 0.08em;
   }
-  body.skin-enterprise.mode-light h1 {
+  body.skin-enterprise.mode-light h1,
+  body.skin-enterprise.mode-dark h1 {
     font-family: var(--sans);
     font-weight: 400;
     font-size: 20px;
-    color: #000;
+    color: var(--ink);
   }
-  body.skin-enterprise.mode-light .subtitle {
-    color: #666;
+  body.skin-enterprise.mode-light .subtitle,
+  body.skin-enterprise.mode-dark .subtitle {
+    color: var(--ink-faint);
     font-family: var(--sans);
     font-size: 12px;
   }
   body.skin-enterprise.mode-light input[type="text"],
-  body.skin-enterprise.mode-light input[type="password"] {
+  body.skin-enterprise.mode-light input[type="password"],
+  body.skin-enterprise.mode-dark input[type="text"],
+  body.skin-enterprise.mode-dark input[type="password"] {
     border-radius: 0;
-    border-color: #b8b8b8;
+    border-color: var(--line-strong);
     font-family: var(--sans);
+    background: var(--bg-sunk);
+    color: var(--ink);
   }
-  body.skin-enterprise.mode-light button[type="submit"] {
+  body.skin-enterprise.mode-light button[type="submit"],
+  body.skin-enterprise.mode-dark button[type="submit"] {
     border-radius: 0;
     text-transform: none;
     letter-spacing: 0;
     font-family: var(--sans);
     font-size: 12px;
-    color: #000;
-    background: #f5f5f5;
-    border-color: #a8a8a8;
+    color: var(--ink);
+    background: var(--bg-elev);
+    border-color: var(--line-strong);
   }
-  body.skin-enterprise.mode-light button[type="submit"]:hover {
-    background: #e2eff9;
-    border-color: #7da2c6;
+  body.skin-enterprise.mode-light button[type="submit"]:hover,
+  body.skin-enterprise.mode-dark button[type="submit"]:hover {
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg-elev));
+    border-color: var(--accent);
   }
-  body.skin-enterprise.mode-light .card-foot {
-    border-top-color: #cfcfcf;
-    color: #666;
+  body.skin-enterprise.mode-light .card-foot,
+  body.skin-enterprise.mode-dark .card-foot {
+    border-top-color: var(--line);
+    color: var(--ink-faint);
   }
 
   ::selection { background: var(--accent); color: var(--bg); }

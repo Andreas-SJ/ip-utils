@@ -438,12 +438,11 @@ app.get('/api/admin/plans/:username', requireAdmin, (req, res) => {
   const { username } = req.params;
   const users = loadUsers();
   if (!users[username]) return res.status(404).json({ error: 'User not found.' });
-  const allowPasswordManager = isPasswordManagerEnabledGlobal();
   const file = path.join(PLANS_DIR, username + '.json');
   if (!fs.existsSync(file)) return res.json(null);
   try {
     const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-    res.json(normalizePlanPayload(raw, { allowPasswordManager, passwordMode: 'decrypt' }));
+    res.json(normalizePlanPayload(raw, { allowPasswordManager: true, passwordMode: 'decrypt' }));
   }
   catch { res.json(null); }
 });

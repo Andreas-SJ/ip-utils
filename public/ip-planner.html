@@ -545,6 +545,43 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .pw-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .pw-eye {
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--ink-faint);
+    border-radius: 2px;
+    padding: 0;
+    line-height: 1;
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .pw-eye:hover {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+  .pw-secret {
+    margin-top: 3px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pw-secret.revealed {
+    color: var(--ink);
+    letter-spacing: 0;
+  }
   .pw-none {
     padding: 10px;
     font-family: var(--mono);
@@ -1316,12 +1353,21 @@ function openPasswordMenu(ip, x, y) {
   dropdown.style.top = y + 'px';
 
   const entries = getPasswordEntries(ip);
+  const passwordById = new Map(entries.map(e => [String(e.id || ''), String(e.password || '')]));
+  function maskPassword(value) {
+    const len = Math.max(8, Math.min(16, String(value || '').length || 8));
+    return '\u2022'.repeat(len);
+  }
   const entriesHtml = entries.length
     ? entries.map(e => `
       <div class="pw-item" data-pw-id="${esc(e.id)}">
         <div class="pw-main">
           <div class="pw-desc" title="${esc(e.description || '')}">${esc(e.description || '')}</div>
-          <div class="pw-meta">${esc(e.username || '(no username)')}</div>
+          <div class="pw-meta-row">
+            <div class="pw-meta">${esc(e.username || '(no username)')}</div>
+            <button class="pw-eye" data-pw-eye="${esc(e.id)}" title="Show password" aria-label="Show password">&#128065;</button>
+          </div>
+          <div class="pw-secret" data-pw-secret="${esc(e.id)}">${maskPassword(e.password)}</div>
         </div>
         <button class="pw-del" data-pw-del="${esc(e.id)}">delete</button>
       </div>`).join('')
@@ -1352,6 +1398,28 @@ function openPasswordMenu(ip, x, y) {
     </div>`;
 
   dropdown.addEventListener('click', e => {
+    const eyeBtn = e.target.closest('[data-pw-eye]');
+    if (eyeBtn) {
+      e.preventDefault();
+      const eyeId = eyeBtn.dataset.pwEye;
+      const secretEl = dropdown.querySelector('[data-pw-secret="' + cssEsc(eyeId) + '"]');
+      if (!secretEl) return;
+      const plain = passwordById.get(String(eyeId)) || '';
+      const isRevealed = secretEl.classList.contains('revealed');
+      if (isRevealed) {
+        secretEl.textContent = maskPassword(plain);
+        secretEl.classList.remove('revealed');
+        eyeBtn.title = 'Show password';
+        eyeBtn.setAttribute('aria-label', 'Show password');
+      } else {
+        secretEl.textContent = plain || '(empty password)';
+        secretEl.classList.add('revealed');
+        eyeBtn.title = 'Hide password';
+        eyeBtn.setAttribute('aria-label', 'Hide password');
+      }
+      return;
+    }
+
     const delId = e.target.dataset.pwDel;
     if (!delId) return;
     e.preventDefault();

@@ -129,7 +129,7 @@
     font-family: var(--mono); font-size: 13px;
     transition: border-color .15s, background .15s;
   }
-  input:focus { outline: none; border-color: var(--accent); background: #0b0e12; }
+  input:focus { outline: none; border-color: var(--accent); background: var(--field-focus-bg, #0b0e12); }
   input::placeholder { color: var(--ink-faint); }
 
   .error {

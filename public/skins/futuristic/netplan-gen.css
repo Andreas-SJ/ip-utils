@@ -534,7 +534,7 @@
   input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--accent);
-    background: #0b0e12;
+    background: var(--field-focus-bg, #0b0e12);
   }
   input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   textarea { resize: vertical; min-height: 60px; }

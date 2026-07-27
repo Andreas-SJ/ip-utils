@@ -2,6 +2,7 @@
   --bg: #0d1014;
   --bg-elev: #141921;
   --bg-sunk: #090c10;
+  --field-focus-bg: #0b0e12;
   --line: #5c687c;
   --line-strong: #7988a0;
   --ink: #f3f6ff;
@@ -21,6 +22,7 @@ body.skin-futuristic.mode-light {
   --bg: #f3f5f8;
   --bg-elev: #ffffff;
   --bg-sunk: #e9edf2;
+  --field-focus-bg: #ffffff;
   --line: #8a98ad;
   --line-strong: #6c7b93;
   --ink: #1c2735;

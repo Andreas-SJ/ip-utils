@@ -17,7 +17,7 @@ const state = {
   routerInterfaces: {},
   passwordManager: {}
 };
-const userCapabilities = { passwordManagerEnabled: false };
+const userCapabilities = { passwordManagerEnabled: false, isAdmin: false };
 let uiTheme = applySharedTheme(bootSkinFromStorage(), preferredModeForSkin(bootSkinFromStorage()));
 
 function applyTheme(skin, mode) {
@@ -417,16 +417,20 @@ function canUsePasswordManager() {
   return !!userCapabilities.passwordManagerEnabled;
 }
 
+function canInspectOtherUserPasswords() {
+  return !!userCapabilities.isAdmin && !!otherUserView;
+}
+
 function hasPasswordEntries(ip) {
   return getPasswordEntries(ip).length > 0;
 }
 
 function canViewPasswordEntries(ip) {
-  return canUsePasswordManager() || hasPasswordEntries(ip);
+  return canUsePasswordManager() || canInspectOtherUserPasswords() || hasPasswordEntries(ip);
 }
 
 function canEditPasswordEntries() {
-  return canUsePasswordManager() && !isPasswordManagerReadOnly();
+  return (canUsePasswordManager() || canInspectOtherUserPasswords()) && !isPasswordManagerReadOnly();
 }
 
 function isPasswordManagerReadOnly() {
@@ -468,8 +472,18 @@ function removePasswordEntriesForSubnet(sn) {
   }
 }
 
-function openPasswordMenu(ip, x, y) {
+async function openPasswordMenu(ip, x, y) {
   if (!canViewPasswordEntries(ip)) return;
+
+  if (otherUserView && userCapabilities.isAdmin) {
+    const latest = await loadOtherUserPlan(otherUserView.username, otherUserView.subnets, otherUserView.passwordManager || {});
+    otherPlansData = otherPlansData.map((entry) => entry.username === otherUserView.username
+      ? { ...entry, subnets: latest.subnets, passwordManager: latest.passwordManager }
+      : entry);
+    otherUserView.subnets = latest.subnets;
+    otherUserView.passwordManager = latest.passwordManager || {};
+  }
+
   closeAddrDropdown();
 
   const readOnly = !canEditPasswordEntries();
@@ -700,6 +714,22 @@ function closeAddrDropdown() {
 }
 document.addEventListener('mousedown', e => {
   if (activeDropdown && !e.target.closest('.addr-dropdown')) closeAddrDropdown();
+});
+
+function isHostContextRow(row) {
+  if (!row) return false;
+  if (row.classList.contains('org-row')) return true;
+  return !!row.querySelector('.t.host, .t.arp-up, .t.arp-down, .t.arp-pending, .t.arp-up-manual, .t.arp-down-manual');
+}
+
+document.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const row = e.target.closest('.addr-row[data-ip], .org-row[data-ip]');
+  if (!isHostContextRow(row)) return;
+  const ip = row.dataset.ip;
+  if (!ip) return;
+  closeAddrDropdown();
+  showAddrMenu(ip, e.clientX, e.clientY);
 });
 
 function showAddrMenu(ip, x, y) {
@@ -1674,6 +1704,7 @@ Promise.all([
   const skin = sanitizeSkin(cfg.skin || 'futuristic');
   applyTheme(skin, preferredModeForSkin(skin));
   userCapabilities.passwordManagerEnabled = !!data.passwordManagerEnabled;
+  userCapabilities.isAdmin = !!data.isAdmin;
   const nav = document.getElementById('user-nav');
   nav.innerHTML = buildPlannerNavHtml(cfg, data, esc);
 

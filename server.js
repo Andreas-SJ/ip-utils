@@ -825,6 +825,18 @@ async function checkForUpdates(options = {}) {
 
   const installedVersion = getInstalledVersion();
   const installedComparable = installedVersion && versionToComparableParts(installedVersion);
+
+  const stateLastSeenComparable = state.lastSeenVersion && versionToComparableParts(state.lastSeenVersion);
+  if (
+    installedComparable &&
+    stateLastSeenComparable &&
+    compareVersions(state.lastSeenVersion, installedVersion) > 0 &&
+    (!Array.isArray(state.pending) || state.pending.length === 0)
+  ) {
+    // Recover from old state where lastSeen was incorrectly advanced to manifest.current.
+    state.lastSeenVersion = installedVersion;
+  }
+
   if (
     installedVersion &&
     installedComparable &&

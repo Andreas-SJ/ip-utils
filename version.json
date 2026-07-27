@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 5,
-  "patch": 3,
-  "current": "v1.5.3",
+  "patch": 4,
+  "current": "v1.5.4",
   "history": [
     {
       "version": "v1.1.0",
@@ -123,6 +123,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-27T14:53:41+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/ca2290d7b1d8f2b840c0f769ae4e2fcdbac4d596"
+    },
+    {
+      "version": "v1.5.4",
+      "type": "bug",
+      "security": false,
+      "summary": "made logging more verbose",
+      "description": null,
+      "hash": "2d55cfc22e25ef61ff16d7ec541458b23910f1e6",
+      "shortHash": "2d55cfc",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-27T14:57:00+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/2d55cfc22e25ef61ff16d7ec541458b23910f1e6"
     }
   ]
 }

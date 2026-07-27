@@ -1158,6 +1158,29 @@ async function loadOtherPlans(currentUsername) {
   renderOtherPlansSection();
 }
 
+async function loadOtherUserPlan(username, fallbackSubnets, fallbackPasswordManager) {
+  try {
+    const r = await fetch('/api/admin/plans/' + encodeURIComponent(username));
+    if (!r.ok) {
+      return {
+        subnets: fallbackSubnets,
+        passwordManager: fallbackPasswordManager
+      };
+    }
+
+    const plan = await r.json();
+    return {
+      subnets: (plan && Array.isArray(plan.subnets)) ? plan.subnets : fallbackSubnets,
+      passwordManager: (plan && plan.passwordManager && typeof plan.passwordManager === 'object') ? plan.passwordManager : fallbackPasswordManager
+    };
+  } catch {
+    return {
+      subnets: fallbackSubnets,
+      passwordManager: fallbackPasswordManager
+    };
+  }
+}
+
 function renderOtherPlansSection() {
   const body = document.getElementById('other-plans-body');
   const toggle = document.getElementById('other-plans-toggle');
@@ -1213,9 +1236,19 @@ function renderOtherPlansSection() {
               <div class="subnet-anno ${n ? '' : 'zero'}">&bull; ${n} note${n !== 1 ? 's' : ''}</div>
             </div>
           </div>`;
-        card.addEventListener('click', e => {
+        card.addEventListener('click', async e => {
           e.stopPropagation();
-          otherUserView = { subnets, selectedId: sn.id, username, passwordManager: passwordManager || {}, readOnly: true };
+          const latest = await loadOtherUserPlan(username, subnets, passwordManager || {});
+          otherPlansData = otherPlansData.map((entry) => entry.username === username
+            ? { ...entry, subnets: latest.subnets, passwordManager: latest.passwordManager }
+            : entry);
+          otherUserView = {
+            subnets: latest.subnets,
+            selectedId: sn.id,
+            username,
+            passwordManager: latest.passwordManager || {},
+            readOnly: true
+          };
           state.selectedId = null;
           renderSubnetList();
           renderPlan();

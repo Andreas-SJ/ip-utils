@@ -824,18 +824,24 @@ async function checkForUpdates(options = {}) {
   }
 
   const installedVersion = getInstalledVersion();
+  const installedComparable = installedVersion && versionToComparableParts(installedVersion);
   if (
     installedVersion &&
-    versionToComparableParts(installedVersion) &&
+    installedComparable &&
     (!state.lastSeenVersion || compareVersions(installedVersion, state.lastSeenVersion) > 0)
   ) {
     state.lastSeenVersion = installedVersion;
   }
 
   if (!state.lastSeenVersion) {
-    state.lastSeenVersion = manifest.current;
-    saveUpdates(state);
-    return;
+    if (installedComparable) {
+      // First check should compare against what is actually installed.
+      state.lastSeenVersion = installedVersion;
+    } else {
+      state.lastSeenVersion = manifest.current;
+      saveUpdates(state);
+      return;
+    }
   }
 
   if (compareVersions(manifest.current, state.lastSeenVersion) <= 0) return;

@@ -49,6 +49,204 @@
     background-position: -1px -1px;
   }
 
+  body.skin-futuristic.mode-light {
+    --bg: #f3f5f8;
+    --bg-elev: #ffffff;
+    --bg-sunk: #e9edf2;
+    --line: #d3dae5;
+    --line-strong: #c1cada;
+    --ink: #1c2735;
+    --ink-mute: #445265;
+    --ink-faint: #6b788c;
+    --accent: #a56022;
+    --accent-dim: #c08753;
+    --danger: #bf4a3a;
+    --ok: #4e8a3b;
+  }
+
+  body.skin-enterprise.mode-dark {
+    --bg: #1f232c;
+    --bg-elev: #2b3240;
+    --bg-sunk: #1a1f28;
+    --line: #3a4356;
+    --line-strong: #4a5670;
+    --ink: #e9edf5;
+    --ink-mute: #b7c2d7;
+    --ink-faint: #8894ab;
+    --accent: #f08232;
+    --accent-dim: #bc6930;
+    --danger: #de6252;
+    --ok: #7ebf67;
+  }
+
+  body.skin-enterprise.mode-light {
+    --bg: #f5f5f5;
+    --bg-elev: #ffffff;
+    --bg-sunk: #ffffff;
+    --line: #cfcfcf;
+    --line-strong: #b8b8b8;
+    --ink: #000;
+    --ink-mute: #4d4d4d;
+    --ink-faint: #6a6a6a;
+    --accent: #3892d4;
+    --accent-dim: #2e7fba;
+    --danger: #bf4d45;
+    --ok: #4c8e4f;
+    --sans: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, Verdana, sans-serif;
+    --serif: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, Verdana, sans-serif;
+    --mono: 'Consolas', 'Liberation Mono', Menlo, monospace;
+  }
+
+  body.skin-enterprise.mode-light {
+    background-image: none;
+  }
+  body.skin-enterprise.mode-light .shell {
+    max-width: none;
+    padding: 0 8px;
+  }
+  body.skin-enterprise.mode-light header {
+    min-height: 42px;
+    align-items: center;
+    padding: 7px 10px;
+    background: #f5f5f5;
+    border: 1px solid #b8b8b8;
+    border-top: 0;
+    border-radius: 0;
+    gap: 10px;
+  }
+  body.skin-enterprise.mode-light .brand h1 {
+    font-family: var(--sans);
+    font-size: 17px;
+    font-style: normal;
+    font-weight: 400;
+    color: #000;
+  }
+  body.skin-enterprise.mode-light .brand-mark {
+    border-radius: 0;
+    color: #d46d2d;
+    border-color: #d08a55;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+  }
+  body.skin-enterprise.mode-light .meta {
+    color: #666;
+    text-transform: none;
+    letter-spacing: 0.01em;
+  }
+  body.skin-enterprise.mode-light .meta .byline { color: #2f2f2f; }
+  body.skin-enterprise.mode-light .user-nav { color: #666; }
+  body.skin-enterprise.mode-light .user-nav a { color: #2f2f2f; }
+  body.skin-enterprise.mode-light main {
+    border: 1px solid #b8b8b8;
+    border-top: 0;
+    min-height: calc(100vh - 160px);
+    background: #f5f5f5;
+  }
+  body.skin-enterprise.mode-light .col-form,
+  body.skin-enterprise.mode-light .col-output {
+    padding: 10px;
+    background: #fff;
+  }
+  body.skin-enterprise.mode-light .col-form { border-right: 1px solid #b8b8b8; }
+  body.skin-enterprise.mode-light .section-head,
+  body.skin-enterprise.mode-light .output-head {
+    margin-bottom: 8px;
+    padding: 6px 9px;
+    min-height: 31px;
+    border: 1px solid #b8b8b8;
+    border-radius: 0;
+    border-bottom: 1px solid #b8b8b8;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+  }
+  body.skin-enterprise.mode-light .section-title,
+  body.skin-enterprise.mode-light .output-title {
+    font-family: var(--sans);
+    font-style: normal;
+    font-weight: 400;
+    font-size: 14px;
+    color: #000;
+  }
+  body.skin-enterprise.mode-light .section-desc,
+  body.skin-enterprise.mode-light .hint {
+    color: #666;
+    font-style: normal;
+    font-size: 11px;
+  }
+  body.skin-enterprise.mode-light .iface,
+  body.skin-enterprise.mode-light .empty,
+  body.skin-enterprise.mode-light .add-iface,
+  body.skin-enterprise.mode-light .yaml-wrap,
+  body.skin-enterprise.mode-light .errors {
+    border-radius: 0;
+  }
+  body.skin-enterprise.mode-light .iface,
+  body.skin-enterprise.mode-light .yaml-wrap,
+  body.skin-enterprise.mode-light .add-iface,
+  body.skin-enterprise.mode-light .empty {
+    border-color: #b8b8b8;
+  }
+  body.skin-enterprise.mode-light .iface-head { padding: 8px 10px; }
+  body.skin-enterprise.mode-light input[type="text"],
+  body.skin-enterprise.mode-light input[type="number"],
+  body.skin-enterprise.mode-light input[type="password"],
+  body.skin-enterprise.mode-light select,
+  body.skin-enterprise.mode-light textarea {
+    border-radius: 0;
+    border-color: #b8b8b8;
+    font-family: var(--sans);
+    font-size: 12px;
+  }
+  body.skin-enterprise.mode-light label.check {
+    border-radius: 0;
+    background: #fff;
+  }
+  body.skin-enterprise.mode-light button,
+  body.skin-enterprise.mode-light .btn,
+  body.skin-enterprise.mode-light .theme-toggle {
+    min-height: 27px;
+    padding: 4px 9px;
+    border: 1px solid #a8a8a8;
+    border-radius: 0;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+    color: #000;
+    background: #f5f5f5;
+  }
+  body.skin-enterprise.mode-light button.primary {
+    background: #f5f5f5;
+    border-color: #a8a8a8;
+    color: #000;
+  }
+  body.skin-enterprise.mode-light button:hover,
+  body.skin-enterprise.mode-light button.primary:hover,
+  body.skin-enterprise.mode-light .theme-toggle:hover {
+    background: #e2eff9;
+    border-color: #7da2c6;
+    color: #000;
+  }
+  body.skin-enterprise.mode-light .yaml .k { color: #2f5f8a; }
+  body.skin-enterprise.mode-light .yaml .v { color: #2f2f2f; }
+  body.skin-enterprise.mode-light .yaml .s { color: #4f7f3f; }
+  body.skin-enterprise.mode-light .yaml .n { color: #a5473b; }
+  body.skin-enterprise.mode-light .yaml .b { color: #2d6ea5; }
+  body.skin-enterprise.mode-light .yaml .c,
+  body.skin-enterprise.mode-light .yaml .d { color: #6f6f6f; }
+  body.skin-enterprise.mode-light footer {
+    margin-top: 8px;
+    padding: 8px 10px 12px;
+    border-top: 1px solid #b8b8b8;
+    color: #666;
+  }
+
+  body.mode-light {
+    background-image:
+      linear-gradient(rgba(12,18,26,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(12,18,26,0.045) 1px, transparent 1px);
+  }
+
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 
@@ -120,6 +318,28 @@
   .user-nav a.nav-disabled:hover {
     color: var(--ink-faint);
     text-decoration: none;
+  }
+  .theme-toggle {
+    width: 28px;
+    height: 24px;
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent-dim); }
+  .theme-icon {
+    width: 14px;
+    height: 14px;
+    filter: invert(86%) sepia(10%) saturate(210%) hue-rotate(350deg) brightness(98%) contrast(90%);
+    pointer-events: none;
+  }
+  body.mode-light .theme-icon {
+    filter: invert(16%) sepia(18%) saturate(402%) hue-rotate(176deg) brightness(92%) contrast(88%);
   }
 
   main {
@@ -724,6 +944,47 @@
 <div id="toast" class="toast">copied</div>
 
 <script>
+
+const uiTheme = { skin: 'futuristic', mode: 'dark' };
+
+function sanitizeSkin(v) {
+  return (v === 'enterprise' || v === 'futuristic') ? v : 'futuristic';
+}
+
+function sanitizeMode(v) {
+  return (v === 'light' || v === 'dark') ? v : 'dark';
+}
+
+function modeStorageKey(skin) {
+  return 'iputils-theme-mode-' + sanitizeSkin(skin);
+}
+
+function preferredModeForSkin(skin) {
+  const normalized = sanitizeSkin(skin);
+  try {
+    const fallback = normalized === 'enterprise' ? 'light' : 'dark';
+    return sanitizeMode(localStorage.getItem(modeStorageKey(normalized)) || fallback);
+  } catch {
+    return normalized === 'enterprise' ? 'light' : 'dark';
+  }
+}
+
+function setThemeIcon() {
+  const icon = document.getElementById('theme-toggle-icon');
+  if (!icon) return;
+  icon.src = uiTheme.mode === 'dark' ? '/icons/day-sunny-icon.svg' : '/icons/moon-line-icon.svg';
+}
+
+function applyTheme(skin, mode) {
+  uiTheme.skin = sanitizeSkin(skin);
+  uiTheme.mode = sanitizeMode(mode);
+  const body = document.body;
+  body.classList.remove('skin-futuristic', 'skin-enterprise', 'mode-dark', 'mode-light');
+  body.classList.add('skin-' + uiTheme.skin, 'mode-' + uiTheme.mode);
+  setThemeIcon();
+}
+
+applyTheme('futuristic', preferredModeForSkin('futuristic'));
 
 const state = {
   renderer: 'networkd',
@@ -1392,6 +1653,8 @@ render();
     fetch('/api/config').then(r => r.json()).catch(() => ({})),
     fetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null)
   ]);
+  const skin = sanitizeSkin(cfg.skin || 'futuristic');
+  applyTheme(skin, preferredModeForSkin(skin));
   const nav = document.getElementById('user-nav');
   let html = '';
   if (cfg.hasPlanner) {
@@ -1403,11 +1666,26 @@ render();
     if (html) html += ' &nbsp;&middot;&nbsp; ';
     html = '<span class="u-name">' + esc(me.username) + '</span> &nbsp;&middot;&nbsp; ' + html;
     if (me.isAdmin) html += ' &nbsp;&middot;&nbsp; <a href="/admin">admin</a>';
+    html += ' &nbsp;&middot;&nbsp; <button id="btn-theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode"><img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" /></button>';
     html += ' &nbsp;&middot;&nbsp; <a href="#" id="btn-logout">logout</a>';
   } else if (cfg.hasPlanner) {
+    html += ' &nbsp;&middot;&nbsp; <button id="btn-theme-toggle" class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark/light mode"><img id="theme-toggle-icon" class="theme-icon" src="/icons/day-sunny-icon.svg" alt="" /></button>';
     html += ' &nbsp;&middot;&nbsp; <a href="/login">log in</a>';
   }
   nav.innerHTML = html;
+  setThemeIcon();
+
+  const themeBtn = document.getElementById('btn-theme-toggle');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
+      const nextMode = uiTheme.mode === 'dark' ? 'light' : 'dark';
+      applyTheme(uiTheme.skin, nextMode);
+      try {
+        localStorage.setItem(modeStorageKey(uiTheme.skin), nextMode);
+      } catch {}
+    });
+  }
+
   const logoutBtn = document.getElementById('btn-logout');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async e => {

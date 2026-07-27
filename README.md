@@ -33,6 +33,32 @@ Override with IP_UTILS_API_ORIGIN if needed.
 - `prod-server.mjs` mounts the existing Express API app from `server.cjs`
 - SvelteKit serves all page routes and static assets for production requests
 
+## Admin Update Runner Modes
+
+The `/api/admin/update/start` endpoint supports three modes:
+
+- `auto` (default): uses daemon-file mode when updater heartbeat/status files exist, otherwise falls back to installer mode.
+- `daemon`: legacy host-daemon file protocol using shared `/app/data` files (`update-request.env`, `update-status.env`, `update-heartbeat`).
+- `installer`: runs `installer.sh` inside the app container.
+- `daemon-cmd`: runs a configured dispatch command from inside the app container.
+
+Environment variables:
+
+- `IP_UTILS_UPDATE_RUNNER`: `auto`, `daemon`, `installer`, or `daemon-cmd`
+- `IP_UTILS_UPDATE_DAEMON_CMD`: command used only in `daemon-cmd` mode
+- `IP_UTILS_UPDATE_HEARTBEAT_MAX_AGE_MS`: heartbeat staleness threshold for daemon liveness (default `15000`)
+
+Examples:
+
+```sh
+IP_UTILS_UPDATE_RUNNER=daemon
+```
+
+```sh
+IP_UTILS_UPDATE_RUNNER=daemon-cmd
+IP_UTILS_UPDATE_DAEMON_CMD="/usr/local/bin/ip-utils-update-dispatch"
+```
+
 ## Migrated Routes
 
 - / (Svelte + TypeScript)

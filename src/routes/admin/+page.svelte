@@ -596,16 +596,26 @@
     }
   }
 
-  onMount(async () => {
-    const bootSkin = bootSkinFromStorage();
-    theme = await initTheme(bootSkin);
+  onMount(() => {
+    let disposed = false;
 
-    await loadMe();
-    await Promise.all([loadUsers(), loadGlobalOptions(), loadUpdates(), loadInstalledVersion()]);
-    ensureUpdateStatusPolling();
-    await refreshUpdateJobStatus();
+    (async () => {
+      const bootSkin = bootSkinFromStorage();
+      theme = await initTheme(bootSkin);
+      if (disposed) return;
+
+      await loadMe();
+      if (disposed) return;
+
+      await Promise.all([loadUsers(), loadGlobalOptions(), loadUpdates(), loadInstalledVersion()]);
+      if (disposed) return;
+
+      ensureUpdateStatusPolling();
+      await refreshUpdateJobStatus();
+    })();
 
     return () => {
+      disposed = true;
       if (updateStatusPoll) clearInterval(updateStatusPoll);
       if (toastTimer) clearTimeout(toastTimer);
       if (updateRefreshTimer) clearTimeout(updateRefreshTimer);

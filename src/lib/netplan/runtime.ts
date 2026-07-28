@@ -56,7 +56,7 @@ function render() {
 function renderIface(iface: NetplanIface, idx: number) {
   const el = document.createElement('div');
   el.className = 'iface';
-  el.dataset.id = iface.id;
+  el.dataset.id = String(iface.id);
 
   const kindLabel = {
     ethernets: 'ethernet',
@@ -94,12 +94,13 @@ function renderIface(iface: NetplanIface, idx: number) {
 
 function renderIfaceBody(iface: NetplanIface) {
   let html = '';
+  const accessPoints = iface.accessPoints || [];
 
   if (iface.kind === 'wifis') {
     html += `
       <div class="subgroup-title" style="margin-top:0">Access points</div>
       <div data-list="accessPoints" class="repeater">
-        ${iface.accessPoints.map((ap, i) => `
+        ${accessPoints.map((ap, i) => `
           <div class="repeater-row">
             <input type="text" data-list-bind="ssid" data-i="${i}" placeholder="SSID" value="${esc(ap.ssid)}" />
             <input type="password" data-list-bind="password" data-i="${i}" placeholder="password (optional for open nets)" value="${esc(ap.password)}" />
@@ -301,7 +302,9 @@ function handleInput(iface: NetplanIface, e: Event) {
 
   const lb = t.dataset.listBind;
   if (lb) {
-    const i = parseInt(t.dataset.i, 10);
+    const indexValue = t.dataset.i;
+    if (indexValue == null) return;
+    const i = parseInt(indexValue, 10);
     const listEl = t.closest('[data-list]') as HTMLElement | null;
     if (!listEl) return;
     const list = listEl.dataset.list;
@@ -312,12 +315,14 @@ function handleInput(iface: NetplanIface, e: Event) {
 }
 
 function handleClick(iface: NetplanIface, e: Event) {
-  const actionEl = e.target.closest('[data-action]');
+  const target = e.target;
+  if (!(target instanceof Element)) return;
+  const actionEl = target.closest('[data-action]') as HTMLElement | null;
   if (!actionEl) return;
   const action = actionEl.dataset.action;
   if (!action) return;
   e.preventDefault();
-  const i = parseInt(actionEl.dataset.i, 10);
+  const i = parseInt(actionEl.dataset.i || '-1', 10);
 
   switch (action) {
     case 'remove':
@@ -347,7 +352,7 @@ document.querySelectorAll('[data-add]').forEach(btn => {
 
 document.getElementById('renderer')?.addEventListener('change', e => {
   const target = e.target as HTMLSelectElement;
-  state.renderer = e.target.value;
+  state.renderer = target.value;
   generateYaml();
 });
 

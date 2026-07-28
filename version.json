@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 6,
-  "patch": 5,
-  "current": "v1.6.5",
+  "patch": 6,
+  "current": "v1.6.6",
   "history": [
     {
       "version": "v1.1.0",
@@ -303,6 +303,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-28T09:09:55+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/d3769acccdb27c0f1391082015a828c8134d0de0"
+    },
+    {
+      "version": "v1.6.6",
+      "type": "bug",
+      "security": false,
+      "summary": "more polish to the ui",
+      "description": null,
+      "hash": "1faac7714c71349cb041c6787597a5ed9541d11b",
+      "shortHash": "1faac77",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-28T09:26:16+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/1faac7714c71349cb041c6787597a5ed9541d11b"
     }
   ]
 }

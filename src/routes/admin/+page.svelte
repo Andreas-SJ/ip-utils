@@ -1023,4 +1023,46 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
+
+  body.skin-enterprise.mode-light .update-overlay-panel {
+    background: #f7f7f7;
+    border-color: #a7a7a7;
+    box-shadow: 0 12px 44px rgba(0, 0, 0, 0.22);
+  }
+
+  body.skin-enterprise.mode-dark .update-overlay-panel {
+    background: #1f2630;
+    border-color: #7c8898;
+    box-shadow: 0 16px 52px rgba(0, 0, 0, 0.4);
+  }
+
+  body.skin-enterprise.mode-light .update-throbber {
+    border-color: rgba(108, 123, 147, 0.45);
+    border-top-color: #d46d2d;
+    border-right-color: #d46d2d;
+  }
+
+  body.skin-enterprise.mode-dark .update-throbber {
+    border-color: rgba(124, 136, 152, 0.45);
+    border-top-color: #e8a85c;
+    border-right-color: #e8a85c;
+  }
+
+  body.skin-enterprise.mode-light .update-throbber::after {
+    border-color: rgba(108, 123, 147, 0.5);
+  }
+
+  body.skin-enterprise.mode-dark .update-throbber::after {
+    border-color: rgba(168, 178, 194, 0.35);
+  }
+
+  body.skin-enterprise.mode-light .update-overlay-sub,
+  body.skin-enterprise.mode-light .update-overlay-refresh-msg {
+    color: #4f5c70;
+  }
+
+  body.skin-enterprise.mode-dark .update-overlay-sub,
+  body.skin-enterprise.mode-dark .update-overlay-refresh-msg {
+    color: #cdd5e1;
+  }
 </style>

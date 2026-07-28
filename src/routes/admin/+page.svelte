@@ -420,6 +420,12 @@
       return;
     }
 
+    // Show progress immediately so very fast request/response transitions
+    // cannot skip the visual update indicator.
+    showUpdateProgressOverlay();
+    updateJobStatusText = `Update starting on branch ${updBranch.trim() || 'main'}...`;
+    updateJobStatusClass = 'queued';
+
     updSubmitting = true;
     try {
       const started = await fetchJson<UpdateStartResult>('/api/admin/update/start', {
@@ -449,6 +455,7 @@
       ensureUpdateStatusPolling();
       await refreshUpdateJobStatus();
     } catch (err) {
+      hideUpdateOverlay('update start failed');
       updError = err instanceof Error ? err.message : 'Failed to start update.';
     } finally {
       updSubmitting = false;

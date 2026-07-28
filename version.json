@@ -1,8 +1,8 @@
 {
   "major": 1,
   "minor": 6,
-  "patch": 2,
-  "current": "v1.6.2",
+  "patch": 3,
+  "current": "v1.6.3",
   "history": [
     {
       "version": "v1.1.0",
@@ -267,6 +267,18 @@
       "author": "Andreas Skarmark-Jakobsen",
       "date": "2026-07-28T08:32:01+02:00",
       "url": "https://github.com/Andreas-SJ/ip-utils/commit/3a2b99e74d37f99cb8244cc1c13e98da84cc634e"
+    },
+    {
+      "version": "v1.6.3",
+      "type": "bug",
+      "security": false,
+      "summary": "empty commit for testing",
+      "description": null,
+      "hash": "e44780fedc64c536811b72a86bf66ef5bc4b311a",
+      "shortHash": "e44780f",
+      "author": "Andreas Skarmark-Jakobsen",
+      "date": "2026-07-28T08:41:24+02:00",
+      "url": "https://github.com/Andreas-SJ/ip-utils/commit/e44780fedc64c536811b72a86bf66ef5bc4b311a"
     }
   ]
 }
